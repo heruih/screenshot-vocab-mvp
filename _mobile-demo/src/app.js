@@ -1,7 +1,10 @@
 // 截图词库 —— 手机端 OCR 真机实测 demo
 // 与 Node 端同引擎(@gutenye/ocr-browser=PP-OCRv4)、同后处理口径
 import * as ort from 'onnxruntime-web'
-import Ocr from '@gutenye/ocr-browser'
+import Ocr, { registerBackend } from '@gutenye/ocr-browser'
+import { FileUtils } from '../node_modules/@gutenye/ocr-browser/build/FileUtils.js'
+import { ImageRaw } from '../node_modules/@gutenye/ocr-browser/build/ImageRaw.js'
+import { splitIntoLineImages as splitFixed } from './splitIntoLineImages.js'
 
 // ---- onnxruntime-web 运行时配置 ----
 // GitHub Pages 不发 COEP 头，SharedArrayBuffer 不可用 -> 强制单线程，避免 worker 失败
@@ -10,6 +13,15 @@ ort.env.wasm.numThreads = (typeof crossOriginIsolated !== 'undefined' && crossOr
   : 1
 ort.env.wasm.simd = true
 ort.env.wasm.wasmPaths = new URL('ort/', document.baseURI).href
+
+// ---- 用修复版轮廓处理覆盖（补全 OpenCV 内存释放，避免 iOS 内存回收页面）----
+registerBackend({
+  FileUtils,
+  ImageRaw,
+  InferenceSession: ort.InferenceSession,
+  splitIntoLineImages: splitFixed,
+  defaultModels: undefined,
+})
 
 // 位置阈值：Node 固定 800(原图高1206)，换算成比例以便适配不同尺寸
 const TOP_RATIO = 800 / 1206

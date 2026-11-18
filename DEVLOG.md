@@ -117,6 +117,8 @@
 
 | 2026-11-18 | 手机 demo 搭建并发布 GitHub Pages：@gutenye/ocr-browser，esbuild 打包，alias 去 JSEP 走纯 WASM(14.5MB)；独立仓 heruih/screenshot-vocab-demo | 电脑浏览器端到端：08 等多张全对、与 Node 同口径，所有资源 HTTP200；线上首次初始化 31s(实际传输20.7MB)、单张约2.5s | 电脑端通过；iPhone 首次加载/单张耗时/内存/卡崩未知 | Simon 手机真机实测，记录四项指标 |
 
+| 2026-11-18 | 真机发现"识别完再选下一张整页重载"：定位为 OpenCV WASM 临时 Mat 未释放致 iOS 内存回收；写修复版 splitIntoLineImages（补全所有 .delete()），registerBackend 覆盖，重新打包发布 | 电脑端连续4张结果与修复前一致；线上冒烟 08 正常；Pages 已重建 | 待真机复测连续选多张不再重载 | Simon 复测 |
+
 ## 规矩
 
 - **失败也记**，而且记真实的："跑 5 个词坏了 1 个"比"基本可用"有用一百倍。
