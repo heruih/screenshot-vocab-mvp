@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>截图词库 · OCR 真机实测</title>
+<style>
+  :root { --bg:#0f1115; --card:#1a1d24; --line:#2a2f3a; --txt:#e8eaed; --sub:#9aa3b2; --acc:#4f8cff; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    padding:calc(16px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); line-height:1.5; }
+  h1 { font-size:19px; margin:0 0 4px; }
+  .hint { color:var(--sub); font-size:13px; margin:0 0 18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:14px; }
+  .row { display:flex; justify-content:space-between; gap:12px; font-size:14px; padding:4px 0; }
+  .row .k { color:var(--sub); }
+  .big { width:100%; border:none; border-radius:14px; background:var(--acc); color:#fff;
+    font-size:17px; font-weight:600; padding:16px; }
+  .big:disabled { opacity:.5; }
+  #status { font-size:13px; color:var(--sub); margin:10px 0 0; min-height:18px; }
+  .final { font-size:16px; font-weight:600; line-height:1.6; }
+  ul { list-style:none; margin:10px 0 0; padding:0; }
+  li { font-size:13px; padding:6px 0; border-top:1px solid var(--line); }
+  .meta { color:var(--sub); font-size:11px; margin-right:6px; }
+  .label { font-size:12px; color:var(--sub); margin:14px 0 4px; }
+</style>
+</head>
+<body>
+  <h1>截图词库 · OCR 真机实测</h1>
+  <p class="hint">点按钮选一张字幕截图，记录加载、耗时与识别结果</p>
+
+  <button id="pickBtn" class="big" disabled>选择截图</button>
+  <input id="fileInput" type="file" accept="image/*" hidden />
+  <p id="status">正在启动…</p>
+
+  <div id="initBox" class="card" hidden>
+    <div class="row"><span class="k">模型初始化耗时</span><span id="initMs"></span></div>
+    <div class="row"><span class="k">页面资源总下载</span><span id="loadSize"></span></div>
+  </div>
+
+  <div id="result" class="card" hidden>
+    <div class="row"><span class="k">单张识别耗时</span><span id="detMs"></span></div>
+    <div class="row"><span class="k">检测到文字行</span><span id="lineCount"></span></div>
+    <div class="label">最终英文（位置过滤+清洗后）</div>
+    <div id="finalText" class="final"></div>
+    <div class="label">原始识别行（调试）</div>
+    <ul id="rawLines"></ul>
+  </div>
+
+  <script type="module" src="./dist/bundle.js"></script>
+</body>
+</html>

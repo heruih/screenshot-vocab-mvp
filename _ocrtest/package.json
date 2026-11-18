@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@gutenye/ocr-browser": "^1.4.9",
     "@gutenye/ocr-models": "^1.4.2",
     "@gutenye/ocr-node": "^1.4.9",
     "@napi-rs/canvas": "^1.1.1",
