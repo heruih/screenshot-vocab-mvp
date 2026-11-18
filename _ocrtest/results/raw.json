@@ -1,0 +1,736 @@
+{
+  "meta": {
+    "tesseractJs": "5.1.1",
+    "lang": "eng",
+    "params": "default",
+    "note": "pathA=批量(放大2x+灰度+对比度1.4)，pathB=单张框选(无预处理)；ms为复用worker的稳态引擎耗时",
+    "coldStart": {
+      "file": "01.jpg",
+      "highLevelRecognizeMs": 10098,
+      "text": "“- kg _ 12 / i 1 g a nen LJ LR f 4 NS b Ny IY a China has prospered immensely. BRRLETX—S, BR—% Too No Tia CRs"
+    }
+  },
+  "rows": [
+    {
+      "file": "01.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 15763,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "“- kg _ 12 / i 1 g a nen LJ LR f 4 NS b Ny IY a China has prospered immensely. BRRLETX—S, BR—% Too No Tia CRs",
+        "confidence": 41,
+        "ms": 482
+      },
+      "pathB": {
+        "text": "fr xe Liki 26 x am) | lL. BB] |. Ll Jon K7 wor Ny tar: x China has prospered immensely. h BFMOETE—=, Rfr— Tome pe The",
+        "confidence": 37,
+        "wordsKept": [
+          "Liki",
+          "x",
+          "China",
+          "has",
+          "prospered",
+          "immensely",
+          "pe"
+        ],
+        "ms": 331
+      }
+    },
+    {
+      "file": "02.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 12311,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "«fe bilibli \\ | > | a p - LJ I mean I've seen it firsthand like you ld) RFEFERE — p= a",
+        "confidence": 54,
+        "ms": 276
+      },
+      "pathB": {
+        "text": "fr xe Liki y 0 Ey A h i I mean I've seen it firsthand like you 3 B MRGPETERE > Pr ORES O—",
+        "confidence": 56,
+        "wordsKept": [
+          "Liki",
+          "y",
+          "A",
+          "I",
+          "mean",
+          "I've",
+          "seen",
+          "it",
+          "firsthand",
+          "like",
+          "you",
+          "B"
+        ],
+        "ms": 207
+      }
+    },
+    {
+      "file": "03.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 19915,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "LL) es me » -y SWE, N& = Ney —— Reef WW Cy BRORNRBWFNLRTEBL8. also having us here at Tesla Global Engineer 4 Headquarters. >",
+        "confidence": 55,
+        "ms": 425
+      },
+      "pathB": {
+        "text": "oh f = : k a =) EL ( BRORORBWNNLRTED LE ae having us here at Tesla Global Engineer Fare a",
+        "confidence": 47,
+        "wordsKept": [
+          "f",
+          "EL",
+          "us",
+          "here",
+          "at",
+          "Tesla",
+          "Global",
+          "Engineer"
+        ],
+        "ms": 211
+      }
+    },
+    {
+      "file": "04.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 11575,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "mn | a LJ RRMA LD. pe | — __I mean, I've seen it firsthand. | — |",
+        "confidence": 52,
+        "ms": 210
+      },
+      "pathB": {
+        "text": "L) CoM 4",
+        "confidence": 36,
+        "wordsKept": [],
+        "ms": 42
+      }
+    },
+    {
+      "file": "05.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 18399,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "5 | non & LR] [7 8 NNEEPED, SAN-FHBESEENE @YouTube 2 BME an ay + If you visit China and you see the amount of . - ® progress that happens from Bs — “ae",
+        "confidence": 56,
+        "ms": 497
+      },
+      "pathB": {
+        "text": "5 ‘- a. nER ) LE] — 7} we | - URGEPD, SRD-FAREEERA evoutiweninan «fA red + If you visit China and you see the amount of of 2 progress that happens from | od Py=sw = ~e",
+        "confidence": 57,
+        "wordsKept": [
+          "nER",
+          "LE",
+          "If",
+          "you",
+          "visit",
+          "China",
+          "and",
+          "you",
+          "see",
+          "the",
+          "amount",
+          "of",
+          "of",
+          "progress",
+          "that",
+          "happens",
+          "from"
+        ],
+        "ms": 377
+      }
+    },
+    {
+      "file": "06.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 15387,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": ") SYouTube® AME / six : %- non 0 8m 1 Fd h CBB BREE. & one year to the next or even within a year, it's - < very visible. ,_ ly ~~ | ut a mE” 7 Vs Ge",
+        "confidence": 51,
+        "ms": 439
+      },
+      "pathB": {
+        "text": "L) @YouTube AME oe ‘= nox j L 8m V7 C pERme. o one year to the next or even within a year, it's y 1 = WERRIEES PETE gamit ET gma",
+        "confidence": 50,
+        "wordsKept": [
+          "YouTube",
+          "oe",
+          "nox",
+          "m",
+          "o",
+          "one",
+          "year",
+          "to",
+          "the",
+          "next",
+          "or",
+          "even",
+          "within",
+          "a",
+          "year",
+          "it's",
+          "PETE",
+          "ET"
+        ],
+        "ms": 327
+      }
+    },
+    {
+      "file": "07.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 16631,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "» |. 155 YouTube R BME .- I nen a » = v rd h : | WRWAN BRERA TR, oy You can see the new buildings, the new - hs * infrastructure. kL 4 ro='W¥. “ee",
+        "confidence": 43,
+        "ms": 410
+      },
+      "pathB": {
+        "text": ", WPA Lif L OVouTubemmmE m= nex wi LE dz y HRRANBRRBRARLTR io You can see the new buildings, the new - Sel infrastructure. | = fT A",
+        "confidence": 46,
+        "wordsKept": [
+          "WPA",
+          "Lif",
+          "You",
+          "can",
+          "see",
+          "the",
+          "new",
+          "buildings",
+          "the",
+          "new",
+          "infrastructure"
+        ],
+        "ms": 324
+      }
+    },
+    {
+      "file": "08.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 14723,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "2 / | J %- nen oo 78 J rr : g ET | | Xuma. ay Chinese citizen has EE aan K bs = lb IN [——",
+        "confidence": 34,
+        "ms": 272
+      },
+      "pathB": {
+        "text": "5 Mere = hn C0 x mm | Awan 4 Chinese citizen has increased tremendously. [OR amg",
+        "confidence": 57,
+        "wordsKept": [
+          "x",
+          "mm",
+          "Chinese",
+          "citizen",
+          "has",
+          "increased",
+          "tremendously"
+        ],
+        "ms": 258
+      }
+    },
+    {
+      "file": "09.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 16159,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "5 £ 5 ®' =n =x 0] '. 4 4 n AY PEXEMMICHIE. ay 3 China just has a very strong inherent ability to do - p manufacturing well. - W.=1'V . - [ Via [———",
+        "confidence": 58,
+        "ms": 424
+      },
+      "pathB": {
+        "text": "J ‘on i ¥ nex Wl xR an 7 - Ls CO eERERAMEME. Fe , China just has a very strong inherent ability to do - ¥ TBE = [RE y=g\\v © [——",
+        "confidence": 46,
+        "wordsKept": [
+          "an",
+          "Fe",
+          "China",
+          "just",
+          "has",
+          "a",
+          "very",
+          "strong",
+          "inherent",
+          "ability",
+          "to",
+          "do"
+        ],
+        "ms": 299
+      }
+    },
+    {
+      "file": "10.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 12703,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "= . UI - B ever: RIE, BIH LENGE, 28 EY = 1 think that, to be totally frank, the",
+        "confidence": 57,
+        "ms": 237
+      },
+      "pathB": {
+        "text": "n cons URIS, WN LEE, — { mp ese-eN",
+        "confidence": 29,
+        "wordsKept": [
+          "n"
+        ],
+        "ms": 110
+      }
+    },
+    {
+      "file": "11.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 15363,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "n... py £ Y 1 nen Ld y aR p71 | msm SI Enns. ay So the Tesla Sbanghal factory is a gem. [pl ST po",
+        "confidence": 45,
+        "ms": 308
+      },
+      "pathB": {
+        "text": "{s {| SURE J as El di. Fema Trans. a So the Testa Shanghai factory is a gem. | pil ST Sn",
+        "confidence": 49,
+        "wordsKept": [
+          "J",
+          "El",
+          "di",
+          "a",
+          "So",
+          "the",
+          "Testa",
+          "Shanghai",
+          "factory",
+          "is",
+          "a",
+          "gem",
+          "ST"
+        ],
+        "ms": 236
+      }
+    },
+    {
+      "file": "12.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 15931,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": ": £ i ‘| .- NEN €. » pry 3 REX, ETNARDET. & It's beautiful, actually, if anyone's ever been - there. k — Pas “a",
+        "confidence": 55,
+        "ms": 338
+      },
+      "pathB": {
+        "text": "La ois 4 x J \" [EY 7 &r RER, SEOARSET. (9 1's beautiful, actualy, if anyone's ever been od US mee ul | sally = i [—",
+        "confidence": 44,
+        "wordsKept": [
+          "J",
+          "s",
+          "beautiful",
+          "if",
+          "anyone's",
+          "ever",
+          "been",
+          "mee"
+        ],
+        "ms": 273
+      }
+    },
+    {
+      "file": "13.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 19067,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "ah UNE LI r7 RRS, HRN—RNREVUETERR | RRA. ay I mean, it's pretty cool because we designed the Ee ) car to look futuristic. _ mi ww ESS Mo",
+        "confidence": 55,
+        "ms": 460
+      },
+      "pathB": {
+        "text": "8, rr a LEE] LJ LE] Nn | WRE, BEO—BNRBVLEELREG CT mem, [3 I mean, it's pretty cool because we designed the. - car to look futuristic. | Srouruwenms r=s\"Jy ~ |",
+        "confidence": 53,
+        "wordsKept": [
+          "a",
+          "LJ",
+          "LE",
+          "mean",
+          "it's",
+          "pretty",
+          "cool",
+          "because",
+          "we",
+          "designed",
+          "the",
+          "car",
+          "to",
+          "look",
+          "futuristic"
+        ],
+        "ms": 362
+      }
+    },
+    {
+      "file": "14.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 15739,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "Tm- me [4 [J LB J 7 3 evoutubesamw | Fy. AHMAR, RNITFRE . Because | think from a fashion standpoint, we ¢ LL — a a IS ~N",
+        "confidence": 37,
+        "ms": 382
+      },
+      "pathB": {
+        "text": "ns i: ono J £. 7Y k/ b~ 5 wade, anne Because think from 2 fashion sendacknt, ee | * gl 9 V4 a: “HI il jo —",
+        "confidence": 29,
+        "wordsKept": [
+          "think",
+          "from",
+          "gl",
+          "HI"
+        ],
+        "ms": 281
+      }
+    },
+    {
+      "file": "15.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 15171,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "12 @You y .- \"LE on\" (B v7 3 GaAs —mRE. : want the Sastherice of the street to stay stagnant. a Lat. ~",
+        "confidence": 50,
+        "ms": 309
+      },
+      "pathB": {
+        "text": "LS iz ovo i 4 Turn LL! on v7 x lnanle-nrs. 2 want the aesthetics of the street to stay stagnant. berm m__",
+        "confidence": 52,
+        "wordsKept": [
+          "ovo",
+          "i",
+          "on",
+          "x",
+          "want",
+          "the",
+          "aesthetics",
+          "of",
+          "the",
+          "street",
+          "to",
+          "stay",
+          "stagnant"
+        ],
+        "ms": 240
+      }
+    },
+    {
+      "file": "16.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 16247,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "fe Sb =n 240 in 42 oi B . 2) 4 < 1H x. . 3 aR. . A > : \\ | b 2. -~ Well we have the cyber cab which has as you \\ HNMEESR Cybercab 7, fritid . pa fA i = BE",
+        "confidence": 49,
+        "ms": 476
+      },
+      "pathB": {
+        "text": "se Lib =H J on 2) Lam * We) y wg amex i LE : Well we have the cyber cab which has as you 4 HAPEREH Cybercab 7, fRtzAiE | A CTT SE",
+        "confidence": 57,
+        "wordsKept": [
+          "Lib",
+          "H",
+          "J",
+          "Lam",
+          "We",
+          "wg",
+          "LE",
+          "Well",
+          "we",
+          "have",
+          "the",
+          "cyber",
+          "cab",
+          "which",
+          "has",
+          "as",
+          "you",
+          "Cybercab",
+          "A"
+        ],
+        "ms": 351
+      }
+    },
+    {
+      "file": "17.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 16507,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "fe bik 30 D3 i $2 ’ i , 12) p EE . no N 'E Bx = Lg EEL. ~~ know has no steering wheel or pedals or side mirrors ERAsER. RAR. RENEMH WW FE A mms",
+        "confidence": 43,
+        "ms": 455
+      },
+      "pathB": {
+        "text": "- =H r 240 ME) J HE N=» 2 \"mp A & rd bh 2 - Boo LF a know has no steering wheel or pedals or side mirrors. ERASER. RHWIR. RENEE Wz FTV Fe mes",
+        "confidence": 50,
+        "wordsKept": [
+          "H",
+          "ME",
+          "HE",
+          "LF",
+          "know",
+          "has",
+          "no",
+          "steering",
+          "wheel",
+          "or",
+          "pedals",
+          "or",
+          "side",
+          "mirrors",
+          "Wz",
+          "FTV"
+        ],
+        "ms": 395
+      }
+    },
+    {
+      "file": "18.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 17819,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "=e Li wan 247 2% 4 >. BQ 3) [ pe . nea gly 8 Wx 2 i (Y Yok A Ee or rear view mirror operating commercially in Texas right now LRAERENR, BH ESEBRFHIMNRAGLEE Y= ] = - [a",
+        "confidence": 38,
+        "ms": 504
+      },
+      "pathB": {
+        "text": "ff xe Liki =H « Ed Mz 4 we LA i cdl - Wok Al = — or rear view mirror operating commercially in Texas right now | WREEAENE, HNCSEBRFINRAELEE i PSE OO» =a: TB",
+        "confidence": 51,
+        "wordsKept": [
+          "Liki",
+          "H",
+          "Mz",
+          "we",
+          "or",
+          "rear",
+          "view",
+          "mirror",
+          "operating",
+          "commercially",
+          "in",
+          "Texas",
+          "right",
+          "now",
+          "TB"
+        ],
+        "ms": 394
+      }
+    },
+    {
+      "file": "19.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 17651,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "=e bi = 249 if 42 ’ at nts) ] =) ' | ‘a no n-mB x B oc ' | mean the rate of Al software improvements and major announcements is so rapid Al RFENHTEEMER EBERT Bd Lal > - Es",
+        "confidence": 53,
+        "ms": 507
+      },
+      "pathB": {
+        "text": "ile - 23 neg) WE A ( Bg 9 | mean the rate of Al software improvements and major announcements is so rapid ARES BERN EARFRERRT Wal Ll ™ & Ie",
+        "confidence": 55,
+        "wordsKept": [
+          "Bg",
+          "mean",
+          "the",
+          "rate",
+          "of",
+          "Al",
+          "software",
+          "improvements",
+          "and",
+          "major",
+          "announcements",
+          "is",
+          "so",
+          "rapid",
+          "Wal"
+        ],
+        "ms": 337
+      }
+    },
+    {
+      "file": "20.jpg",
+      "orig": {
+        "w": 2622,
+        "h": 1206
+      },
+      "compressed": {
+        "w": 560,
+        "h": 258,
+        "dataUrlLen": 14831,
+        "usedSecond": false
+      },
+      "pathA": {
+        "text": "2 bibl Ea RIE) La WES l : 5. € 5. y ’ —r < v | - that it makes my head spin, you know, id RIBERA B., 5 Ea",
+        "confidence": 45,
+        "ms": 394
+      },
+      "pathB": {
+        "text": "se Lib = i 290 WME] Sa HE [FC amen 3 Ze 5 > < ) Pal x - a it makes my head spin, you know, Ly [CET LE Wa JETV BF Fa.",
+        "confidence": 44,
+        "wordsKept": [
+          "Lib",
+          "i",
+          "it",
+          "makes",
+          "my",
+          "head",
+          "spin",
+          "you",
+          "Ly",
+          "LE",
+          "BF"
+        ],
+        "ms": 320
+      }
+    }
+  ]
+}

@@ -1,0 +1,1669 @@
+{
+  "summary": {
+    "pathA": {
+      "recall": 0.9436904761904762,
+      "precision": 0.4006439318473369,
+      "uniqRecall": 0.9429960317460319,
+      "contentRecall": 0.9270833333333333,
+      "cer": 0.9963666879010266,
+      "avgMs": 390.25,
+      "avgConf": 48.55
+    },
+    "pathB": {
+      "recall": 0.8178037240537239,
+      "precision": 0.32587020906747066,
+      "uniqRecall": 0.8171626984126984,
+      "contentRecall": 0.801607142857143,
+      "cer": 1.1036266467034457,
+      "avgMs": 283.75,
+      "avgConf": 47.25
+    },
+    "pathBWordsKept": {
+      "recall": 0.7799297924297924,
+      "precision": 0.6053871429568024,
+      "contentRecall": 0.7766071428571428
+    },
+    "coldStartMs": 10098
+  },
+  "detail": [
+    {
+      "file": "01.jpg",
+      "gt": "China has prospered immensely.",
+      "pathA": {
+        "gtN": 4,
+        "hypN": 24,
+        "recall": 1,
+        "precision": 0.16666666666666666,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 2.1379310344827585,
+        "missed": [],
+        "noise": [
+          "kg",
+          "i",
+          "g",
+          "a",
+          "nen",
+          "lj",
+          "lr",
+          "f",
+          "ns",
+          "b",
+          "ny",
+          "iy",
+          "brrletx",
+          "s",
+          "br",
+          "too",
+          "no",
+          "tia",
+          "crs"
+        ]
+      },
+      "pathB": {
+        "gtN": 4,
+        "hypN": 24,
+        "recall": 1,
+        "precision": 0.16666666666666666,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 2.413793103448276,
+        "missed": [],
+        "noise": [
+          "fr",
+          "xe",
+          "liki",
+          "x",
+          "am",
+          "ll",
+          "bb",
+          "jon",
+          "k",
+          "wor",
+          "ny",
+          "tar",
+          "h",
+          "bfmoete",
+          "rfr",
+          "tome",
+          "pe",
+          "the"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 4,
+        "hypN": 7,
+        "recall": 1,
+        "precision": 0.5714285714285714,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 0.3448275862068966,
+        "missed": [],
+        "noise": [
+          "liki",
+          "x",
+          "pe"
+        ]
+      },
+      "msA": 482,
+      "msB": 331,
+      "confA": 41,
+      "confB": 37
+    },
+    {
+      "file": "02.jpg",
+      "gt": "I mean I've seen it firsthand like you",
+      "pathA": {
+        "gtN": 8,
+        "hypN": 17,
+        "recall": 1,
+        "precision": 0.47058823529411764,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 0.868421052631579,
+        "missed": [],
+        "noise": [
+          "fe",
+          "bilibli",
+          "a",
+          "p",
+          "lj",
+          "ld",
+          "rfefere"
+        ]
+      },
+      "pathB": {
+        "gtN": 8,
+        "hypN": 21,
+        "recall": 1,
+        "precision": 0.38095238095238093,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 1.1578947368421053,
+        "missed": [],
+        "noise": [
+          "fr",
+          "xe",
+          "liki",
+          "y",
+          "ey",
+          "a",
+          "h",
+          "b",
+          "mrgpetere",
+          "pr",
+          "ores",
+          "o"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 8,
+        "hypN": 12,
+        "recall": 1,
+        "precision": 0.6666666666666666,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 0.2894736842105263,
+        "missed": [],
+        "noise": [
+          "liki",
+          "y",
+          "a",
+          "b"
+        ]
+      },
+      "msA": 276,
+      "msB": 207,
+      "confA": 54,
+      "confB": 56
+    },
+    {
+      "file": "03.jpg",
+      "gt": "also having us here at Tesla Global Engineer Headquarters.",
+      "pathA": {
+        "gtN": 9,
+        "hypN": 20,
+        "recall": 1,
+        "precision": 0.45,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 6,
+        "cer": 0.8596491228070176,
+        "missed": [],
+        "noise": [
+          "ll",
+          "es",
+          "me",
+          "y",
+          "swe",
+          "n",
+          "ney",
+          "reef",
+          "ww",
+          "cy",
+          "brornrbwfnlrtebl"
+        ]
+      },
+      "pathB": {
+        "gtN": 9,
+        "hypN": 17,
+        "recall": 0.7777777777777778,
+        "precision": 0.4117647058823529,
+        "uniqRecall": 0.7777777777777778,
+        "contentRecall": 0.6666666666666666,
+        "contentN": 6,
+        "cer": 0.6842105263157895,
+        "missed": [
+          "also",
+          "headquarters"
+        ],
+        "noise": [
+          "oh",
+          "f",
+          "k",
+          "a",
+          "el",
+          "brororbwnnlrted",
+          "le",
+          "ae",
+          "fare"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 9,
+        "hypN": 8,
+        "recall": 0.6666666666666666,
+        "precision": 0.75,
+        "uniqRecall": 0.6666666666666666,
+        "contentRecall": 0.5,
+        "contentN": 6,
+        "cer": 0.40350877192982454,
+        "missed": [
+          "also",
+          "having",
+          "headquarters"
+        ],
+        "noise": [
+          "f",
+          "el"
+        ]
+      },
+      "msA": 425,
+      "msB": 211,
+      "confA": 55,
+      "confB": 47
+    },
+    {
+      "file": "04.jpg",
+      "gt": "I mean, I've seen it firsthand.",
+      "pathA": {
+        "gtN": 6,
+        "hypN": 12,
+        "recall": 1,
+        "precision": 0.5,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 0.6551724137931034,
+        "missed": [],
+        "noise": [
+          "mn",
+          "a",
+          "lj",
+          "rrma",
+          "ld",
+          "pe"
+        ]
+      },
+      "pathB": {
+        "gtN": 6,
+        "hypN": 2,
+        "recall": 0,
+        "precision": 0,
+        "uniqRecall": 0,
+        "contentRecall": 0,
+        "contentN": 3,
+        "cer": 0.9655172413793104,
+        "missed": [
+          "i",
+          "mean",
+          "i've",
+          "seen",
+          "it",
+          "firsthand"
+        ],
+        "noise": [
+          "l",
+          "com"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 6,
+        "hypN": 0,
+        "recall": 0,
+        "precision": 0,
+        "uniqRecall": 0,
+        "contentRecall": 0,
+        "contentN": 3,
+        "cer": 1,
+        "missed": [
+          "i",
+          "mean",
+          "i've",
+          "seen",
+          "it",
+          "firsthand"
+        ],
+        "noise": []
+      },
+      "msA": 210,
+      "msB": 42,
+      "confA": 52,
+      "confB": 36
+    },
+    {
+      "file": "05.jpg",
+      "gt": "If you visit China and you see the amount of progress that happens from",
+      "pathA": {
+        "gtN": 14,
+        "hypN": 25,
+        "recall": 1,
+        "precision": 0.56,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 5,
+        "cer": 0.7464788732394366,
+        "missed": [],
+        "noise": [
+          "non",
+          "lr",
+          "nneeped",
+          "san",
+          "fhbeseene",
+          "youtube",
+          "bme",
+          "an",
+          "ay",
+          "bs",
+          "ae"
+        ]
+      },
+      "pathB": {
+        "gtN": 14,
+        "hypN": 29,
+        "recall": 1,
+        "precision": 0.4827586206896552,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 5,
+        "cer": 0.9436619718309859,
+        "missed": [],
+        "noise": [
+          "a",
+          "ner",
+          "le",
+          "we",
+          "urgepd",
+          "srd",
+          "fareeera",
+          "evoutiweninan",
+          "fa",
+          "red",
+          "od",
+          "py",
+          "sw",
+          "e"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 14,
+        "hypN": 17,
+        "recall": 1,
+        "precision": 0.8235294117647058,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 5,
+        "cer": 0.14084507042253522,
+        "missed": [],
+        "noise": [
+          "ner",
+          "le"
+        ]
+      },
+      "msA": 497,
+      "msB": 377,
+      "confA": 56,
+      "confB": 57
+    },
+    {
+      "file": "06.jpg",
+      "gt": "one year to the next or even within a year, it's very visible.",
+      "pathA": {
+        "gtN": 13,
+        "hypN": 28,
+        "recall": 1,
+        "precision": 0.4642857142857143,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 7,
+        "cer": 0.9,
+        "missed": [],
+        "noise": [
+          "syoutube",
+          "ame",
+          "six",
+          "non",
+          "m",
+          "fd",
+          "h",
+          "cbb",
+          "bree",
+          "ly",
+          "ut",
+          "me",
+          "vs",
+          "ge"
+        ]
+      },
+      "pathB": {
+        "gtN": 13,
+        "hypN": 29,
+        "recall": 0.8461538461538461,
+        "precision": 0.3793103448275862,
+        "uniqRecall": 0.8333333333333334,
+        "contentRecall": 0.8571428571428571,
+        "contentN": 7,
+        "cer": 1.0333333333333334,
+        "missed": [
+          "very",
+          "visible"
+        ],
+        "noise": [
+          "l",
+          "youtube",
+          "ame",
+          "oe",
+          "nox",
+          "j",
+          "m",
+          "v",
+          "c",
+          "perme",
+          "o",
+          "y",
+          "werriees",
+          "pete",
+          "gamit",
+          "et",
+          "gma"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 13,
+        "hypN": 18,
+        "recall": 0.8461538461538461,
+        "precision": 0.6111111111111112,
+        "uniqRecall": 0.8333333333333334,
+        "contentRecall": 0.8571428571428571,
+        "contentN": 7,
+        "cer": 0.48333333333333334,
+        "missed": [
+          "very",
+          "visible"
+        ],
+        "noise": [
+          "youtube",
+          "oe",
+          "nox",
+          "m",
+          "o",
+          "pete",
+          "et"
+        ]
+      },
+      "msA": 439,
+      "msB": 327,
+      "confA": 51,
+      "confB": 50
+    },
+    {
+      "file": "07.jpg",
+      "gt": "You can see the new buildings, the new infrastructure.",
+      "pathA": {
+        "gtN": 9,
+        "hypN": 27,
+        "recall": 1,
+        "precision": 0.3333333333333333,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 2,
+        "cer": 1.1730769230769231,
+        "missed": [],
+        "noise": [
+          "youtube",
+          "r",
+          "bme",
+          "i",
+          "nen",
+          "a",
+          "v",
+          "rd",
+          "h",
+          "wrwan",
+          "brera",
+          "tr",
+          "oy",
+          "hs",
+          "kl",
+          "ro",
+          "w",
+          "ee"
+        ]
+      },
+      "pathB": {
+        "gtN": 9,
+        "hypN": 24,
+        "recall": 1,
+        "precision": 0.375,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 2,
+        "cer": 1.3076923076923077,
+        "missed": [],
+        "noise": [
+          "wpa",
+          "lif",
+          "l",
+          "ovoutubemmme",
+          "m",
+          "nex",
+          "wi",
+          "le",
+          "dz",
+          "y",
+          "hrranbrrbrarltr",
+          "io",
+          "sel",
+          "ft",
+          "a"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 9,
+        "hypN": 11,
+        "recall": 1,
+        "precision": 0.8181818181818182,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 2,
+        "cer": 0.15384615384615385,
+        "missed": [],
+        "noise": [
+          "wpa",
+          "lif"
+        ]
+      },
+      "msA": 410,
+      "msB": 324,
+      "confA": 43,
+      "confB": 46
+    },
+    {
+      "file": "08.jpg",
+      "gt": "Chinese citizen has increased tremendously.",
+      "pathA": {
+        "gtN": 5,
+        "hypN": 18,
+        "recall": 0.6,
+        "precision": 0.16666666666666666,
+        "uniqRecall": 0.6,
+        "contentRecall": 0.5,
+        "contentN": 4,
+        "cer": 1.119047619047619,
+        "missed": [
+          "increased",
+          "tremendously"
+        ],
+        "noise": [
+          "j",
+          "nen",
+          "oo",
+          "rr",
+          "g",
+          "et",
+          "xuma",
+          "ay",
+          "ee",
+          "aan",
+          "k",
+          "bs",
+          "lb",
+          "in"
+        ]
+      },
+      "pathB": {
+        "gtN": 5,
+        "hypN": 13,
+        "recall": 1,
+        "precision": 0.38461538461538464,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 4,
+        "cer": 0.6428571428571429,
+        "missed": [],
+        "noise": [
+          "mere",
+          "hn",
+          "c",
+          "x",
+          "mm",
+          "awan",
+          "or",
+          "amg"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 5,
+        "hypN": 7,
+        "recall": 1,
+        "precision": 0.7142857142857143,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 4,
+        "cer": 0.11904761904761904,
+        "missed": [],
+        "noise": [
+          "x",
+          "mm"
+        ]
+      },
+      "msA": 272,
+      "msB": 258,
+      "confA": 34,
+      "confB": 57
+    },
+    {
+      "file": "09.jpg",
+      "gt": "China just has a very strong inherent ability to do manufacturing well.",
+      "pathA": {
+        "gtN": 12,
+        "hypN": 22,
+        "recall": 1,
+        "precision": 0.5454545454545454,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 5,
+        "cer": 0.4857142857142857,
+        "missed": [],
+        "noise": [
+          "n",
+          "x",
+          "ay",
+          "pexemmichie",
+          "p",
+          "w",
+          "v",
+          "via"
+        ]
+      },
+      "pathB": {
+        "gtN": 12,
+        "hypN": 26,
+        "recall": 0.8333333333333334,
+        "precision": 0.38461538461538464,
+        "uniqRecall": 0.8333333333333334,
+        "contentRecall": 0.8,
+        "contentN": 5,
+        "cer": 0.8,
+        "missed": [
+          "manufacturing",
+          "well"
+        ],
+        "noise": [
+          "j",
+          "on",
+          "i",
+          "nex",
+          "wl",
+          "xr",
+          "an",
+          "ls",
+          "co",
+          "eererameme",
+          "fe",
+          "tbe",
+          "re",
+          "y",
+          "g",
+          "v"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 12,
+        "hypN": 12,
+        "recall": 0.8333333333333334,
+        "precision": 0.8333333333333334,
+        "uniqRecall": 0.8333333333333334,
+        "contentRecall": 0.8,
+        "contentN": 5,
+        "cer": 0.35714285714285715,
+        "missed": [
+          "manufacturing",
+          "well"
+        ],
+        "noise": [
+          "an",
+          "fe"
+        ]
+      },
+      "msA": 424,
+      "msB": 299,
+      "confA": 58,
+      "confB": 46
+    },
+    {
+      "file": "10.jpg",
+      "gt": "I think that, to be totally frank, the",
+      "pathA": {
+        "gtN": 8,
+        "hypN": 14,
+        "recall": 0.875,
+        "precision": 0.5,
+        "uniqRecall": 0.875,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 0.6944444444444444,
+        "missed": [
+          "i"
+        ],
+        "noise": [
+          "ui",
+          "b",
+          "ever",
+          "rie",
+          "bih",
+          "lenge",
+          "ey"
+        ]
+      },
+      "pathB": {
+        "gtN": 8,
+        "hypN": 8,
+        "recall": 0,
+        "precision": 0,
+        "uniqRecall": 0,
+        "contentRecall": 0,
+        "contentN": 3,
+        "cer": 0.7777777777777778,
+        "missed": [
+          "i",
+          "think",
+          "that",
+          "to",
+          "be",
+          "totally",
+          "frank",
+          "the"
+        ],
+        "noise": [
+          "n",
+          "cons",
+          "uris",
+          "wn",
+          "lee",
+          "mp",
+          "ese",
+          "en"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 8,
+        "hypN": 1,
+        "recall": 0,
+        "precision": 0,
+        "uniqRecall": 0,
+        "contentRecall": 0,
+        "contentN": 3,
+        "cer": 0.9722222222222222,
+        "missed": [
+          "i",
+          "think",
+          "that",
+          "to",
+          "be",
+          "totally",
+          "frank",
+          "the"
+        ],
+        "noise": [
+          "n"
+        ]
+      },
+      "msA": 237,
+      "msB": 110,
+      "confA": 57,
+      "confB": 29
+    },
+    {
+      "file": "11.jpg",
+      "gt": "So the Tesla Shanghai factory is a gem.",
+      "pathA": {
+        "gtN": 8,
+        "hypN": 23,
+        "recall": 0.875,
+        "precision": 0.30434782608695654,
+        "uniqRecall": 0.875,
+        "contentRecall": 0.75,
+        "contentN": 4,
+        "cer": 1.236842105263158,
+        "missed": [
+          "shanghai"
+        ],
+        "noise": [
+          "n",
+          "py",
+          "y",
+          "nen",
+          "ld",
+          "ar",
+          "p",
+          "msm",
+          "si",
+          "enns",
+          "ay",
+          "sbanghal",
+          "pl",
+          "st",
+          "po"
+        ]
+      },
+      "pathB": {
+        "gtN": 8,
+        "hypN": 20,
+        "recall": 0.875,
+        "precision": 0.35,
+        "uniqRecall": 0.875,
+        "contentRecall": 0.75,
+        "contentN": 4,
+        "cer": 1.105263157894737,
+        "missed": [
+          "tesla"
+        ],
+        "noise": [
+          "s",
+          "sure",
+          "j",
+          "as",
+          "el",
+          "di",
+          "fema",
+          "trans",
+          "testa",
+          "pil",
+          "st",
+          "sn"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 8,
+        "hypN": 13,
+        "recall": 0.875,
+        "precision": 0.5384615384615384,
+        "uniqRecall": 0.875,
+        "contentRecall": 0.75,
+        "contentN": 4,
+        "cer": 0.3684210526315789,
+        "missed": [
+          "tesla"
+        ],
+        "noise": [
+          "j",
+          "el",
+          "di",
+          "testa",
+          "st"
+        ]
+      },
+      "msA": 308,
+      "msB": 236,
+      "confA": 45,
+      "confB": 49
+    },
+    {
+      "file": "12.jpg",
+      "gt": "It's beautiful, actually, if anyone's ever been there.",
+      "pathA": {
+        "gtN": 8,
+        "hypN": 16,
+        "recall": 1,
+        "precision": 0.5,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 4,
+        "cer": 0.6078431372549019,
+        "missed": [],
+        "noise": [
+          "i",
+          "nen",
+          "pry",
+          "rex",
+          "etnardet",
+          "k",
+          "pas",
+          "a"
+        ]
+      },
+      "pathB": {
+        "gtN": 8,
+        "hypN": 21,
+        "recall": 0.625,
+        "precision": 0.23809523809523808,
+        "uniqRecall": 0.625,
+        "contentRecall": 0.75,
+        "contentN": 4,
+        "cer": 0.9215686274509803,
+        "missed": [
+          "it's",
+          "actually",
+          "there"
+        ],
+        "noise": [
+          "la",
+          "ois",
+          "x",
+          "j",
+          "ey",
+          "r",
+          "rer",
+          "seoarset",
+          "s",
+          "actualy",
+          "od",
+          "us",
+          "mee",
+          "ul",
+          "sally",
+          "i"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 8,
+        "hypN": 8,
+        "recall": 0.625,
+        "precision": 0.625,
+        "uniqRecall": 0.625,
+        "contentRecall": 0.75,
+        "contentN": 4,
+        "cer": 0.29411764705882354,
+        "missed": [
+          "it's",
+          "actually",
+          "there"
+        ],
+        "noise": [
+          "j",
+          "s",
+          "mee"
+        ]
+      },
+      "msA": 338,
+      "msB": 273,
+      "confA": 55,
+      "confB": 44
+    },
+    {
+      "file": "13.jpg",
+      "gt": "I mean, it's pretty cool because we designed the car to look futuristic.",
+      "pathA": {
+        "gtN": 13,
+        "hypN": 27,
+        "recall": 1,
+        "precision": 0.48148148148148145,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 6,
+        "cer": 0.7857142857142857,
+        "missed": [],
+        "noise": [
+          "ah",
+          "une",
+          "li",
+          "r",
+          "rrs",
+          "hrn",
+          "rnrevueterr",
+          "rra",
+          "ay",
+          "ee",
+          "mi",
+          "ww",
+          "ess",
+          "mo"
+        ]
+      },
+      "pathB": {
+        "gtN": 13,
+        "hypN": 28,
+        "recall": 1,
+        "precision": 0.4642857142857143,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 6,
+        "cer": 0.9285714285714286,
+        "missed": [],
+        "noise": [
+          "rr",
+          "a",
+          "lee",
+          "lj",
+          "le",
+          "nn",
+          "wre",
+          "beo",
+          "bnrbvleelreg",
+          "ct",
+          "mem",
+          "srouruwenms",
+          "r",
+          "s",
+          "jy"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 13,
+        "hypN": 15,
+        "recall": 0.9230769230769231,
+        "precision": 0.8,
+        "uniqRecall": 0.9230769230769231,
+        "contentRecall": 1,
+        "contentN": 6,
+        "cer": 0.1,
+        "missed": [
+          "i"
+        ],
+        "noise": [
+          "a",
+          "lj",
+          "le"
+        ]
+      },
+      "msA": 460,
+      "msB": 362,
+      "confA": 55,
+      "confB": 53
+    },
+    {
+      "file": "14.jpg",
+      "gt": "Because I think from a fashion standpoint, we don't",
+      "pathA": {
+        "gtN": 9,
+        "hypN": 21,
+        "recall": 0.7777777777777778,
+        "precision": 0.3333333333333333,
+        "uniqRecall": 0.7777777777777778,
+        "contentRecall": 0.6666666666666666,
+        "contentN": 3,
+        "cer": 1.1,
+        "missed": [
+          "i",
+          "don't"
+        ],
+        "noise": [
+          "tm",
+          "me",
+          "j",
+          "lb",
+          "evoutubesamw",
+          "fy",
+          "ahmar",
+          "rnitfre",
+          "ll",
+          "is",
+          "n"
+        ]
+      },
+      "pathB": {
+        "gtN": 9,
+        "hypN": 21,
+        "recall": 0.6666666666666666,
+        "precision": 0.2857142857142857,
+        "uniqRecall": 0.6666666666666666,
+        "contentRecall": 0.3333333333333333,
+        "contentN": 3,
+        "cer": 1.04,
+        "missed": [
+          "standpoint",
+          "we",
+          "don't"
+        ],
+        "noise": [
+          "ns",
+          "ono",
+          "j",
+          "y",
+          "k",
+          "b",
+          "wade",
+          "anne",
+          "sendacknt",
+          "ee",
+          "gl",
+          "v",
+          "hi",
+          "il",
+          "jo"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 9,
+        "hypN": 4,
+        "recall": 0.2222222222222222,
+        "precision": 0.5,
+        "uniqRecall": 0.2222222222222222,
+        "contentRecall": 0,
+        "contentN": 3,
+        "cer": 0.74,
+        "missed": [
+          "because",
+          "i",
+          "a",
+          "fashion",
+          "standpoint",
+          "we",
+          "don't"
+        ],
+        "noise": [
+          "gl",
+          "hi"
+        ]
+      },
+      "msA": 382,
+      "msB": 281,
+      "confA": 37,
+      "confB": 29
+    },
+    {
+      "file": "15.jpg",
+      "gt": "want the aesthetics of the street to stay stagnant.",
+      "pathA": {
+        "gtN": 9,
+        "hypN": 19,
+        "recall": 0.8888888888888888,
+        "precision": 0.42105263157894735,
+        "uniqRecall": 0.875,
+        "contentRecall": 0.75,
+        "contentN": 4,
+        "cer": 0.7,
+        "missed": [
+          "aesthetics"
+        ],
+        "noise": [
+          "you",
+          "y",
+          "le",
+          "on",
+          "b",
+          "v",
+          "gaas",
+          "mre",
+          "sastherice",
+          "a",
+          "lat"
+        ]
+      },
+      "pathB": {
+        "gtN": 9,
+        "hypN": 22,
+        "recall": 1,
+        "precision": 0.4090909090909091,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 4,
+        "cer": 0.9,
+        "missed": [],
+        "noise": [
+          "ls",
+          "iz",
+          "ovo",
+          "i",
+          "turn",
+          "ll",
+          "on",
+          "v",
+          "x",
+          "lnanle",
+          "nrs",
+          "berm",
+          "m"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 9,
+        "hypN": 13,
+        "recall": 1,
+        "precision": 0.6923076923076923,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 4,
+        "cer": 0.22,
+        "missed": [],
+        "noise": [
+          "ovo",
+          "i",
+          "on",
+          "x"
+        ]
+      },
+      "msA": 309,
+      "msB": 240,
+      "confA": 50,
+      "confB": 52
+    },
+    {
+      "file": "16.jpg",
+      "gt": "Well we have the cyber cab which has as you",
+      "pathA": {
+        "gtN": 10,
+        "hypN": 28,
+        "recall": 1,
+        "precision": 0.35714285714285715,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 1.441860465116279,
+        "missed": [],
+        "noise": [
+          "fe",
+          "sb",
+          "n",
+          "in",
+          "oi",
+          "b",
+          "h",
+          "x",
+          "ar",
+          "a",
+          "hnmeesr",
+          "cybercab",
+          "fritid",
+          "pa",
+          "fa",
+          "i",
+          "be"
+        ]
+      },
+      "pathB": {
+        "gtN": 10,
+        "hypN": 28,
+        "recall": 1,
+        "precision": 0.35714285714285715,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 1.627906976744186,
+        "missed": [],
+        "noise": [
+          "se",
+          "lib",
+          "h",
+          "j",
+          "on",
+          "lam",
+          "y",
+          "wg",
+          "amex",
+          "i",
+          "le",
+          "hapereh",
+          "cybercab",
+          "frtzaie",
+          "a",
+          "ctt"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 10,
+        "hypN": 19,
+        "recall": 1,
+        "precision": 0.5263157894736842,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 0.7441860465116279,
+        "missed": [],
+        "noise": [
+          "lib",
+          "h",
+          "j",
+          "lam",
+          "wg",
+          "le",
+          "cybercab",
+          "a"
+        ]
+      },
+      "msA": 476,
+      "msB": 351,
+      "confA": 49,
+      "confB": 57
+    },
+    {
+      "file": "17.jpg",
+      "gt": "know has no steering wheel or pedals or side mirrors",
+      "pathA": {
+        "gtN": 10,
+        "hypN": 30,
+        "recall": 1,
+        "precision": 0.3333333333333333,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 5,
+        "cer": 1.25,
+        "missed": [],
+        "noise": [
+          "fe",
+          "bik",
+          "d",
+          "i",
+          "p",
+          "ee",
+          "n",
+          "e",
+          "bx",
+          "lg",
+          "eel",
+          "eraser",
+          "rar",
+          "renemh",
+          "ww",
+          "a",
+          "mms"
+        ]
+      },
+      "pathB": {
+        "gtN": 10,
+        "hypN": 30,
+        "recall": 1,
+        "precision": 0.3333333333333333,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 5,
+        "cer": 1.2884615384615385,
+        "missed": [],
+        "noise": [
+          "h",
+          "r",
+          "me",
+          "j",
+          "he",
+          "n",
+          "mp",
+          "a",
+          "rd",
+          "bh",
+          "boo",
+          "lf",
+          "eraser",
+          "rhwir",
+          "renee",
+          "wz",
+          "ftv",
+          "fe",
+          "mes"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 10,
+        "hypN": 16,
+        "recall": 1,
+        "precision": 0.625,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 5,
+        "cer": 0.34615384615384615,
+        "missed": [],
+        "noise": [
+          "h",
+          "me",
+          "he",
+          "lf",
+          "wz",
+          "ftv"
+        ]
+      },
+      "msA": 455,
+      "msB": 395,
+      "confA": 43,
+      "confB": 50
+    },
+    {
+      "file": "18.jpg",
+      "gt": "or rear view mirror operating commercially in Texas right now",
+      "pathA": {
+        "gtN": 10,
+        "hypN": 28,
+        "recall": 1,
+        "precision": 0.35714285714285715,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 6,
+        "cer": 1.180327868852459,
+        "missed": [],
+        "noise": [
+          "e",
+          "li",
+          "wan",
+          "bq",
+          "pe",
+          "nea",
+          "gly",
+          "wx",
+          "i",
+          "y",
+          "yok",
+          "a",
+          "ee",
+          "lraerenr",
+          "bh",
+          "esebrfhimnraglee"
+        ]
+      },
+      "pathB": {
+        "gtN": 10,
+        "hypN": 29,
+        "recall": 1,
+        "precision": 0.3448275862068966,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 6,
+        "cer": 1.278688524590164,
+        "missed": [],
+        "noise": [
+          "ff",
+          "xe",
+          "liki",
+          "h",
+          "ed",
+          "mz",
+          "we",
+          "la",
+          "i",
+          "cdl",
+          "wok",
+          "al",
+          "wreeaene",
+          "hncsebrfinraelee",
+          "pse",
+          "oo",
+          "a",
+          "tb"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 10,
+        "hypN": 15,
+        "recall": 1,
+        "precision": 0.6666666666666666,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 6,
+        "cer": 0.26229508196721313,
+        "missed": [],
+        "noise": [
+          "liki",
+          "h",
+          "mz",
+          "we",
+          "tb"
+        ]
+      },
+      "msA": 504,
+      "msB": 394,
+      "confA": 38,
+      "confB": 51
+    },
+    {
+      "file": "19.jpg",
+      "gt": "I mean the rate of AI software improvements and major announcements is so rapid",
+      "pathA": {
+        "gtN": 14,
+        "hypN": 31,
+        "recall": 0.8571428571428571,
+        "precision": 0.3870967741935484,
+        "uniqRecall": 0.8571428571428571,
+        "contentRecall": 0.875,
+        "contentN": 8,
+        "cer": 0.7848101265822784,
+        "missed": [
+          "i",
+          "ai"
+        ],
+        "noise": [
+          "e",
+          "bi",
+          "if",
+          "at",
+          "nts",
+          "a",
+          "no",
+          "n",
+          "mb",
+          "x",
+          "b",
+          "oc",
+          "al",
+          "rfenhteemer",
+          "ebert",
+          "bd",
+          "lal",
+          "es"
+        ]
+      },
+      "pathB": {
+        "gtN": 14,
+        "hypN": 24,
+        "recall": 0.8571428571428571,
+        "precision": 0.5,
+        "uniqRecall": 0.8571428571428571,
+        "contentRecall": 0.875,
+        "contentN": 8,
+        "cer": 0.569620253164557,
+        "missed": [
+          "i",
+          "ai"
+        ],
+        "noise": [
+          "ile",
+          "neg",
+          "we",
+          "a",
+          "bg",
+          "al",
+          "ares",
+          "bern",
+          "earfrerrt",
+          "wal",
+          "ll",
+          "ie"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 14,
+        "hypN": 15,
+        "recall": 0.8571428571428571,
+        "precision": 0.8,
+        "uniqRecall": 0.8571428571428571,
+        "contentRecall": 0.875,
+        "contentN": 8,
+        "cer": 0.08860759493670886,
+        "missed": [
+          "i",
+          "ai"
+        ],
+        "noise": [
+          "bg",
+          "al",
+          "wal"
+        ]
+      },
+      "msA": 507,
+      "msB": 337,
+      "confA": 53,
+      "confB": 55
+    },
+    {
+      "file": "20.jpg",
+      "gt": "that it makes my head spin, you know,",
+      "pathA": {
+        "gtN": 8,
+        "hypN": 21,
+        "recall": 1,
+        "precision": 0.38095238095238093,
+        "uniqRecall": 1,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 1.2,
+        "missed": [],
+        "noise": [
+          "bibl",
+          "ea",
+          "rie",
+          "la",
+          "wes",
+          "l",
+          "y",
+          "r",
+          "v",
+          "id",
+          "ribera",
+          "b"
+        ]
+      },
+      "pathB": {
+        "gtN": 8,
+        "hypN": 26,
+        "recall": 0.875,
+        "precision": 0.2692307692307692,
+        "uniqRecall": 0.875,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 1.6857142857142857,
+        "missed": [
+          "that"
+        ],
+        "noise": [
+          "se",
+          "lib",
+          "i",
+          "wme",
+          "sa",
+          "he",
+          "fc",
+          "amen",
+          "ze",
+          "pal",
+          "x",
+          "a",
+          "ly",
+          "cet",
+          "le",
+          "wa",
+          "jetv",
+          "bf",
+          "fa"
+        ]
+      },
+      "pathBWordsKept": {
+        "gtN": 8,
+        "hypN": 11,
+        "recall": 0.75,
+        "precision": 0.5454545454545454,
+        "uniqRecall": 0.75,
+        "contentRecall": 1,
+        "contentN": 3,
+        "cer": 0.37142857142857144,
+        "missed": [
+          "that",
+          "know"
+        ],
+        "noise": [
+          "lib",
+          "i",
+          "ly",
+          "le",
+          "bf"
+        ]
+      },
+      "msA": 394,
+      "msB": 320,
+      "confA": 45,
+      "confB": 44
+    }
+  ]
+}
