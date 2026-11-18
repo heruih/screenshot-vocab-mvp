@@ -1,0 +1,191 @@
+{
+  "sum": {
+    "recall": 0.9925824175824175,
+    "precision": 0.9918831168831167,
+    "contentRecall": 1,
+    "cer": 0.015691156062071575,
+    "ms": 1353.85
+  },
+  "detail": [
+    {
+      "file": "01.jpg",
+      "hyp": "China has prospered immensely.",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1301
+    },
+    {
+      "file": "02.jpg",
+      "hyp": "I mean I've seen it firsthand like you",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1178
+    },
+    {
+      "file": "03.jpg",
+      "hyp": "also having us here at Tesla Global Engineer Headquarters.",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1458
+    },
+    {
+      "file": "04.jpg",
+      "hyp": "— I mean, I've seen it firsthand.",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1308
+    },
+    {
+      "file": "05.jpg",
+      "hyp": "If you visit China and you see the amount of progress that happens from",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1486
+    },
+    {
+      "file": "06.jpg",
+      "hyp": "one year to the next or even within a year, it's very visible.",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1148
+    },
+    {
+      "file": "07.jpg",
+      "hyp": "You can see the new buildings, the new infrastructure.",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1464
+    },
+    {
+      "file": "08.jpg",
+      "hyp": "Chinese citizen has increased tremendously.",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1471
+    },
+    {
+      "file": "09.jpg",
+      "hyp": "China just has a very strong inherent ability to do manufacturing well.",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1313
+    },
+    {
+      "file": "10.jpg",
+      "hyp": "I think that, to be totally frank, the",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1253
+    },
+    {
+      "file": "11.jpg",
+      "hyp": "So the Tesla Shanghai factory is a gem.",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1415
+    },
+    {
+      "file": "12.jpg",
+      "hyp": "It's beautiful, actually, if anyone's ever been there.",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1098
+    },
+    {
+      "file": "13.jpg",
+      "hyp": "mean, it's pretty cool because we designed the car to look futuristic.",
+      "recall": 0.9230769230769231,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0.02857142857142857,
+      "ms": 1552
+    },
+    {
+      "file": "14.jpg",
+      "hyp": "Because I think from a fashion standpoint, we don't",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1265
+    },
+    {
+      "file": "15.jpg",
+      "hyp": "want the aesthetics of the street to stay stagnant.",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1469
+    },
+    {
+      "file": "16.jpg",
+      "hyp": "Well we have the cyber cab which has as you Cybercab",
+      "recall": 1,
+      "precision": 0.9090909090909091,
+      "contentRecall": 1,
+      "cer": 0.20930232558139536,
+      "ms": 1261
+    },
+    {
+      "file": "17.jpg",
+      "hyp": "know has no steering wheel or pedals or side mirrors",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1401
+    },
+    {
+      "file": "18.jpg",
+      "hyp": "or rear view mirror operating commercially in Texas right now",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1393
+    },
+    {
+      "file": "19.jpg",
+      "hyp": "mean the rate of Al software improvements and major announcements is so rapid AI",
+      "recall": 0.9285714285714286,
+      "precision": 0.9285714285714286,
+      "contentRecall": 1,
+      "cer": 0.0759493670886076,
+      "ms": 1404
+    },
+    {
+      "file": "20.jpg",
+      "hyp": "that it makes my head spin, you know,",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "cer": 0,
+      "ms": 1439
+    }
+  ]
+}

@@ -1,0 +1,620 @@
+[
+  {
+    "file": "01.jpg",
+    "ms": 1301,
+    "lines": [
+      {
+        "text": "干弟k在学英语 bilibl",
+        "mean": 0.71,
+        "top": 45,
+        "isEnglish": false
+      },
+      {
+        "text": "China has prospered immensely.",
+        "mean": 0.99,
+        "top": 924,
+        "isEnglish": true
+      },
+      {
+        "text": "我亲眼见证了这一点，就像你一样",
+        "mean": 0.98,
+        "top": 1023,
+        "isEnglish": false
+      },
+      {
+        "text": "央视财经",
+        "mean": 0.99,
+        "top": 1052,
+        "isEnglish": false
+      }
+    ]
+  },
+  {
+    "file": "02.jpg",
+    "ms": 1178,
+    "lines": [
+      {
+        "text": "干弟k在学英语 bilibl",
+        "mean": 0.8,
+        "top": 44,
+        "isEnglish": false
+      },
+      {
+        "text": "I mean I've seen it firsthand like you",
+        "mean": 0.96,
+        "top": 924,
+        "isEnglish": true
+      },
+      {
+        "text": "如果你去中国看看",
+        "mean": 0.99,
+        "top": 1025,
+        "isEnglish": false
+      }
+    ]
+  },
+  {
+    "file": "03.jpg",
+    "ms": 1458,
+    "lines": [
+      {
+        "text": "CGTN",
+        "mean": 1,
+        "top": 65,
+        "isEnglish": true
+      },
+      {
+        "text": "央视 Liu Xu",
+        "mean": 0.99,
+        "top": 522,
+        "isEnglish": false
+      },
+      {
+        "text": "CMG Reporter",
+        "mean": 0.97,
+        "top": 590,
+        "isEnglish": true
+      },
+      {
+        "text": "也欢迎我们来到特斯拉全球工程师总部",
+        "mean": 0.99,
+        "top": 836,
+        "isEnglish": false
+      },
+      {
+        "text": "also having us here at Tesla Global Engineer 选规材经",
+        "mean": 0.93,
+        "top": 921,
+        "isEnglish": false
+      },
+      {
+        "text": "央视 央视",
+        "mean": 0.97,
+        "top": 914,
+        "isEnglish": false
+      },
+      {
+        "text": "财经 Headquarters.",
+        "mean": 0.99,
+        "top": 999,
+        "isEnglish": false
+      }
+    ]
+  },
+  {
+    "file": "04.jpg",
+    "ms": 1308,
+    "lines": [
+      {
+        "text": "CGTN",
+        "mean": 1,
+        "top": 65,
+        "isEnglish": true
+      },
+      {
+        "text": "我亲眼所见。",
+        "mean": 0.97,
+        "top": 900,
+        "isEnglish": false
+      },
+      {
+        "text": "@YouTube金选观察 —_I mean, I've seen it firsthand.",
+        "mean": 0.94,
+        "top": 1012,
+        "isEnglish": false
+      }
+    ]
+  },
+  {
+    "file": "05.jpg",
+    "ms": 1486,
+    "lines": [
+      {
+        "text": "CGTN",
+        "mean": 1,
+        "top": 66,
+        "isEnglish": true
+      },
+      {
+        "text": "如果你去中国，会发现一年间甚至更短时间",
+        "mean": 0.99,
+        "top": 734,
+        "isEnglish": false
+      },
+      {
+        "text": "内",
+        "mean": 0.98,
+        "top": 836,
+        "isEnglish": false
+      },
+      {
+        "text": "@YouTube金选观察",
+        "mean": 0.99,
+        "top": 884,
+        "isEnglish": false
+      },
+      {
+        "text": "If you visit China and you see the amount of",
+        "mean": 0.96,
+        "top": 952,
+        "isEnglish": true
+      },
+      {
+        "text": "progress that happens from",
+        "mean": 0.98,
+        "top": 1017,
+        "isEnglish": true
+      }
+    ]
+  },
+  {
+    "file": "06.jpg",
+    "ms": 1148,
+    "lines": [
+      {
+        "text": "CGTN @YouTube金选观察",
+        "mean": 1,
+        "top": 66,
+        "isEnglish": false
+      },
+      {
+        "text": "进步非常明显。",
+        "mean": 1,
+        "top": 831,
+        "isEnglish": false
+      },
+      {
+        "text": "one year to the next or even within a year, it's",
+        "mean": 0.98,
+        "top": 949,
+        "isEnglish": true
+      },
+      {
+        "text": "very visible.",
+        "mean": 0.98,
+        "top": 1020,
+        "isEnglish": true
+      }
+    ]
+  },
+  {
+    "file": "07.jpg",
+    "ms": 1464,
+    "lines": [
+      {
+        "text": "CGTN",
+        "mean": 1,
+        "top": 66,
+        "isEnglish": true
+      },
+      {
+        "text": "@YouTube金选观察",
+        "mean": 0.99,
+        "top": 328,
+        "isEnglish": false
+      },
+      {
+        "text": "新建筑和新基础设施随处可见。",
+        "mean": 0.99,
+        "top": 833,
+        "isEnglish": false
+      },
+      {
+        "text": "You can see the new buildings, the new",
+        "mean": 0.96,
+        "top": 950,
+        "isEnglish": true
+      },
+      {
+        "text": "infrastructure.",
+        "mean": 1,
+        "top": 1022,
+        "isEnglish": true
+      }
+    ]
+  },
+  {
+    "file": "08.jpg",
+    "ms": 1471,
+    "lines": [
+      {
+        "text": "CGTN",
+        "mean": 1,
+        "top": 65,
+        "isEnglish": true
+      },
+      {
+        "text": "不 十关注",
+        "mean": 0.97,
+        "top": 631,
+        "isEnglish": false
+      },
+      {
+        "text": "大幅提升。",
+        "mean": 0.99,
+        "top": 899,
+        "isEnglish": false
+      },
+      {
+        "text": "Chinese citizen has increased tremendously.",
+        "mean": 0.98,
+        "top": 1015,
+        "isEnglish": true
+      },
+      {
+        "text": "@YouTube金选观察",
+        "mean": 0.98,
+        "top": 1083,
+        "isEnglish": false
+      }
+    ]
+  },
+  {
+    "file": "09.jpg",
+    "ms": 1313,
+    "lines": [
+      {
+        "text": "CGTN",
+        "mean": 1,
+        "top": 66,
+        "isEnglish": true
+      },
+      {
+        "text": "@YouTube金选观察",
+        "mean": 0.99,
+        "top": 475,
+        "isEnglish": false
+      },
+      {
+        "text": "中国天生就擅长制造",
+        "mean": 0.98,
+        "top": 833,
+        "isEnglish": false
+      },
+      {
+        "text": "China just has a very strong inherent ability to do",
+        "mean": 0.97,
+        "top": 952,
+        "isEnglish": true
+      },
+      {
+        "text": "manufacturing well.",
+        "mean": 1,
+        "top": 1022,
+        "isEnglish": true
+      }
+    ]
+  },
+  {
+    "file": "10.jpg",
+    "ms": 1253,
+    "lines": [
+      {
+        "text": "CGTN",
+        "mean": 1,
+        "top": 65,
+        "isEnglish": true
+      },
+      {
+        "text": "@YouTube说实话，特斯拉上海的奇迹，全靠",
+        "mean": 0.99,
+        "top": 896,
+        "isEnglish": false
+      },
+      {
+        "text": "I think that, to be totally frank, the",
+        "mean": 0.99,
+        "top": 1020,
+        "isEnglish": true
+      }
+    ]
+  },
+  {
+    "file": "11.jpg",
+    "ms": 1415,
+    "lines": [
+      {
+        "text": "CGTN",
+        "mean": 1,
+        "top": 66,
+        "isEnglish": true
+      },
+      {
+        "text": "@YouTube金选观察",
+        "mean": 0.98,
+        "top": 198,
+        "isEnglish": false
+      },
+      {
+        "text": "所以特斯拉上海工厂堪称瑰宝。",
+        "mean": 0.98,
+        "top": 901,
+        "isEnglish": false
+      },
+      {
+        "text": "So the Tesla Shanghai factory is a gem.",
+        "mean": 0.95,
+        "top": 1019,
+        "isEnglish": true
+      }
+    ]
+  },
+  {
+    "file": "12.jpg",
+    "ms": 1098,
+    "lines": [
+      {
+        "text": "CTouTube金选观察",
+        "mean": 0.92,
+        "top": 52,
+        "isEnglish": false
+      },
+      {
+        "text": "真挺美，去过的人就知道了。",
+        "mean": 0.99,
+        "top": 830,
+        "isEnglish": false
+      },
+      {
+        "text": "It's beautiful, actually, if anyone's ever been",
+        "mean": 0.99,
+        "top": 948,
+        "isEnglish": true
+      },
+      {
+        "text": "there.",
+        "mean": 1,
+        "top": 1021,
+        "isEnglish": true
+      }
+    ]
+  },
+  {
+    "file": "13.jpg",
+    "ms": 1552,
+    "lines": [
+      {
+        "text": "CGTN",
+        "mean": 1,
+        "top": 66,
+        "isEnglish": true
+      },
+      {
+        "text": "说实话，挺酷的一一我们就是想让车看起来像",
+        "mean": 0.99,
+        "top": 733,
+        "isEnglish": false
+      },
+      {
+        "text": "未来产物。",
+        "mean": 1,
+        "top": 834,
+        "isEnglish": false
+      },
+      {
+        "text": "mean, it's pretty cool because we designed the",
+        "mean": 0.96,
+        "top": 954,
+        "isEnglish": true
+      },
+      {
+        "text": "car to look futuristic.",
+        "mean": 0.96,
+        "top": 1022,
+        "isEnglish": true
+      },
+      {
+        "text": "@YouTube金选观察",
+        "mean": 0.99,
+        "top": 1100,
+        "isEnglish": false
+      }
+    ]
+  },
+  {
+    "file": "14.jpg",
+    "ms": 1265,
+    "lines": [
+      {
+        "text": "CGTN",
+        "mean": 1,
+        "top": 66,
+        "isEnglish": true
+      },
+      {
+        "text": "@YouTube金选观察",
+        "mean": 0.99,
+        "top": 851,
+        "isEnglish": false
+      },
+      {
+        "text": "从时尚角度说，我们可不想",
+        "mean": 1,
+        "top": 900,
+        "isEnglish": false
+      },
+      {
+        "text": "Because I think from a fashion standpoint, we don't",
+        "mean": 0.98,
+        "top": 1016,
+        "isEnglish": true
+      }
+    ]
+  },
+  {
+    "file": "15.jpg",
+    "ms": 1469,
+    "lines": [
+      {
+        "text": "CGTN",
+        "mean": 0.99,
+        "top": 64,
+        "isEnglish": true
+      },
+      {
+        "text": "@YouTube金选观察",
+        "mean": 0.99,
+        "top": 303,
+        "isEnglish": false
+      },
+      {
+        "text": "街头风格一成不变。",
+        "mean": 0.99,
+        "top": 899,
+        "isEnglish": false
+      },
+      {
+        "text": "want the aesthetics of the street to stay stagnant.",
+        "mean": 0.95,
+        "top": 1019,
+        "isEnglish": true
+      }
+    ]
+  },
+  {
+    "file": "16.jpg",
+    "ms": 1261,
+    "lines": [
+      {
+        "text": "干弟k在学英语 bilbl",
+        "mean": 0.74,
+        "top": 45,
+        "isEnglish": false
+      },
+      {
+        "text": "Well we have the cyber cab which has as you",
+        "mean": 0.99,
+        "top": 921,
+        "isEnglish": true
+      },
+      {
+        "text": "我们现在已经有Cybercab了，你也知道",
+        "mean": 0.98,
+        "top": 1020,
+        "isEnglish": false
+      }
+    ]
+  },
+  {
+    "file": "17.jpg",
+    "ms": 1401,
+    "lines": [
+      {
+        "text": "干弟k在学英语 bilbl",
+        "mean": 0.73,
+        "top": 45,
+        "isEnglish": false
+      },
+      {
+        "text": "know has no steering wheel or pedals or side mirrors",
+        "mean": 0.99,
+        "top": 926,
+        "isEnglish": true
+      },
+      {
+        "text": "它没有方向盘、没有踏板、没有侧后视镜",
+        "mean": 0.97,
+        "top": 1026,
+        "isEnglish": false
+      }
+    ]
+  },
+  {
+    "file": "18.jpg",
+    "ms": 1393,
+    "lines": [
+      {
+        "text": "干弟k在学英语 bilibl",
+        "mean": 0.75,
+        "top": 45,
+        "isEnglish": false
+      },
+      {
+        "text": "or rear view mirror operating commercially in Texas right now",
+        "mean": 0.98,
+        "top": 929,
+        "isEnglish": true
+      },
+      {
+        "text": "也没有车内后视镜，目前已经在得克萨斯州投入商业运营",
+        "mean": 0.98,
+        "top": 1025,
+        "isEnglish": false
+      }
+    ]
+  },
+  {
+    "file": "19.jpg",
+    "ms": 1404,
+    "lines": [
+      {
+        "text": "干弟飞在学英语 bilibil",
+        "mean": 0.71,
+        "top": 45,
+        "isEnglish": false
+      },
+      {
+        "text": "mean the rate of Al software improvements and major",
+        "mean": 0.99,
+        "top": 840,
+        "isEnglish": true
+      },
+      {
+        "text": "announcements is so rapid",
+        "mean": 0.99,
+        "top": 930,
+        "isEnglish": true
+      },
+      {
+        "text": "AI软件的进步速度和重大发布频率太快了",
+        "mean": 0.99,
+        "top": 1026,
+        "isEnglish": false
+      }
+    ]
+  },
+  {
+    "file": "20.jpg",
+    "ms": 1439,
+    "lines": [
+      {
+        "text": "干弟k在学英语 bilibll",
+        "mean": 0.78,
+        "top": 44,
+        "isEnglish": false
+      },
+      {
+        "text": "that it makes my head spin, you know,",
+        "mean": 0.99,
+        "top": 927,
+        "isEnglish": true
+      },
+      {
+        "text": "快得让我头晕目眩",
+        "mean": 0.97,
+        "top": 1023,
+        "isEnglish": false
+      }
+    ]
+  }
+]

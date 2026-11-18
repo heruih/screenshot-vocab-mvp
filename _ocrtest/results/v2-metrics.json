@@ -1,0 +1,265 @@
+{
+  "v2sum": {
+    "recall": 0.7866132478632479,
+    "precision": 0.7599623987123989,
+    "contentRecall": 0.8237500000000001,
+    "uniqRecall": 0.7849068986568988,
+    "cer": 0.12398530017419232,
+    "avgMs": 86.8
+  },
+  "detail": [
+    {
+      "file": "01.jpg",
+      "recall": 0.75,
+      "precision": 0.6,
+      "contentRecall": 0.6666666666666666,
+      "uniqRecall": 0.75,
+      "cer": 0.20689655172413793,
+      "missed": [
+        "prospered"
+      ],
+      "ms": 125
+    },
+    {
+      "file": "02.jpg",
+      "recall": 0.75,
+      "precision": 0.6666666666666666,
+      "contentRecall": 0.6666666666666666,
+      "uniqRecall": 0.75,
+      "cer": 0.10526315789473684,
+      "missed": [
+        "i've",
+        "it"
+      ],
+      "ms": 84
+    },
+    {
+      "file": "03.jpg",
+      "recall": 1,
+      "precision": 0.9,
+      "contentRecall": 1,
+      "uniqRecall": 1,
+      "cer": 0.03508771929824561,
+      "missed": [],
+      "ms": 103
+    },
+    {
+      "file": "04.jpg",
+      "recall": 0,
+      "precision": 0,
+      "contentRecall": 0,
+      "uniqRecall": 0,
+      "cer": 0.896551724137931,
+      "missed": [
+        "i",
+        "mean",
+        "i've",
+        "seen",
+        "it",
+        "firsthand"
+      ],
+      "ms": 25
+    },
+    {
+      "file": "05.jpg",
+      "recall": 0.9285714285714286,
+      "precision": 0.9285714285714286,
+      "contentRecall": 0.8,
+      "uniqRecall": 0.9230769230769231,
+      "cer": 0.014084507042253521,
+      "missed": [
+        "china"
+      ],
+      "ms": 96
+    },
+    {
+      "file": "06.jpg",
+      "recall": 0.9230769230769231,
+      "precision": 0.9230769230769231,
+      "contentRecall": 1,
+      "uniqRecall": 0.9166666666666666,
+      "cer": 0.016666666666666666,
+      "missed": [
+        "or"
+      ],
+      "ms": 94
+    },
+    {
+      "file": "07.jpg",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "uniqRecall": 1,
+      "cer": 0,
+      "missed": [],
+      "ms": 75
+    },
+    {
+      "file": "08.jpg",
+      "recall": 0.8,
+      "precision": 0.6666666666666666,
+      "contentRecall": 0.75,
+      "uniqRecall": 0.8,
+      "cer": 0.07142857142857142,
+      "missed": [
+        "tremendously"
+      ],
+      "ms": 69
+    },
+    {
+      "file": "09.jpg",
+      "recall": 0.8333333333333334,
+      "precision": 0.9090909090909091,
+      "contentRecall": 1,
+      "uniqRecall": 0.8333333333333334,
+      "cer": 0.014285714285714285,
+      "missed": [
+        "to",
+        "do"
+      ],
+      "ms": 100
+    },
+    {
+      "file": "10.jpg",
+      "recall": 0.875,
+      "precision": 0.875,
+      "contentRecall": 1,
+      "uniqRecall": 0.875,
+      "cer": 0.1388888888888889,
+      "missed": [
+        "i"
+      ],
+      "ms": 66
+    },
+    {
+      "file": "11.jpg",
+      "recall": 0.75,
+      "precision": 0.8571428571428571,
+      "contentRecall": 1,
+      "uniqRecall": 0.75,
+      "cer": 0.07894736842105263,
+      "missed": [
+        "so",
+        "a"
+      ],
+      "ms": 53
+    },
+    {
+      "file": "12.jpg",
+      "recall": 1,
+      "precision": 1,
+      "contentRecall": 1,
+      "uniqRecall": 1,
+      "cer": 0,
+      "missed": [],
+      "ms": 69
+    },
+    {
+      "file": "13.jpg",
+      "recall": 0.9230769230769231,
+      "precision": 0.8571428571428571,
+      "contentRecall": 0.8333333333333334,
+      "uniqRecall": 0.9230769230769231,
+      "cer": 0.1,
+      "missed": [
+        "cool"
+      ],
+      "ms": 121
+    },
+    {
+      "file": "14.jpg",
+      "recall": 0.7777777777777778,
+      "precision": 0.7777777777777778,
+      "contentRecall": 1,
+      "uniqRecall": 0.7777777777777778,
+      "cer": 0.16,
+      "missed": [
+        "because",
+        "i"
+      ],
+      "ms": 110
+    },
+    {
+      "file": "15.jpg",
+      "recall": 1,
+      "precision": 0.8181818181818182,
+      "contentRecall": 1,
+      "uniqRecall": 1,
+      "cer": 0.14,
+      "missed": [],
+      "ms": 94
+    },
+    {
+      "file": "16.jpg",
+      "recall": 0.8,
+      "precision": 0.8,
+      "contentRecall": 0.6666666666666666,
+      "uniqRecall": 0.8,
+      "cer": 0.046511627906976744,
+      "missed": [
+        "the",
+        "which"
+      ],
+      "ms": 72
+    },
+    {
+      "file": "17.jpg",
+      "recall": 0.8,
+      "precision": 0.8,
+      "contentRecall": 0.8,
+      "uniqRecall": 0.7777777777777778,
+      "cer": 0.11538461538461539,
+      "missed": [
+        "know",
+        "mirrors"
+      ],
+      "ms": 75
+    },
+    {
+      "file": "18.jpg",
+      "recall": 0.5,
+      "precision": 0.45454545454545453,
+      "contentRecall": 0.6666666666666666,
+      "uniqRecall": 0.5,
+      "cer": 0.11475409836065574,
+      "missed": [
+        "or",
+        "operating",
+        "commercially",
+        "in",
+        "right"
+      ],
+      "ms": 96
+    },
+    {
+      "file": "19.jpg",
+      "recall": 0.5714285714285714,
+      "precision": 0.6153846153846154,
+      "contentRecall": 0.625,
+      "uniqRecall": 0.5714285714285714,
+      "cer": 0.13924050632911392,
+      "missed": [
+        "mean",
+        "ai",
+        "and",
+        "announcements",
+        "is",
+        "so"
+      ],
+      "ms": 151
+    },
+    {
+      "file": "20.jpg",
+      "recall": 0.75,
+      "precision": 0.75,
+      "contentRecall": 1,
+      "uniqRecall": 0.75,
+      "cer": 0.08571428571428572,
+      "missed": [
+        "that",
+        "you"
+      ],
+      "ms": 58
+    }
+  ]
+}
