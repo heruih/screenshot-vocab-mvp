@@ -119,6 +119,11 @@
 
 | 2026-11-18 | 真机发现"识别完再选下一张整页重载"：定位为 OpenCV WASM 临时 Mat 未释放致 iOS 内存回收；写修复版 splitIntoLineImages（补全所有 .delete()），registerBackend 覆盖，重新打包发布 | 电脑端连续4张结果与修复前一致；线上冒烟 08 正常；Pages 已重建 | 待真机复测连续选多张不再重载 | Simon 复测 |
 
+| 2026-11-18 | 产品集成改造：引擎改 ESM（export init/recognize），产品用动态 import() 加载；清理全部 tesseract 死代码（ocrPreprocess/ocrLoadImage/ocrImgSize 等）；单图重写为 PP-OCR 整句+可点单词 chips（默认全选、点移除/加回，按原始顺序重建）；批量/收件箱/候选词/归属笔记全部复用 | 本地构建单 HTML 565843 字节；node --check 通过 | 构建通过 | 端到端验证 |
+| 2026-11-18 | 端到端卡死根因：产品内识别停在"正在识别"，主线程未阻塞（setTimeout 正常），逐步打点定位到 ImageRaw.open 内 `image.decode()` 永不返回（onload 成功、图片完整但 decode 不 resolve）；改为 onload/onerror Promise 等待后修复 | 单图+3 次全新页面+单图挂载全过；chips 词序修复 | 通过 | 批量链路验证 |
+| 2026-11-18 | 批量多选完整链路验证：3 张→新建归属笔记→逐张识别写收件箱（3/3，约1张/秒）→收件箱识别文本核对正确→手动输入新词确认挂词，IDB 验证截图挂到正确词、收件箱移除该项 | 浏览器自动化端到端（多文件用 fetch→File→DataTransfer 构造，CDP setInputFiles 不可用） | 通过 | 发布真机验收 |
+| 2026-11-18 | 发布完整产品 MVP：新建独立公开仓 heruih/screenshot-vocab-mvp（index.html + ocr-assets，约40MB），启用 Pages；7 个资源 HTTP200，线上真实识别冒烟通过（首加载含 CDN 11.9s、缓存后 4.9s，桌面端） | gh Pages 构建 built；线上识别结果准确 | 桌面端通过，手机真机待验 | Simon 手机走完整流程 |
+
 ## 规矩
 
 - **失败也记**，而且记真实的："跑 5 个词坏了 1 个"比"基本可用"有用一百倍。

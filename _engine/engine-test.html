@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>引擎独立测试</title>
+</head>
+<body>
+<button id="initBtn">初始化引擎</button>
+<input type="file" id="file" accept="image/*">
+<div id="status">未初始化</div>
+<div id="text" style="margin-top:12px;font-size:18px"></div>
+<script src="dist/ocr-engine.js"></script>
+<script>
+const $ = (id) => document.getElementById(id)
+$('initBtn').onclick = async () => {
+  $('status').textContent = '初始化中…'
+  await PPOcrEngine.init({
+    wasmPaths: new URL('ort/', document.baseURI).href,
+    modelBase: new URL('models/', document.baseURI).href,
+  })
+  $('status').textContent = '就绪'
+}
+$('file').onchange = async (e) => {
+  const f = e.target.files[0]
+  const url = URL.createObjectURL(f)
+  try { $('text').textContent = await PPOcrEngine.recognize(url) }
+  finally { URL.revokeObjectURL(url) }
+}
+</script>
+</body>
+</html>

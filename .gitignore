@@ -13,5 +13,9 @@ Thumbs.db
 # 手机 demo 的外部运行时与模型副本（通过 npm 依赖管理，不重复入库）
 _mobile-demo/ort/
 _mobile-demo/models/
+# 引擎打包工作区的运行时与模型副本（npm 依赖管理，不入库）
+_engine/ort/
+_engine/models/
 # 独立 GitHub Pages 发布仓库（自带 .git，单独维护）
 ocr-demo-site/
+publish-mvp-site/
