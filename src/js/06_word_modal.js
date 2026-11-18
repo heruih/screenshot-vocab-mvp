@@ -1,0 +1,1403 @@
+/* ===== 06_word_modal.js · 单词弹窗 / 配图 / 草稿 / 设置 / 云同步 / 启动绑定 ===== */
+/* ============ 单词弹窗 ============ */
+let wmState=null;
+
+/* ============ 单词配图：本站图优先，其次 Pexels 免费搜图（要自己填 Key） ============ */
+/* 缓存单独一个 key，不写进 state.words，也不进云同步 */
+const WM_IMG_KEY='english-notes-wmimg-v1';
+const WM_IMG_TTL=180*864e5;       /* 配好的图记半年，别到期就重新搜一遍 */
+const WM_IMG_MISS=7*864e5;        /* 搜过确实没图的词，一周内不再重复搜 */
+const WM_IMG_FAIL=5*6e4;          /* 图链全挂：5 分钟后可以再试（不永久判死） */
+let imgSeq=0;
+let imgState={term:'',cands:[],idx:0,src:''};
+let paintedTerm='';               /* 已经画出来的词：同一个词再打开直接沿用 */
+let wmOpenedAt=0;                 /* 词卡刚打开的时间：用于挡住"自动弹情景口语" */
+let paintedRec=null;
+function wmImgAll(){
+  try{ const o=JSON.parse(localStorage.getItem(WM_IMG_KEY)||'{}'); return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}; }catch(_){ return {}; }
+}
+function wmImgFlush(all){
+  const keys=Object.keys(all);
+  if(keys.length>120){
+    keys.sort((a,b)=>(all[b].at||0)-(all[a].at||0));
+    keys.slice(120).forEach(k=>{ delete all[k]; });
+  }
+  try{ localStorage.setItem(WM_IMG_KEY,JSON.stringify(all)); }catch(_){ }
+}
+function wmImgKeyOf(t){ return String(t||'').trim().toLowerCase(); }
+/* 一次性修复老缓存：早期版本把 Pixabay 的 _640 改成了不存在的 _960（全部 403），
+   导致图加载失败被收起、还被记成"这个词没图"。这里就地改回并解除误判。 */
+const WM_IMG_FIX='english-notes-wmimg-fix-v1';
+function wmImgRepair(){
+  try{
+    if(localStorage.getItem(WM_IMG_FIX)==='2') return;
+    const all=wmImgAll();
+    let touched=false;
+    Object.keys(all).forEach(k=>{
+      const r=all[k]; if(!r||typeof r!=='object') return;
+      let hit=false;
+      (r.cands||[]).forEach(c=>{
+        ['thumb','big','src'].forEach(f=>{
+          if(c&&c[f]&&String(c[f]).indexOf('_960')>=0){
+            c[f]=String(c[f]).replace(/_960/g,'_640'); hit=true;
+          }
+        });
+      });
+      if(r.imgFailAt){ delete r.imgFailAt; hit=true; }
+      if(hit && r.cands && r.cands.length){ r.local=false; r.idx=0; }
+      if(hit) touched=true;
+      all[k]=r;
+    });
+    if(touched) wmImgFlush(all);
+    localStorage.setItem(WM_IMG_FIX,'2');
+  }catch(_){ }
+}
+function wmImgCached(t){
+  const all=wmImgAll(), k=wmImgKeyOf(t), r=all[k];
+  if(!r) return null;
+  if(r.at&&Date.now()-r.at>WM_IMG_TTL){ delete all[k]; wmImgFlush(all); return null; }
+  return r;
+}
+function wmImgStore(t,rec){
+  const all=wmImgAll();
+  const k=wmImgKeyOf(t);
+  if(!k) return;
+  rec.at=Date.now();
+  rec.term=String(t).trim();
+  all[k]=rec;
+  wmImgFlush(all);
+}
+function wmIllusHide(){
+  const el=$('#wmIllus');
+  if(el) el.classList.add('hidden');
+  wmMemoHide();
+  imgState={term:'',cands:[],idx:0,src:''};
+}
+/* 图链全挂时不要"静默消失"：留一行可点的重试提示，用户知道发生了什么 */
+function wmIllusFail(term,msg){
+  const box=$('#wmIllus'), img=$('#wmIllusImg'), skel=$('#wmIllusSkel'), cap=$('#wmIllusCap'), more=$('#wmIllusMore'), conf=$('#wmIllusConfirm');
+  if(!box){ wmIllusHide(); return; }
+  box.classList.remove('hidden');
+  if(skel) skel.classList.add('hidden');
+  if(img){ img.classList.remove('ok'); img.removeAttribute('src'); }
+  if(more) more.classList.add('hidden');
+  if(conf) conf.classList.add('hidden');
+  if(cap){
+    cap.textContent=msg||'图片加载失败 · 点这里重试';
+    cap.removeAttribute('href');
+    cap.onclick=function(e){
+      e.preventDefault(); e.stopPropagation();
+      try{ const all=wmImgAll(), k=wmImgKeyOf(term); if(all[k]){ delete all[k].imgFailAt; wmImgFlush(all); } }catch(_){ }
+      wmIllusLoad(term);
+    };
+  }
+}
+function wmMemoHide(){
+  const el=$('#wmMemo');
+  if(el) el.classList.add('hidden');
+}
+/* 没有配图时的一行画面提示：emoji + 一句话，用现有模型生成 */
+function wmMemoPaint(memo,term){
+  const box=$('#wmMemo'), em=$('#wmMemoEmoji'), sc=$('#wmMemoScene');
+  if(!box||!memo||!memo.scene){ wmMemoHide(); return; }
+  const ib=$('#wmIllus'); if(ib) ib.classList.add('hidden');
+  if(em) em.textContent=memo.emoji||'';
+  if(sc) sc.textContent=memo.scene;
+  box.classList.remove('hidden');
+  if(term){ paintedTerm=wmImgKeyOf(term); paintedRec={term:term,memo:memo}; }
+}
+function wmIllusBroken(rec){
+  /* 一张挂了换下一张；全挂就收起，但只冷却 5 分钟，不把词判成"永远没图" */
+  if(!rec||!rec.cands||!rec.cands.length){ wmIllusHide(); return; }
+  if(rec.idx+1>=rec.cands.length){
+    paintedTerm=''; paintedRec=null;
+    try{
+      if(!rec.term) return;
+      /* 站内插图缺失：7 天后再探一次；图库死链：5 分钟后再试（可能只是这一批链接挂了） */
+      wmImgStore(rec.term, rec.src==='local'
+        ? {local:false,cands:[],idx:0,localFailAt:Date.now()}
+        : {local:false,cands:[],idx:0,imgFailAt:Date.now()});
+    }catch(_){ }
+    /* 导入的 Pixabay 记录只保存网址。网址失效时自动重新搜索，避免用户手动生成。 */
+    try{
+      if(rec.src!=='local'&&typeof photoKey==='function'&&photoKey()){
+        setTimeout(()=>{if(wmState&&wmState.term===rec.term)wmIllusLoad(rec.term);},0);
+        return;
+      }
+    }catch(_){ }
+    wmIllusFail(rec.term,'图片加载失败（网络）· 点这里重试');
+    return;
+  }
+  rec.idx++;
+  imgState=rec;
+  try{
+    if(rec.term&&rec.src!=='local') wmImgStore(rec.term,{local:false,cands:rec.cands,idx:rec.idx,prov:rec.src});
+  }catch(_){ }
+  wmIllusPaint(rec);
+}
+function wmIllusPaint(rec){
+  const box=$('#wmIllus');
+  if(!box||!rec||!rec.cands||!rec.cands.length){ wmIllusHide(); return; }
+  wmMemoHide();
+  const c=rec.cands[rec.idx]||rec.cands[0];
+  if(!c||!(c.thumb||c.src)){ wmIllusHide(); return; }
+  const img=$('#wmIllusImg'), cap=$('#wmIllusCap'), more=$('#wmIllusMore'), skel=$('#wmIllusSkel');
+  box.classList.remove('hidden');
+  if(skel) skel.classList.remove('hidden');
+  if(img) img.classList.remove('ok');
+  if(img){
+    img.alt=rec.term||'';
+    try{ img.referrerPolicy='no-referrer'; }catch(_){ }
+    img.onload=()=>{ if(skel) skel.classList.add('hidden'); img.classList.add('ok'); };
+    img.onerror=()=>wmIllusBroken(rec);
+    img.src=c.thumb||c.src;
+  }
+  if(cap){
+    cap.textContent=c.credit||'';
+    if(c.page) cap.setAttribute('href',c.page); else cap.removeAttribute('href');
+  }
+  if(more) more.classList.toggle('hidden',rec.cands.length<2);
+  imgState=rec;
+  paintedTerm=wmImgKeyOf(rec.term||'');
+  paintedRec=rec;
+}
+function wmIllusSkeleton(){
+  const box=$('#wmIllus');
+  if(!box) return;
+  box.classList.remove('hidden');
+  const skel=$('#wmIllusSkel'), img=$('#wmIllusImg'), cap=$('#wmIllusCap'), more=$('#wmIllusMore');
+  if(skel) skel.classList.remove('hidden');
+  if(img){ img.classList.remove('ok'); img.removeAttribute('src'); }
+  if(cap) cap.textContent='';
+  if(more) more.classList.add('hidden');
+}
+/* 站内资源地址：线上分享链接必须带 sharecode，否则静态文件会 403 */
+function assetUrl(u){
+  try{
+    const sc=new URLSearchParams(location.search).get('sharecode');
+    if(!sc||!u||/^([a-z]+:)?\/\//i.test(u)) return u;
+    return u+(u.indexOf('?')>=0?'&':'?')+'sharecode='+encodeURIComponent(sc);
+  }catch(_){ return u; }
+}
+/* 站点自带的插图：img/<单词>.webp|jpg|png */
+function probeLocalImg(term){
+  const slug=encodeURIComponent(String(term||'').trim().toLowerCase().replace(/[^a-z0-9\- ]/g,'').replace(/\s+/g,'-'));
+  if(!slug) return Promise.resolve('');
+  const tryList=['img/'+slug+'.webp','img/'+slug+'.jpg','img/'+slug+'.png'].map(assetUrl);
+  return new Promise(resolve=>{
+    let i=0;
+    const next=()=>{
+      if(i>=tryList.length){ resolve(''); return; }
+      const u=tryList[i++];
+      const im=new Image();
+      im.onload=()=>resolve(u);
+      im.onerror=next;
+      im.src=u;
+    };
+    next();
+  });
+}
+async function pexelsSearch(q,key){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),8000);
+  try{
+    const url='https://api.pexels.com/v1/search?per_page=10&orientation=landscape&query='+encodeURIComponent(q);
+    const res=await fetch(url,{headers:{Authorization:key},signal:ctrl.signal});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    return (data.photos||[]).map(p=>({
+      thumb:(p.src&&(p.src.large||p.src.medium||p.src.small))||'',
+      page:p.url||'',
+      credit:'Photo by '+(p.photographer||'Pexels')+' · Pexels'
+    })).filter(x=>x.thumb);
+  }finally{ clearTimeout(timer); }
+}
+async function pixabaySearch(q,key){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),8000);
+  try{
+    const url='https://pixabay.com/api/?key='+encodeURIComponent(key)
+      +'&q='+encodeURIComponent(q)
+      +'&image_type=photo&orientation=horizontal&safesearch=true&order=popular&per_page=12&lang=en';
+    const res=await fetch(url,{signal:ctrl.signal});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    return (data.hits||[]).map(h=>({
+      /* 只用 CDN 真实存在的尺寸：_640（webformatURL）/ _1280（largeImageURL）。
+         之前把 _640 改成 _960，Pixabay 没有这个尺寸，全部 403 → 图加载失败被收起。 */
+      thumb:String(h.webformatURL||'')||String(h.previewURL||''),
+      big:String(h.largeImageURL||'')||String(h.webformatURL||''),
+      page:h.pageURL||'',
+      credit:'Photo by '+(h.user||'Pixabay')+' · Pixabay'
+    })).filter(x=>x.thumb);
+  }finally{ clearTimeout(timer); }
+}
+/* 用哪家图库：Pixabay 优先（Pexels 已暂停发新 Key） */
+function photoKey(){
+  const st=state.settings||{};
+  const pb=String(st.pixabayKey||'').trim();
+  if(pb) return {prov:'pixabay',key:pb};
+  const px=String(st.pexelsKey||'').trim();
+  if(px) return {prov:'pexels',key:px};
+  return null;
+}
+function photoSearch(ph,q){
+  return ph.prov==='pixabay'?pixabaySearch(q,ph.key):pexelsSearch(q,ph.key);
+}
+/* 记忆卡：让模型给一个 emoji + 一句有画面感的中文描述 */
+async function memoryHook(term){
+  try{
+    const p=await aiCall([
+      {role:'system',content:'You help people memorize English words with a mental image. For the given word output ONLY JSON: {"emoji":"ONE emoji","scene":"一句具体的中文画面，<=26字，要有人/物/动作，不要解释词义、不要用成语套话"}'},
+      {role:'user',content:String(term||'')}
+    ],{maxTokens:90});
+    const em=p&&p.emoji?String(p.emoji).trim():'';
+    const sc=p&&p.scene?String(p.scene).trim():'';
+    if(!sc) return null;
+    return {emoji:em.slice(0,8),scene:sc.slice(0,50)};
+  }catch(_){ return null; }
+}
+/* 抽象词直接搜命中率低：让 AI 换成 2 个看得见的画面关键词再搜 */
+async function imgKeywords(term){
+  try{
+    const p=await aiCall([
+      {role:'system',content:'You pick stock-photo search keywords. Output ONLY a JSON object: {"keywords":["...","..."]}. Two short English visual phrases (2-3 words each) that describe a concrete scene a photo could show for the meaning of the given English word. Never return the word itself.'},
+      {role:'user',content:String(term||'')}
+    ],{maxTokens:120});
+    const kw=(p&&Array.isArray(p.keywords))?p.keywords:[];
+    return kw.filter(x=>typeof x==='string'&&x.trim()).map(x=>x.trim()).slice(0,2);
+  }catch(_){ return []; }
+}
+async function wmIllusLoad(term){
+  const t=String(term||'').trim();
+  if(!t){ ++imgSeq; wmIllusHide(); return; }
+  const boxEl=$('#wmIllus'), imgEl=$('#wmIllusImg');
+  /* 这个词的画面已经有了：直接沿用，不重新请求、也不闪一下骨架 */
+  if(paintedTerm&&paintedTerm===wmImgKeyOf(t)&&paintedRec&&paintedRec.memo){
+    ++imgSeq;
+    wmMemoPaint(paintedRec.memo,t);
+    imgState=paintedRec;
+    return;
+  }
+  if(paintedTerm&&paintedTerm===wmImgKeyOf(t)&&imgEl&&imgEl.classList.contains('ok')&&imgEl.getAttribute('src')){
+    ++imgSeq;
+    if(boxEl) boxEl.classList.remove('hidden');
+    const sk=$('#wmIllusSkel'); if(sk) sk.classList.add('hidden');
+    if(paintedRec) imgState=paintedRec;
+    return;
+  }
+  ++imgSeq;
+  wmIllusHide();
+  const my=imgSeq;
+  let rec=wmImgCached(t);
+  if(!rec){ rec={local:null,cands:[],idx:0}; }
+  /* 1) 本站自带插图（我离线画的）—— 秒开、不依赖网络 */
+  const retryLocal=rec.local===false&&rec.localFailAt&&(Date.now()-rec.localFailAt>WM_IMG_MISS);
+  if(rec.local===null||retryLocal){
+    const u=await probeLocalImg(t);
+    if(my!==imgSeq) return;
+    rec.local=u||false;
+    if(u) rec.cands=[{src:u,thumb:u,credit:'本站插图'}];
+    wmImgStore(t,rec);
+  }
+  if(my!==imgSeq) return;
+  if(rec.local){ wmIllusPaint({term:t,cands:rec.cands,idx:0,src:'local'}); return; }
+  /* 2) 之前搜到过的照片 */
+  if(rec.cands&&rec.cands.length){ wmIllusPaint({term:t,cands:rec.cands,idx:rec.idx||0,src:rec.prov||'pexels'}); return; }
+  /* 2.5) 之前写过的记忆卡 */
+  if(rec.memo&&rec.memo.scene){ wmMemoPaint(rec.memo,t); return; }
+  /* 3) 配了图库 Key 就现搜照片 */
+  const ph=photoKey();
+  if(rec.imgFailAt&&Date.now()-rec.imgFailAt<WM_IMG_FAIL){ wmIllusHide(); return; }
+  const missHit=rec.missAt&&(Date.now()-rec.missAt<WM_IMG_MISS);
+  if(ph&&!missHit){
+    wmIllusSkeleton();
+    let cands=[], searched=false;
+    const trySearch=async q=>{
+      try{ const r=await photoSearch(ph,q); searched=true; return r||[]; }
+      catch(_){ return []; }   /* 网络失败不算「没图」，下次还试 */
+    };
+    cands=await trySearch(t);
+    if(my!==imgSeq) return;
+    if(!cands.length){
+      const kws=await imgKeywords(t);
+      for(const k of kws){
+        if(my!==imgSeq) return;
+        cands=await trySearch(k);
+        if(cands.length) break;
+      }
+    }
+    if(my!==imgSeq) return;
+    if(cands.length){
+      const rec2={local:false,cands:cands.slice(0,6),idx:0,prov:ph.prov};
+      wmImgStore(t,rec2);
+      wmIllusPaint({term:t,cands:rec2.cands,idx:0,src:ph.prov});
+      return;
+    }
+    if(searched) wmImgStore(t,Object.assign({},rec,{local:false,cands:[],idx:0,missAt:Date.now()}));
+  }
+  /* 4) 拿不到照片：给一行画面提示（emoji + 一句话），不花钱、用现有模型 */
+  if(my!==imgSeq) return;
+  const memo=await memoryHook(t);
+  if(my!==imgSeq) return;
+  if(!memo){ wmIllusHide(); return; }
+  wmImgStore(t,Object.assign({},wmImgCached(t)||rec,{local:false,cands:[],idx:0,memo:memo}));
+  wmMemoPaint(memo,t);
+}
+/* 去「标签聚合」建类别时，先把当前这个词的草稿存下来，建完自动回到它，不丢已填内容 */
+let wmDraft=null;
+function stashWmDraft(){
+  if(!wmState) return false;
+  wmDraft={term:wmState.term,note:wmState.note||null,range:wmState.range||null,existing:wmState.existing||null,
+    definition:($('#wmDefinition')&&$('#wmDefinition').value)||'',
+    examples:collectExamples(),tags:(wmState.tags||[]).slice(),
+    collocations:(wmState.collocations||[]).slice(),
+    mastered:!!wmState.mastered,aiDef:wmState.aiDef||'',dictExtra:wmState.dictExtra||null};
+  return true;
+}
+function gotoTagPageForNewTag(){
+  if(!stashWmDraft()) return;
+  closeWordModal();
+  ui.mode='tags'; ui.tag=null; ui.tagEdit=false; ui.tagNewOpen=true; ui.sideOpen=false;
+  render();
+  toast('建好标签后会自动回到这个词');
+}
+function resumeWmDraft(newTag){
+  const d=wmDraft;
+  if(!d) return false;
+  wmDraft=null;
+  if(newTag&&d.tags.indexOf(newTag)<0) d.tags.push(newTag);
+  openWordModal(d.term,d.note,d.range,d.existing,null,d);
+  return true;
+}
+let wmSeq=0;
+
+/* ============ empower 草稿：没保存就退出，下次打开同一个词自动接上 ============ */
+/* 存在独立 key 里，绝不写进 state.words / 云同步，保证已保存的单词一点都不动 */
+const WM_DRAFT_KEY='english-notes-wmdraft-v1';
+const WM_DRAFT_DAYS=14;
+function wmDraftKey(t){ return String(t||'').trim().toLowerCase(); }
+function wmDraftAll(){
+  try{ const o=JSON.parse(localStorage.getItem(WM_DRAFT_KEY)||'{}'); return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}; }catch(_){ return {}; }
+}
+function wmDraftFlush(all){
+  const keys=Object.keys(all);
+  if(keys.length>30){
+    keys.sort((a,b)=>(all[b].savedAt||0)-(all[a].savedAt||0));
+    keys.slice(30).forEach(k=>{ delete all[k]; });
+  }
+  try{ localStorage.setItem(WM_DRAFT_KEY,JSON.stringify(all)); }catch(_){}
+}
+function wmDraftGet(t){
+  const all=wmDraftAll(), k=wmDraftKey(t), d=all[k];
+  if(!d) return null;
+  if(d.savedAt&&Date.now()-d.savedAt>WM_DRAFT_DAYS*864e5){ delete all[k]; wmDraftFlush(all); return null; }
+  return d;
+}
+function wmDraftPut(d){
+  if(!d||!d.term) return;
+  const all=wmDraftAll(), now=Date.now();
+  Object.keys(all).forEach(x=>{ if(all[x].savedAt&&now-all[x].savedAt>WM_DRAFT_DAYS*864e5) delete all[x]; });
+  all[wmDraftKey(d.term)]=d;
+  wmDraftFlush(all);
+}
+function wmDraftDel(t){
+  const all=wmDraftAll(), k=wmDraftKey(t);
+  if(all[k]){ delete all[k]; wmDraftFlush(all); }
+}
+/* 当前弹窗里值得存下来的内容：跟已保存的词一字不差就不存，避免凭空多出「草稿」 */
+function wmDraftSnapshot(){
+  if(!wmState||!wmState.term||wmState.saved) return null;
+  const def=(($('#wmDefinition')&&$('#wmDefinition').value)||'').trim();
+  const phon=(($('#wmPhonetic')&&$('#wmPhonetic').textContent)||'').trim();
+  const examples=collectExamples();
+  const tags=(wmState.tags||[]).slice();
+  const old=wmState.existing||null;
+  if(old){
+    const oldEx=(old.examples||[]).map(x=>({en:x.en,cn:x.cn||'',sense:x.sense||''})).filter(x=>x.en);
+    const defChanged=def!==((old.definition||'').trim());
+    const tagsChanged=JSON.stringify(tags.slice().sort())!==JSON.stringify((old.tags||[]).slice().sort());
+    const masterChanged=!!wmState.mastered!==!!old.mastered;
+    const phonChanged=!!phon&&phon!==((old.phonetic||'').trim());
+    /* 已有例句被换过一批（点过「换一批例句」）也算改动；只是打开时 AI 自动补的例子不算 */
+    const exChanged=oldEx.length>0&&JSON.stringify(examples)!==JSON.stringify(oldEx);
+    const collChanged=JSON.stringify((wmState.collocations||[]).slice().sort())!==JSON.stringify((old.collocations||[]).slice().sort());
+    if(!(defChanged||tagsChanged||masterChanged||phonChanged||exChanged||collChanged)) return null;
+  }else if(!def&&!examples.length&&!tags.length&&!phon&&!wmState.aiDef&&!(wmState.collocations&&wmState.collocations.length)){
+    return null;   /* 全空的壳子不存 */
+  }
+  return {term:wmState.term,definition:def,phonetic:phon,examples,tags,
+    collocations:(wmState.collocations||[]).slice(),
+    mastered:!!wmState.mastered,aiDef:wmState.aiDef||'',dictExtra:wmState.dictExtra||null,savedAt:Date.now()};
+}
+function wmDraftSave(){
+  if(!wmState||!wmState.term) return false;
+  const d=wmDraftSnapshot();
+  if(d) wmDraftPut(d); else wmDraftDel(wmState.term);
+  return !!d;
+}
+let wmDraftTimer=null;
+function scheduleWmDraft(ms){
+  clearTimeout(wmDraftTimer);
+  wmDraftTimer=setTimeout(()=>{ wmDraftSave(); },ms||700);
+}
+function wmAgoText(ts){
+  const m=Math.round((Date.now()-(ts||0))/60000);
+  if(m<1) return '刚刚';
+  if(m<60) return m+' 分钟前';
+  const h=Math.round(m/60);
+  if(h<24) return h+' 小时前';
+  return Math.round(h/24)+' 天前';
+}
+function showWmDraftBar(d){
+  const bar=$('#wmDraftBar'), txt=$('#wmDraftTxt');
+  if(!bar) return;
+  if(!d){ bar.classList.add('hidden'); return; }
+  if(txt) txt.textContent='已接上 '+wmAgoText(d.savedAt)+'的草稿（还没保存）';
+  bar.classList.remove('hidden');
+}
+
+function openWordModal(term,note,range,existing,prefill,restore){
+  if(!restore) wmDraft=null;
+  wmState={
+    term:String(term||'').trim(),note:note||null,range:range||null,existing:existing||null,
+    examples:[],aiDef:'',busy:false,source:existing?(existing.source||'manual'):'ai',
+    tags:(existing&&existing.tags)?[...existing.tags]:[],
+    collocations:(existing&&Array.isArray(existing.collocations))?existing.collocations.slice():((state.words.find(x=>String(x.term||'').trim().toLowerCase()===String(term||'').trim().toLowerCase())||{}).collocations||[]).slice(),
+    origSentence:extractOrigSentence(range||null),
+    mastered:!!(existing&&existing.mastered),prefill:prefill||null,saved:false,
+    dictExtra:(existing&&existing.dict)||(prefill&&prefill.dict)||null
+  };
+  showWmDraftBar(null);
+  const mySeq=++wmSeq;
+  /* 只有在正文里打开、且正文里真有这个词，才给「移动」入口 */
+  const moveRow=$('#wmMoveRow');
+  if(moveRow){
+    const inBody=!!(ui.mode==='edit'&&ui.note&&mvFindSpan(wmState.term,existing&&existing.id));
+    moveRow.classList.toggle('hidden',!inBody);
+  }
+  $('#wmTerm').textContent=wmState.term;
+  $('#wmPhonetic').textContent=(existing&&existing.phonetic)||'';
+  const bestEl=$('#wmFollowBest');
+  if(bestEl){
+    const best=(existing&&existing.followBest)||0;
+    bestEl.textContent=best?('跟读最佳 '+best+' 分'):'';
+    bestEl.classList.toggle('hidden',!best);
+  }
+  $('#wmDefinition').value=(existing&&existing.definition)||'';
+  renderWmMaster();
+  renderWmTags();
+  renderWmColls();
+  wmShotsBtnUpdate();
+  $('#wmLoading').classList.add('hidden');
+  $('#wmBody').classList.remove('hidden');
+  $('#wordModal').classList.add('show');
+  wmOpenedAt=Date.now();   /* 记下打开时刻：1.2 秒内的"情景口语自动打开"一律挡掉 */
+  try{ wmIllusLoad(wmState.term); }catch(_){ }
+  /* 从「标签聚合」建完类别回来：把刚才的草稿原样恢复（不重新调 AI） */
+  if(restore){
+    wmState.examples=(restore.examples||[]).map(x=>({en:x.en,cn:x.cn||'',sense:x.sense||''})).filter(x=>x.en);
+    wmState.tags=(restore.tags||[]).slice();
+    if(Array.isArray(restore.collocations)) wmState.collocations=restore.collocations.slice();
+    wmState.mastered=!!restore.mastered;
+    wmState.aiDef=restore.aiDef||'';
+    if(restore.definition) $('#wmDefinition').value=restore.definition;
+    renderWmMaster(); renderWmTags(); renderWmColls();
+    renderExCards(); syncRegen();
+    return;
+  }
+  /* 从词典页带过来的内容：释义、例句、标签、词形等 */
+  if(prefill){
+    if(prefill.definition&&!$('#wmDefinition').value.trim()) $('#wmDefinition').value=prefill.definition;
+    if(prefill.phonetic&&!$('#wmPhonetic').textContent) $('#wmPhonetic').textContent=prefill.phonetic;
+    /* 词典附带的考试标签也并进来（不覆盖已有标签） */
+    (prefill.tags||[]).forEach(t=>{ if(t&&!wmState.tags.includes(t)) wmState.tags.push(t); });
+    renderWmTags();
+  }
+  renderWmDictExtra(existing&&existing.dict?existing.dict:(prefill&&prefill.dict?prefill.dict:null));
+  /* 上次没保存就退出的草稿：直接接上，不再重新问 AI */
+  const dr=wmDraftGet(wmState.term);
+  if(dr){
+    if(dr.definition) $('#wmDefinition').value=dr.definition;
+    if(dr.phonetic&&!$('#wmPhonetic').textContent) $('#wmPhonetic').textContent=dr.phonetic;
+    if(dr.aiDef) wmState.aiDef=dr.aiDef;
+    if(dr.dictExtra&&!wmState.dictExtra){ wmState.dictExtra=dr.dictExtra; renderWmDictExtra(dr.dictExtra); }
+    if(Array.isArray(dr.tags)) wmState.tags=dr.tags.slice();
+    if(Array.isArray(dr.collocations)) wmState.collocations=dr.collocations.slice();
+    wmState.mastered=!!dr.mastered;
+    wmState.examples=(dr.examples||[]).map(x=>({en:x.en,cn:x.cn||'',sense:x.sense||''})).filter(x=>x.en);
+    renderWmMaster(); renderWmTags(); renderWmColls();
+    showWmDraftBar(dr);
+    if(wmState.examples.length){ renderExCards(); syncRegen(); }
+    else renderExCards();
+    return;
+  }
+  wmState.examples=((existing&&existing.examples)?existing.examples:(prefill&&prefill.examples)||[])
+    .map(x=>({en:x.en,cn:x.cn||'',sense:x.sense||''})).filter(x=>x.en);
+  ensureOrigFirst();
+  if(wmState.examples.length){ renderExCards(); syncRegen(); }
+  else renderExCards();
+}
+/* 核心：自动挑选 2-3 句典型例句 */
+function wmGenExamples(){
+  const term=wmState&&wmState.term;
+  if(!term||wmState.busy) return;
+  const mySeq=++wmSeq;
+  wmState.busy=true;
+  setRegenBusy(true,'AI 挑选中…');
+  renderExSkeleton();
+  const hasKey=aAiReady();
+  if(!hasKey){
+    /* 没配置 AI：退回免费词典的英文例句，并提示去配置 */
+    askDict(term).then(r=>{
+      if(mySeq!==wmSeq) return;
+      if(!$('#wmPhonetic').textContent&&r.phonetic) $('#wmPhonetic').textContent=r.phonetic;
+      if(!$('#wmDefinition').value.trim()&&r.definition) $('#wmDefinition').value=r.definition;
+      wmState.busy=false; setRegenBusy(false);
+      wmState.examples=(r.examples||[]).filter(x=>x&&x.en).slice(0,3);
+      ensureOrigFirst();
+      renderExCards({noKey:true});
+      scheduleWmDraft(200);
+    }).catch(()=>{
+      if(mySeq!==wmSeq) return;
+      wmState.busy=false; setRegenBusy(false);
+      wmState.examples=[];
+      renderExCards({noKey:true,notFound:true});
+    });
+    return;
+  }
+  aiPack(term).then(p=>{
+    if(mySeq!==wmSeq) return;
+    const raw=(p.examples||[]).filter(x=>x&&String(x.en).trim()).slice(0,3);
+    const seen=new Set(),uniq=[];
+    raw.forEach(x=>{
+      const k=String(x.en).trim().toLowerCase();
+      if(seen.has(k)) return;
+      seen.add(k);
+      uniq.push({en:String(x.en).trim(),cn:String(x.cn||'').trim(),sense:String(x.sense||'').trim()});
+    });
+    if(uniq.length<2) throw new Error('AI 至少需要返回 2 句例句');
+    wmState.busy=false; setRegenBusy(false);
+    wmState.examples=uniq;
+    ensureOrigFirst();
+    wmState.aiDef=String(p.definition||'').trim();
+    wmState.source='ai';
+    if(!$('#wmPhonetic').textContent&&p.phonetic) $('#wmPhonetic').textContent=String(p.phonetic).trim();
+    renderExCards();
+    scheduleWmDraft(200);
+    if(!uniq.length) toast('AI 没挑到例句，点「换一批例句」再试','warn');
+  }).catch(err=>{
+    if(mySeq!==wmSeq) return;
+    wmState.busy=false; setRegenBusy(false);
+    wmState.examples=[];
+    renderExCards({error:aiErrText(err)});
+  });
+}
+function renderExSkeleton(){
+  const box=$('#wmExamples');
+  if(!box) return;
+  box.innerHTML='<div class="ex-skel"></div><div class="ex-skel" style="height:58px;opacity:.6"></div>';
+}
+function exCardHTML(x,i){
+  const term=wmState?wmState.term:'';
+  return '<div class="ex-card">'+
+    (x.sense?'<span class="ex-sense">'+esc(x.sense)+'</span>':'')+
+    '<div class="ex-en-text" data-excn="'+i+'"><span class="t">'+qwHTML(x.en,term,term,i)+'</span></div>'+
+    (x.cn?'<div class="ex-cn-text hided" data-excn="'+i+'"><span class="cn-real">'+esc(x.cn)+'</span><span class="cn-tip">点这一行看中文</span></div>':'')+
+    '<div class="ex-act">'+
+      '<button class="ex-act-btn" data-wmplay="'+i+'" aria-label="发音"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>发音</button>'+
+      '<button class="ex-act-btn" data-follow="'+i+'" aria-label="跟读"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5v14l8-7z"/><path d="M12 5v14l8-7z"/></svg>跟读</button>'+
+    '</div>'+
+  '</div>';
+}
+function syncExCnBtn(){
+  const b=$('#wmCnAll');
+  if(!b) return;
+  const list=$$('#wmExamples .ex-cn-text');
+  const allShown=list.length>0&&list.every(el=>!el.classList.contains('hided'));
+  b.textContent=allShown?'收起中文':'显示全部中文';
+}
+function setExCnAll(show){
+  $$('#wmExamples .ex-cn-text').forEach(el=>el.classList.toggle('hided',!show));
+  syncExCnBtn();
+}
+function toggleExCnRow(enEl){
+  const card=enEl.closest('.ex-card');
+  const cn=card&&card.querySelector('.ex-cn-text');
+  if(!cn) return;
+  cn.classList.toggle('hided');
+  syncExCnBtn();
+}
+function renderExCards(opt){
+  opt=opt||{};
+  const box=$('#wmExamples');
+  if(!box) return;
+  const list=(wmState.examples||[]);
+  let tip='';
+  if(opt.error){
+    tip='<div class="ex-empty"><b>例句没生成出来</b><br>'+esc(opt.error)+
+      '<br>请检查设置里的接口地址 / API Key / 模型名，然后点「换一批例句」重试。</div>';
+  }else if(opt.noKey){
+    tip='<div class="ex-empty"><b>还没配置 AI，例句无法自动生成。</b><br>'+
+      (list.length?'下面是免费词典的英文例句（可能没有中文翻译）。':'当前词典也没有收录这个例句。')+
+      '<div style="margin-top:8px"><button class="mini-btn" id="exGoSettings" style="color:var(--accent);font-weight:700">去设置 API →</button></div></div>';
+  }else if(!list.length){
+    tip='<div class="ex-empty">先写自己的理解与句子，需要扩展时再点下方按钮请 ChatGPT 帮忙。</div>';
+  }
+  box.innerHTML=tip+list.map(exCardHTML).join('');
+  const gs=$('#exGoSettings');
+  if(gs) gs.addEventListener('click',()=>{ closeWordModal(); openSettings(); });
+  syncRegen(); syncExCnBtn();
+}
+function syncRegen(){
+  const b=$('#wmRegen');
+  if(!b||b.dataset.busy==='1') return;
+  b.textContent=(wmState&&wmState.examples&&wmState.examples.length)?'换一批 2—3 句':'生成 2—3 句例句';
+}
+function setRegenBusy(on,label){
+  const b=$('#wmRegen');
+  if(!b) return;
+  b.dataset.busy=on?'1':'0';
+  b.disabled=!!on;
+  b.textContent=on?(label||'AI 挑选中…'):'换一批例句';
+}
+function renderWmDictExtra(d){
+  const sec=$('#wmDictSec'),box=$('#wmDictExtra');
+  if(!sec||!box) return;
+  if(!d||(!(d.forms&&d.forms.length)&&!(d.phrs&&d.phrs.length)&&!(d.syno&&(d.syno.syno||[]).length+d.syno.antonym.length))){
+    sec.classList.add('hidden'); box.innerHTML=''; return;
+  }
+  let h='';
+  if(d.forms&&d.forms.length){
+    h+=d.forms.map(f=>'<div class="dx-row"><span class="dx-l">'+esc(f.label)+'</span><span class="dx-v">'+f.items.map(i=>'<span class="dx-chip">'+esc(i)+'</span>').join('')+'</span></div>').join('');
+  }
+  if(d.phrs&&d.phrs.length){
+    h+='<div class="dx-row"><span class="dx-l">词组</span><span class="dx-v">'+d.phrs.slice(0,6).map(x=>'<span class="dx-chip">'+esc(x)+'</span>').join('')+'</span></div>';
+  }
+  const sy=d.syno||{};
+  if((sy.syno||[]).length) h+='<div class="dx-row"><span class="dx-l">近义</span><span class="dx-v">'+esc(sy.syno.join('，'))+'</span></div>';
+  if((sy.antonym||[]).length) h+='<div class="dx-row"><span class="dx-l">反义</span><span class="dx-v">'+esc(sy.antonym.join('，'))+'</span></div>';
+  if((sy.rel||[]).length) h+='<div class="dx-row"><span class="dx-l">联想</span><span class="dx-v">'+esc(sy.rel.slice(0,8).join('；'))+'</span></div>';
+  box.innerHTML=h;
+  sec.classList.remove('hidden');
+}
+function collectExamples(){
+  return (wmState&&wmState.examples?wmState.examples:[])
+    .map(x=>({en:x.en,cn:x.cn||'',sense:x.sense||''}))
+    .filter(x=>x.en);
+}
+function renderWmTags(){
+  const box=$('#wmTags');
+  if(!box) return;
+  const sel=(wmState&&Array.isArray(wmState.tags))?wmState.tags:[];
+  const names=tagNames();
+  sel.forEach(t=>{ if(names.indexOf(t)<0) names.push(t); });
+  if(!names.length){
+    box.innerHTML='<div class="tag-empty">还没有标签类别。点右上角「＋ 新建类别」，先在「标签聚合」里建好，回到单词时直接勾选。</div>';
+    return;
+  }
+  box.innerHTML=names.map(t=>{
+    const on=sel.indexOf(t)>=0;
+    return '<button type="button" class="pick-chip'+(on?' on':'')+'" data-tag="'+esc(t)+'">'+(on?'✓ ':'')+'# '+esc(t)+'</button>';
+  }).join('');
+}
+function toggleWmTag(name){
+  const t=String(name||'').trim();
+  if(!t||!wmState) return;
+  if(!Array.isArray(wmState.tags)) wmState.tags=[];
+  const i=wmState.tags.indexOf(t);
+  if(i>=0) wmState.tags.splice(i,1); else wmState.tags.push(t);
+  renderWmTags();
+  scheduleWmDraft(200);
+}
+function saveWord(){
+  ensureOrigFirst();
+  const term=wmState.term;
+  const def=$('#wmDefinition').value.trim();
+  const examples=collectExamples();
+  const tags=[...new Set((wmState.tags||[]).map(putTag).filter(Boolean))];
+  const noteRef=wmState.note?{noteId:wmState.note.id,noteTitle:wmState.note.title}:null;
+  const word=upsertWord({term,phonetic:$('#wmPhonetic').textContent,definition:def,examples,tags,collocations:wmState.collocations||[],notes:noteRef?[noteRef]:[],source:wmState.existing?wmState.existing.source:(wmState.source||'ai'),mastered:wmState.mastered});
+  if(wmState.dictExtra) word.dict=wmState.dictExtra;
+  /* 手动切换掌握状态时，把记忆箱一起对齐 */
+  const s=ensureSrs(word);
+  if(wmState.mastered&&s.box<6){ s.box=6; s.due=Date.now()+30*DAY; }
+  if(!wmState.mastered&&s.box>=6){ s.box=5; s.due=Date.now(); }
+  word.mastered=s.box>=6;
+  if(!word.phonetic&&$('#wmPhonetic').textContent) word.phonetic=$('#wmPhonetic').textContent.trim();
+  save();
+  /* 已经存进表达库，草稿使命结束 */
+  wmState.saved=true;
+  wmDraftDel(term);
+  if(wmState.range&&!wmState.existing){
+    highlightWord(wmState.range,word);
+  }
+  closeWordModal();
+  toast(examples.length?('已加入表达库 · '+examples.length+' 条例句'):'已加入表达库');
+  render();
+}
+
+function highlightWord(range,word){
+  try{
+    const node=range.commonAncestorContainer;
+    const host=node.nodeType===1?node:node.parentElement;
+    if(!host||!editorWrap.contains(host)) return;
+    if(host.closest('.en-word')) return;
+    const span=document.createElement('span');
+    span.className='en-word';
+    span.setAttribute('data-wid',word.id);
+    span.title=(word.definition||'').replace(/\n/g,' · ').slice(0,140)+(word.examples&&word.examples[0]?'\n例：'+word.examples[0].en:'');
+    range.surroundContents(span);
+    lockWords(span);
+    const n=state.notes.find(x=>x.id===ui.note);
+    if(n){ n.content=bodyCleanHTML(); n.updatedAt=Date.now(); save(); }
+  }catch(_){ /* 选区已失效则跳过高亮 */ }
+}
+function closeWordModal(){
+  /* 没保存就关掉：把填过的内容存成草稿，下次打开同一个词接上 */
+  try{ clearTimeout(wmDraftTimer); wmDraftSave(); }catch(e){}
+  if($('#aiModal').classList.contains('show')) closeAiModal();
+  if(window.aImageCancel) window.aImageCancel();
+  imgSeq++;
+  $('#wordModal').classList.remove('show'); wmSeq++;
+  try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){}
+  /* 关弹窗顺手把键盘收起来，不然它会一直压着页面 */
+  try{ const a=document.activeElement; if(a&&a.blur&&a!==document.body) a.blur(); }catch(e){}
+  syncKbUI();
+}
+function renderWmMaster(){
+  const el=$('#wmMaster');
+  if(!el) return;
+  el.textContent=wmState.mastered?'已掌握':'未掌握';
+  el.classList.toggle('done',!!wmState.mastered);
+}
+
+/* ============ AI 对话（情景口语练习） ============ */
+let aiState={seq:0,phase:'scenes',term:'',termIds:[],terms:[],multiTurn:false,sceneIndex:-1,turnIndex:0,currentTargetWord:'',turnResults:[],definition:'',examples:[],scenes:[],scene:null,lines:[],attempt:'',attemptPromptCn:'',busy:false};
+let aiSession=0;
+const TONE_SYSTEM={
+  friend:'You are a friendly native English-speaking friend. Chat naturally and colloquially, correct mistakes lightly, teach one natural alternative per turn, and always stay warm and lively — never robotic.',
+  tutor:'You are a patient, rigorous private English tutor for Chinese learners. Give clear, detailed corrections and grammar explanations, and stay encouraging.',
+  humor:'You are a humorous, energetic English practice partner. Use light jokes and fun comments to keep practice entertaining, while still correcting clearly and correctly.',
+  strict:'You are a strict but fair English speaking-exam examiner. Point out errors directly, ask the learner to rephrase when needed, and score strictly.'
+};
+function toneSystem(){ return (TONE_SYSTEM[state.settings.tone]||TONE_SYSTEM.friend); }
+async function aiCall(messages,opts){
+  const st=aiApiConfig();
+  const base=(st.baseUrl||'').replace(/\/+$/,'');
+  if(!st.apiKey) throw new Error('未配置 '+(st.label||'模型')+' API Key，请先在设置中填写');
+  const canJson=st.name==='deepseek'||String(base).toLowerCase().indexOf('deepseek')>=0;
+  const once=async(useJson)=>{
+    const ctrl=new AbortController();
+    const to=opts&&opts.timeout||30000;
+    const timer=setTimeout(()=>ctrl.abort(),to);
+    try{
+      const body={model:st.model,temperature:0.85,messages};
+      if(opts&&opts.maxTokens) body.max_tokens=opts.maxTokens;
+      if(useJson) body.response_format={type:'json_object'};
+      const res=await fetch(base+'/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+st.apiKey},
+        body:JSON.stringify(body),
+        signal:ctrl.signal
+      });
+      if(!res.ok){
+        let t=''; try{ t=await res.text(); }catch(_){}
+        const err=new Error('HTTP '+res.status+' '+(t||'').slice(0,120));
+        err.status=res.status;
+        throw err;
+      }
+      const data=await res.json();
+      const message=data&&data.choices&&data.choices[0]&&data.choices[0].message||{};
+      const content=message.content||message.reasoning_content||'';
+      const p=parseAI(content);
+      if(!p) throw new Error('返回内容无法解析，请重试');
+      return p;
+    }finally{ clearTimeout(timer); }
+  };
+  try{
+    return await once(canJson);
+  }catch(err){
+    /* 有的模型/版本不支持 response_format，会被 400 拒掉，去掉参数再试一次 */
+    if(canJson&&err&&err.status===400) return await once(false);
+    throw err;
+  }
+}
+function aiWordCtx(){
+  const terms=(aiState.terms&&aiState.terms.length)?aiState.terms:(aiState.term?[aiState.term]:[]);
+  if(terms.length>1){
+    return '这些单词：'+terms.map(t=>'"'+t+'"').join('、')+'（释义：'+(aiState.definition||'暂无')+'）';
+  }
+  return '"'+aiState.term+'"（释义：'+(aiState.definition||'暂无')+(aiState.examples.length?'；例句：'+aiState.examples.join('；'):'')+'）';
+}
+function aiTargetTerm(value){
+  const raw=String(value||'');
+  const w=(state.words||[]).find(x=>x.id===raw);
+  return w?w.term:raw;
+}
+function aiScenePlanCacheKey(){
+  const ids=(aiState.allTermIds||aiState.termIds||[]).slice().sort();
+  const terms=(aiState.allTerms||aiState.terms||[aiState.term||'']).slice();
+  let model='';
+  try{ model=(typeof aiApiConfig==='function'&&aiApiConfig().model)||''; }catch(e){}
+  return 'english-notes-dialogue-plan-v1:'+JSON.stringify({ids,terms,model});
+}
+function aiSceneTermsPayload(){
+  const ids=aiState.allTermIds||aiState.termIds||[];
+  return ids.map(id=>{
+    const w=(state.words||[]).find(x=>x.id===id);
+    return {wordId:id,term:w&&w.term||'',definition:w&&String(w.definition||'').split('\n')[0]||'',example:w&&w.examples&&w.examples[0]&&w.examples[0].en||''};
+  });
+}
+function aiDialogueTermsPayload(){
+  const ids=aiState.termIds||[];
+  return ids.map(id=>{
+    const w=(state.words||[]).find(x=>x.id===id);
+    return {wordId:id,term:w&&w.term||'',definition:w&&String(w.definition||'').split('\n')[0]||''};
+  });
+}
+function aiNormalizeScenePlan(data){
+  const raw=Array.isArray(data&&data.scenes)?data.scenes:[];
+  if(!raw.length) return null;
+  if(!(aiState.terms&&aiState.terms.length>1)) return {scenes:raw.filter(x=>x&&String(x.title||'').trim()).slice(0,3).map(x=>({title:String(x.title).trim().slice(0,20),desc:String(x.desc||'').trim().slice(0,60)}))};
+  const allowed=new Set(aiState.allTermIds||aiState.termIds||[]),seen=new Set(),scenes=[];
+  raw.slice(0,3).forEach(x=>{
+    if(!x||!String(x.title||'').trim()||!Array.isArray(x.wordIds)) return;
+    const ids=x.wordIds.map(id=>String(id)).filter(id=>allowed.has(id)&&!seen.has(id)).slice(0,2);
+    if(!ids.length) return;
+    ids.forEach(id=>seen.add(id));
+    scenes.push({title:String(x.title).trim().slice(0,20),desc:String(x.desc||'').trim().slice(0,60),wordIds:ids});
+  });
+  if(seen.size!==allowed.size) return null;
+  return {scenes};
+}
+async function aiSuggestScenes(forceFresh){
+  const multi=aiState.terms&&aiState.terms.length>1;
+  try{
+    const cached=JSON.parse(localStorage.getItem(aiScenePlanCacheKey())||'null');
+    const normalized=cached&&cached.data&&aiNormalizeScenePlan(cached.data);
+    if(!forceFresh&&cached&&cached.at&&Date.now()-cached.at<7*24*60*60*1000&&normalized) return normalized;
+  }catch(e){}
+  const task=multi?'请按真实使用场景把这些词分成 1—3 个场景，每个场景 1—2 个词。每个词必须且只能出现在一个场景。优先选择最典型、最贴切的用法，避免为了凑数强行拼接。':'给出该词最常用、最适合做口语练习的 3 个生活或职场场景。';
+  const schema=multi?'严格输出 JSON：{"scenes":[{"title":"场景中文名，6字以内","desc":"20字以内说明","wordIds":["原样保留的词条ID"]}]}':'严格输出 JSON：{"scenes":[{"title":"场景中文名，6字以内","desc":"一句话说明这个场景里怎么用，20字以内（中文）"}]}';
+  const subject=multi?'目标词清单（wordId 必须从清单中原样复制，不能改成单词文本）：'+JSON.stringify(aiSceneTermsPayload()):'学习者在学 '+aiWordCtx();
+  const data=await aiCall([{role:'system',content:'你是英语情景口语设计者。直接输出一个 JSON 对象本身：不要 markdown、不要 ```json 代码块、不要任何解释或前后缀文字。'},
+    {role:'user',content:subject+'。'+task+schema}],multi?{maxTokens:520,timeout:15000}:undefined);
+  const normalized=aiNormalizeScenePlan(data);
+  if(!normalized) throw new Error('场景规划结果不完整，请重试');
+  try{ localStorage.setItem(aiScenePlanCacheKey(),JSON.stringify({at:Date.now(),data:normalized})); }catch(e){}
+  return normalized;
+}
+function aiFallbackSceneGroups(){
+  const ids=aiState.allTermIds||aiState.termIds||[],groups=[];
+  for(let i=0;i<ids.length;i+=2){const part=ids.slice(i,i+2);groups.push({title:'情景 '+(groups.length+1),desc:'把这组词放进一个自然对话',wordIds:part});}
+  return groups.slice(0,3);
+}
+function aiFallbackDialogue(){
+  const lines=[];
+  const scene=aiState.scene||{};
+  (aiState.termIds||[]).forEach((id,i)=>{
+    const w=(state.words||[]).find(x=>x.id===id);
+    if(i===0) lines.push({who:'A',en:'Let’s practice these expressions in a natural situation.',cn:'我们把这些表达放进一个自然场景里练习。'});
+    lines.push({who:'A',en:w&&w.examples&&w.examples[0]&&w.examples[0].en||('Let’s talk about '+(w&&w.term||'this expression')+' in the '+(scene.title||'situation')+'.'),cn:w&&w.examples&&w.examples[0]&&w.examples[0].cn||'请结合这个场景理解这句话。'});
+    lines.push({who:'YOU',wordId:id,promptCn:'请在“'+(scene.title||'这个场景')+'”中自然用出“'+(w&&w.term||'这个词')+'”。'});
+  });
+  return {lines};
+}
+function aiTextHasTerm(text,term){
+  const value=String(text||''),word=String(term||'').trim();
+  if(!value||!word) return false;
+  if(/\s/.test(word)) return value.toLowerCase().includes(word.toLowerCase());
+  const escaped=word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  return new RegExp('(^|[^a-z])'+escaped+'($|[^a-z])','i').test(value);
+}
+function aiDialogueWordId(value){
+  const raw=String(value||'').trim(),ids=aiState.termIds||[];
+  if(ids.includes(raw)) return raw;
+  const w=(state.words||[]).find(x=>ids.includes(x.id)&&String(x.term||'').toLowerCase()===raw.toLowerCase());
+  return w?w.id:raw;
+}
+function aiMaskClause(text,terms){
+  /* 含目标词就把整个小短句挖成 ____；挖完剩下的内容太少就返回空串，由调用方丢掉这一行 */
+  const raw=String(text||'').trim();
+  if(!raw) return '';
+  if(!terms.some(t=>aiTextHasTerm(raw,t))) return raw;
+  const parts=raw.match(/[^,，.;!?。；！？]*[,，.;!?。；！？]?/g)||[];
+  const masked=parts.map(part=>{
+    if(!part) return part;
+    if(!terms.some(t=>aiTextHasTerm(part,t))) return part;
+    const lead=(part.match(/^\s*/)||[''])[0];
+    return lead+'____ ';
+  }).join('').trim();
+  return masked.replace(/[\s_.]/g,'').length>=4?masked:'';
+}
+function aiCtxFromState(){
+  return {scene:aiState.scene||{},ids:(aiState.termIds||[]).slice(),multi:!!(aiState.terms&&aiState.terms.length>1)};
+}
+function aiCtxForScene(sc){
+  const source=aiState.allTermIds||aiState.termIds||[];
+  const ids=(Array.isArray(sc&&sc.wordIds)?sc.wordIds:[]).filter(id=>source.includes(id)).slice(0,2);
+  return {scene:sc||{},ids,multi:ids.length>1};
+}
+function aiWordTerm(id){ const w=(state.words||[]).find(x=>x.id===id); return w?w.term:aiTargetTerm(id); }
+function aiWordDef(id){ const w=(state.words||[]).find(x=>x.id===id); return w?String(w.definition||'').split('\n')[0]:''; }
+function aiPromptOf(ctx,id){
+  return '用「'+aiWordTerm(id)+'」说一句符合「'+((ctx.scene&&ctx.scene.title)||'这个场景')+'」的话。';
+}
+function aiNormalizeDialogue(rawLines,ctx){
+  /* 不再因为格式判死刑：截断、补齐、挖空、归一化 who，保证有几个词就能练几个 */
+  ctx=ctx||aiCtxFromState();
+  const scene=ctx.scene||{},multi=!!ctx.multi,ids=(ctx.ids||[]).slice();
+  const allTerms=ids.map(aiWordTerm).filter(Boolean);
+  const list=(Array.isArray(rawLines)?rawLines:[]).map(x=>{
+    if(!x) return null;
+    const who=String(x.who||'').trim();
+    return {who:(/^you$/i.test(who)||who==='你')?'YOU':'A',en:String(x.en||'').trim(),cn:String(x.cn||'').trim(),wordId:x.wordId?String(x.wordId):'',promptCn:String(x.promptCn||'').trim()};
+  }).filter(x=>x&&(x.who==='YOU'?!!x.promptCn:!!(x.en||x.cn)));
+  if(!list.length) return {lines:[],reason:'返回内容为空，请重试'};
+  if(!multi){
+    list.forEach(l=>{ if(l.who==='YOU'&&!/[\u3400-\u9fff]/.test(l.promptCn)) l.promptCn=aiPromptOf(ctx,ids[0]); });
+    if(!list.some(l=>l.who==='YOU')) list.push({who:'YOU',wordId:ids[0]||'',en:'',cn:'',promptCn:aiPromptOf(ctx,ids[0])});
+    return {lines:list.slice(0,6),reason:''};
+  }
+  const used={},keep=[];
+  list.forEach(line=>{
+    if(line.who==='YOU'){
+      let id=aiDialogueWordId(line.wordId);
+      if(!ids.includes(id)) id=ids.find(x=>!used[x])||'';
+      if(!id||used[id]) return;
+      used[id]=1; line.wordId=id;
+      if(!/[\u3400-\u9fff]/.test(line.promptCn)) line.promptCn=aiPromptOf(ctx,id);
+      keep.push(line); return;
+    }
+    const en=aiMaskClause(line.en,allTerms);
+    if(!en) return;
+    line.en=en;
+    allTerms.forEach(t=>{ if(line.cn) line.cn=line.cn.split(t).join('____'); });
+    if(keep.filter(x=>x.who!=='YOU').length>=ids.length+2) return;
+    keep.push(line);
+  });
+  ids.forEach(id=>{ if(!used[id]) keep.push({who:'YOU',wordId:id,en:'',cn:'',promptCn:aiPromptOf(ctx,id)}); });
+  if(!keep.some(l=>l.who==='YOU')) return {lines:[],reason:'对话缺少练习句，请重试'};
+  return {lines:keep,reason:''};
+}
+async function aiBuildDialogueFor(ctx,strictRetry){
+  /* 定档：4–5 行、英文 ≤18 词、中文只给方向和关键词；字数只是提示，超了本地截断，不判失败 */
+  const multi=!!ctx.multi;
+  const termList=ctx.ids.map(id=>({wordId:id,term:aiWordTerm(id),definition:aiWordDef(id)}));
+  const shape=multi
+    ?'只写 5 行，顺序固定：A、YOU、A、YOU、A。每个 YOU 对应一个目标词，带 wordId 和 promptCn。'
+    :'只写 4 行，顺序固定：A、YOU、A、A。只有 1 个 YOU 回合。';
+  const brief='A/B 的 en 每行最多 18 个词，要像真实对话里的自然句子。A/B 的 cn 不写整句翻译，只写「这句话在做什么 + 一个关键词英文」，12 字以内，例：他说该结账了，问你那份怎么付（settle the bill）。YOU 的 promptCn 只写方向，14 字以内，例：把信用卡递给他，顺便问返现。不要寒暄套话，不要解释，不要多余行。A/B 的 en 里禁止出现任何目标词。';
+  const messages=[
+    {role:'system',content:'你是英语口语教练。只输出一个 JSON 对象 {"lines":[...]}，不要 markdown、不要解释。'},
+    {role:'user',content:'场景「'+((ctx.scene&&ctx.scene.title)||'')+'」：'+((ctx.scene&&ctx.scene.desc)||'')+'。目标词：'+JSON.stringify(termList)+'。'+shape+brief+(strictRetry?'上一版行数不对，请严格按顺序和行数重写。':'')+' JSON：{"lines":[{"who":"A","en":"…","cn":"…"},{"who":"YOU","wordId":"…","promptCn":"…"}]}'}
+  ];
+  const opt=multi?{maxTokens:2000,timeout:25000}:{maxTokens:1200,timeout:20000};
+  try{ return await aiCall(messages,opt); }
+  catch(err){
+    if(!multi||!/解析|格式|JSON|返回内容/i.test(String(err&&err.message||''))) throw err;
+    return aiCall(messages.concat({role:'user',content:'只返回可解析 JSON，行数按上面要求。'}),opt);
+  }
+}
+async function aiCreateDialogueFor(ctx){
+  let last=null;
+  for(let attempt=0;attempt<2;attempt++){
+    try{
+      const result=await aiBuildDialogueFor(ctx,attempt>0);
+      const norm=aiNormalizeDialogue(result&&result.lines,ctx);
+      if(norm.lines.length) return norm.lines;
+      last=new Error(norm.reason||'对话内容为空，请重试');
+    }catch(err){
+      last=err;
+      if(!/解析|格式|JSON|返回内容/i.test(String(err&&err.message||''))) break;
+    }
+  }
+  throw last||new Error('对话内容为空，请重试');
+}
+async function aiCreateValidatedDialogue(){
+  return aiCreateDialogueFor(aiCtxFromState());
+}
+function aiShowLoading(t){ $('#aiBody').classList.add('hidden'); $('#aiLoading').classList.remove('hidden'); $('#aiLoadStatus').textContent=t; }
+function aiShowBody(){ $('#aiLoading').classList.add('hidden'); $('#aiBody').classList.remove('hidden'); }
+function aiSyncContext(phase){
+  const strip=$('#aiContextStrip'),word=$('#aiTargetWord'),hint=$('#aiRoundHint');
+  if(!strip)return;
+  const term=aiTargetTerm(String(aiState&&aiState.multiTurn&&aiState.currentTargetWord?aiState.currentTargetWord:aiState&&aiState.term||'').trim());
+  if(!term){ strip.classList.add('hidden'); return; }
+  if(word)word.textContent=term;
+  const sceneTxt=(aiState.multiTurn&&Array.isArray(aiState.scenes)&&aiState.scenes.length>1)?('场景 '+((aiState.sceneIndex>=0?aiState.sceneIndex:0)+1)+'/'+aiState.scenes.length+' · '):'';
+  if(hint)hint.textContent=phase==='practice'?(aiState.multiTurn?sceneTxt+'第 '+(aiState.turnIndex+1)+' / '+((aiState.lines||[]).filter(l=>l.who==='YOU').length||aiState.terms.length)+' 句 · 把这个词用进句子':'把目标词用进你的句子'):(phase==='review'?(sceneTxt+'看反馈，再试一次'):'选一个场景开始 · 1—2 个来回');
+  strip.classList.remove('hidden');
+}
+function aiSetChatbar(phase){
+  const bar=$('#aiChatbar'),input=$('#aiInput'),send=$('#aiSend'),again=$('#aiAgain');
+  aiSyncContext(phase);
+  if(phase==='scenes'){ bar.classList.add('hidden'); again.textContent='换一批情景'; }
+  else if(phase==='practice'){ bar.classList.remove('hidden'); input.placeholder='把上面中文提示说成英文（尽量用 '+aiState.term+'）…'; send.textContent='提交答案'; again.textContent='换个场景'; }
+  else if(phase==='review'){ bar.classList.add('hidden'); again.textContent='再来一轮'; }
+}
+function aiRenderScenes(){
+  const prev=(state.aiLog||[]).filter(x=>String(x.term).toLowerCase()===String(aiState.term).toLowerCase());
+  const scored=prev.filter(x=>Number(x.score)>0);const best=scored.length?Math.max.apply(null,scored.map(x=>Number(x.score)||0)):null;
+  const tip=aiState.scenePlanFallback?'AI 场景暂时不可用，下面是快速分组。点击“换一批情景”会重新请求 AI'
+    :(aiState.terms&&aiState.terms.length>1)?('一次对话练 '+aiState.terms.length+' 个词，选一个情景开始')
+    :(prev.length?('这个词练过 '+prev.length+' 次'+(best!=null?'，最高 '+best+' 分':'')+'，选一个情景继续'):'选择一个情景，开始今天的开口练习');
+  $('#aiScene').innerHTML='<div class="ai-hint">'+esc(tip)+'</div>'+
+    aiState.scenes.map((s,i)=>'<div class="scene-card" data-scene="'+i+'">'+
+      '<span class="scene-num">0'+(i+1)+'</span>'+
+      '<span class="scene-main"><span class="scene-title">'+esc(s.title)+'</span><span class="scene-desc">'+esc(s.desc||'')+'</span>'+(Array.isArray(s.wordIds)&&s.wordIds.length?'<span class="scene-words">'+s.wordIds.map(id=>{const w=(state.words||[]).find(x=>x.id===id);return w?'<span class="scene-word">'+esc(w.term)+'</span>':'';}).join('')+'</span>':'')+'</span>'+
+      '<svg class="icon-sm scene-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'+
+      '</div>').join('');
+}
+function aiRenderDialogue(){
+  let visible=aiState.lines;
+  if(aiState.multiTurn){const out=[],target=aiState.turnIndex||0;let seen=0;for(const l of aiState.lines){if(l.who==='YOU'){if(seen>target)break;out.push(l);if(seen===target)break;seen++;}else if(seen<=target)out.push(l);}visible=out;}
+  $('#aiScene').innerHTML=visible.map(l=>{
+    if(l.who==='YOU'){
+      return '<div class="ai-line ai-you"><div class="ai-text"><div class="ai-en"><span class="you-tag">你说</span><span class="you-prompt">'+esc(l.promptCn||'')+'</span>'+speakBtn(l.promptCn||'','zh-CN')+'</div></div></div>';
+    }
+    return '<div class="ai-line"><div class="ai-text"><div class="ai-en">'+esc(l.en||'')+speakBtn(l.en||'','en-US')+'</div>'+(l.cn?'<div class="ai-cn hided" data-aicn><span class="cn-real">'+esc(l.cn)+'</span><span class="cn-tip">点一下显示中文</span></div>':'')+'</div></div>';
+  }).join('');
+  $$('#aiScene [data-aicn]').forEach(el=>el.addEventListener('click',()=>el.classList.toggle('hided')));
+  $('#aiScene').scrollTop=$('#aiScene').scrollHeight;
+}
+function aiRenderReview(d,attempt){
+  const pitfalls=Array.isArray(d.pitfalls)?d.pitfalls.filter(Boolean).slice(0,2):[];
+  $('#aiScene').innerHTML=
+    '<div class="ai-line ai-user"><div class="ai-text"><div class="ai-en">'+esc(attempt)+speakBtn(attempt,'en-US')+'</div></div></div>'+
+    '<div class="ai-fb">'+
+      (d.standard?'<div class="ai-corrected"><span class="ai-corr-label">标准答案 · 点喇叭跟读</span><span class="ai-corr-en">'+esc(String(d.standard))+speakBtn(String(d.standard),'en-US')+'</span></div>':'')+
+      (d.fit?'<div class="ai-why"><span class="ai-why-label">为什么这样说</span>'+esc(String(d.fit))+'</div>':'')+
+      (pitfalls.length?'<div class="ai-pitfall"><span class="ai-why-label">容易错在</span>'+pitfalls.map(x=>'<span class="ai-pitfall-item">'+esc(String(x))+'</span>').join('')+'</div>':'')+
+      '<div class="ai-fb-actions"><button class="mini-btn" id="aiGotoScenes">换个场景</button></div>'+
+    '</div>';
+  $('#aiScene').scrollTop=$('#aiScene').scrollHeight;
+}
+function aiGotoScenes(){
+  stopAiDictation();
+  if(aiState.multiTurn){ aiRefreshScenes(); return; }
+  aiState.phase='scenes';
+  aiShowBody();
+  aiSetChatbar('scenes');
+  aiRenderScenes();
+}
+function aiRefreshScenes(){
+  const mySeq=++aiState.seq;
+  aiResetPrefetch();
+  aiState.phase='scenes'; aiState.scene=null; aiState.scenePlanFallback=false;
+  aiShowLoading('正在重新规划场景…');
+  aiSuggestScenes(true).then(r=>{
+    if(mySeq!==aiState.seq) return;
+    aiState.scenes=r.scenes||[]; aiState.phase='scenes'; aiState.scenePlanFallback=false;
+    aiShowBody(); aiSetChatbar('scenes'); aiRenderScenes();
+  }).catch(err=>{
+    if(mySeq!==aiState.seq) return;
+    aiState.scenes=aiFallbackSceneGroups(); aiState.phase='scenes'; aiState.scenePlanFallback=true;
+    aiShowBody(); aiSetChatbar('scenes'); aiRenderScenes();
+    toast(/abort|超时/i.test(String(err&&err.message||''))?'AI 场景请求超时，已显示快速分组':'AI 场景请求失败，已显示快速分组','warn');
+  });
+}
+let aiPrefetch={};
+let aiPrefetchTimer=null;
+function aiSceneKey(sc){ return String((sc&&sc.title)||'')+'|'+((sc&&sc.wordIds)||[]).join(','); }
+function aiResetPrefetch(){ aiPrefetch={}; if(aiPrefetchTimer){clearTimeout(aiPrefetchTimer);aiPrefetchTimer=null;} }
+function aiApplyDialogue(lines){
+  aiState.lines=lines;
+  if(typeof aiDialogueHistoryScene==='function') aiDialogueHistoryScene(aiState.scene,lines,aiState.termIds||[]);
+  const favorite=$('#aiFavorite');if(favorite&&!aiState.dialogueFavorited)favorite.disabled=false;
+  aiState.turnIndex=0;aiState.turnResults=[];
+  aiState.currentTargetWord=aiState.multiTurn?((lines.find(x=>x.who==='YOU')||{}).wordId||aiState.terms[0]):aiState.term;
+  aiState.phase='practice';
+  aiShowBody(); aiSetChatbar('practice'); aiRenderDialogue();
+}
+function aiSchedulePrefetch(delay){
+  if(aiPrefetchTimer){ clearTimeout(aiPrefetchTimer); aiPrefetchTimer=null; }
+  aiPrefetchTimer=setTimeout(()=>{
+    aiPrefetchTimer=null;
+    if(aiState.phase==='practice'&&!aiState.busy) aiPrefetchNextScene();
+  },delay||6000);
+}
+function aiPrefetchNextScene(){
+  if(!aiState.multiTurn||!Array.isArray(aiState.scenes)) return;
+  const nextIdx=(Number(aiState.sceneIndex)||0)+1;
+  if(nextIdx>=aiState.scenes.length) return;
+  const sc=aiState.scenes[nextIdx];
+  if(!sc) return;
+  const key=aiSceneKey(sc);
+  if(aiPrefetch[key]) return;
+  const ctx=aiCtxForScene(sc);
+  if(!ctx.ids.length) return;
+  aiPrefetch[key]='pending';
+  aiCreateDialogueFor(ctx).then(lines=>{
+    if(lines&&lines.length) aiPrefetch[key]=lines; else delete aiPrefetch[key];
+  }).catch(()=>{ delete aiPrefetch[key]; });
+}
+function startScene(sc){
+  if(!sc) return;
+  if(aiState.multiTurn) aiState.sceneIndex=Math.max(0,aiState.scenes.indexOf(sc));
+  if(aiState.multiTurn){
+    const sourceIds=aiState.allTermIds||aiState.termIds||[];
+    const ids=(Array.isArray(sc.wordIds)?sc.wordIds:[]).filter(id=>sourceIds.includes(id)).slice(0,2);
+    if(!ids.length){ toast('这个情景没有对应词条，请换一个情景','warn'); return; }
+    aiState.termIds=ids;
+    aiState.terms=ids.map(id=>aiWordTerm(id)).filter(Boolean);
+    aiState.term=aiState.terms.join(' · ');
+    aiState.definition=ids.map(id=>aiWordDef(id)).filter(Boolean).join('；');
+    aiState.examples=ids.reduce((out,id)=>{const w=(state.words||[]).find(x=>x.id===id);return out.concat(w&&w.examples?w.examples.map(x=>x.en).filter(Boolean):[]);},[]).slice(0,4);
+  }
+  aiState.scene=sc;
+  aiState.phase='practice';
+  aiState.attempt=''; aiState.attemptPromptCn='';
+  const session=aiSession,term=aiState.term,mySeq=++aiState.seq;
+  const key=aiSceneKey(sc);
+  if(aiState.multiTurn&&Array.isArray(aiPrefetch[key])&&aiPrefetch[key].length){
+    aiApplyDialogue(aiPrefetch[key]);
+    aiSchedulePrefetch(6000);
+    return;
+  }
+  aiShowLoading('正在生成对话…');
+  let fallbackShown=false;
+  const slowTimer=setTimeout(()=>{
+    if(session!==aiSession||term!==aiState.term||mySeq!==aiState.seq) return;
+    if(aiState.phase!=='practice'||(aiState.lines||[]).length||aiState.attempt) return;
+    const fb=aiFallbackDialogue();
+    aiApplyDialogue(fb.lines);
+    fallbackShown=true;
+    toast('AI 还没回，先用快速练习开始；它回来会自动替换','warn');
+  },10000);
+  aiCreateValidatedDialogue().then(lines=>{
+    clearTimeout(slowTimer);
+    if(session!==aiSession||term!==aiState.term||mySeq!==aiState.seq) return;
+    if(fallbackShown&&(aiState.attempt||aiState.turnIndex>0)) return;
+    aiApplyDialogue(lines);
+    aiSchedulePrefetch(6000);
+  }).catch(err=>{
+    clearTimeout(slowTimer);
+    if(session!==aiSession||term!==aiState.term||mySeq!==aiState.seq) return;
+    if(fallbackShown){ toast('AI 生成失败，继续用快速练习','warn'); return; }
+    aiState.phase='error';
+    aiShowBody();
+    aiSetChatbar('review');
+    $('#aiScene').innerHTML='<div class="empty-state">'+esc(aiErrText(err))+'<div style="margin-top:14px"><button class="btn primary" id="aiRetry">重新生成本场对话</button></div></div>';
+    const retry=$('#aiRetry'); if(retry) retry.addEventListener('click',()=>startScene(sc));
+  });
+}
+async function submitAttempt(){
+  if(aiState.phase!=='practice'||aiState.busy) return;
+  if(aiPrefetchTimer){clearTimeout(aiPrefetchTimer);aiPrefetchTimer=null;}
+  const input=$('#aiInput');
+  const text=input.value.trim();
+  if(!text){ toast('先把你的翻译说出来或写下来','warn'); return; }
+  stopAiDictation();
+  aiState.busy=true;
+  const youLines=aiState.lines.filter(l=>l.who==='YOU');
+  const youLine=aiState.multiTurn?(youLines[aiState.turnIndex]||youLines[0]):youLines[0];
+  aiState.attempt=text;
+  aiState.attemptPromptCn=(youLine&&youLine.promptCn)||'';
+  aiState.currentTargetWord=(youLine&&youLine.wordId)||aiState.term;
+  input.value='';
+  const session=aiSession,term=aiState.term,mySeq=++aiState.seq;
+  aiShowLoading('正在批改你的句子…');
+  aiJudge(text).then(d=>{
+    if(session!==aiSession||term!==aiState.term||mySeq!==aiState.seq) return;
+    aiState.phase='review';
+    aiShowBody();
+    aiSetChatbar('review');
+    aiRenderReview(d,text);
+    saveSpeakLog(d,text);
+    aiSchedulePrefetch(4000);
+  }).catch(err=>{
+    if(session!==aiSession||term!==aiState.term||mySeq!==aiState.seq) return;
+    aiShowBody();
+    aiSetChatbar('practice');
+    toast(String(err&&err.message||'批改失败，请重试'),'warn');
+  }).finally(()=>{ aiState.busy=false; });
+}
+function saveSpeakLog(d,attempt){
+  const sc=aiState.scene||{};
+  state.aiLog.unshift({
+    id:uid(),term:aiTargetTerm(aiState.currentTargetWord||aiState.term),scene:sc.title||'',sceneDesc:sc.desc||'',
+    promptCn:aiState.attemptPromptCn||'',attempt:String(attempt||''),
+    standard:String(d.standard||''),fit:String(d.fit||''),
+    pitfalls:Array.isArray(d.pitfalls)?d.pitfalls.filter(Boolean).slice(0,2):[],
+    createdAt:Date.now()
+  });
+  if(state.aiLog.length>300) state.aiLog.length=300;
+  save();
+  if(!aiState.multiTurn&&typeof aiDialogueHistoryTurn==='function') aiDialogueHistoryTurn({wordId:aiState.currentTargetWord||aiState.term,result:'reviewed',attempt:String(attempt||''),promptCn:aiState.attemptPromptCn||''});
+  renderSidebar();
+}
+function scoreClass(s){ return s>=80?'good':(s>=60?'mid':'bad'); }
+function renderSpeakLog(){
+  $('#paneTitle').textContent='口语记录';
+  $('#btnNewNote').style.display='none';
+  const box=$('#noteList');
+  const log=state.aiLog||[];
+  if(!log.length){
+    box.innerHTML='<div class="empty-state">'+
+      '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L4 21l1.2-3.7A8.4 8.4 0 1 1 21 11.5z"/></svg>'+
+      '<div><b>还没有练习记录</b><br>在单词卡片里点「AI 对话」，选一个情景开口翻译，记录会自动存在这里。</div></div>';
+    return;
+  }
+  const today=fmtDate(Date.now());
+  const todayCount=log.filter(x=>fmtDate(x.createdAt)===today).length;
+  const terms=new Set(log.map(x=>x.term)).size;
+  const itemHTML=x=>'<div class="log-item" data-log="'+x.id+'">'+
+    '<div class="log-top"><span class="log-term">'+esc(x.term)+'</span>'+
+      '<span class="log-scene">'+esc(x.scene||'情景练习')+'</span></div>'+
+    (x.attempt?'<div class="log-line">你：<b>'+esc(x.attempt)+'</b></div>':'')+
+    (x.standard?'<div class="log-line">标准：'+esc(x.standard)+'</div>':'')+
+    (x.fit?'<div class="log-line">为什么：'+esc(x.fit)+'</div>':'')+
+    ((x.pitfalls&&x.pitfalls.length)?'<div class="log-line">易错：'+esc(x.pitfalls.join('；'))+'</div>':'')+
+    '<div class="log-meta">'+fmtDate(x.createdAt)+' · 点一下再练一次</div>'+
+  '</div>';
+  let h='<div class="rv-stats" style="padding:14px 14px 6px">'+
+    '<div class="rv-stat"><div class="n">'+log.length+'</div><div class="l">练习次数</div></div>'+
+    '<div class="rv-stat"><div class="n">'+todayCount+'</div><div class="l">今天</div></div>'+
+    '<div class="rv-stat"><div class="n">'+terms+'</div><div class="l">涉及词条</div></div>'+
+  '</div>';
+  h+='<div class="sr-group"><div class="sr-group-title">最近记录 <span>'+Math.min(log.length,60)+'</span></div><div class="log-list" style="padding:0 0 20px">'+
+    log.slice(0,60).map(itemHTML).join('')+'</div></div>';
+  box.innerHTML=h;
+}
+function openAiPractice(term,scene){
+  const session=++aiSession;
+  const w=state.words.find(x=>String(x.term).toLowerCase()===String(term).toLowerCase());
+  const sc=scene&&scene.title?scene:{title:'自由练习',desc:'自然地把这个词用进一句话'};
+  aiState={seq:0,phase:'practice',term:String(term||''),termIds:w?[w.id]:[],terms:[],multiTurn:false,sceneIndex:-1,turnIndex:0,currentTargetWord:String(term||''),turnResults:[],definition:w?w.definition:'',
+    examples:w?(w.examples||[]).map(x=>x.en).slice(0,2):[],scenes:[],scene:sc,
+    lines:[],attempt:'',attemptPromptCn:'',busy:false};
+  if(typeof aiDialogueHistoryStart==='function') aiDialogueHistoryStart(w?[w]:[]);
+  $('#aiTitle').textContent='情景口语 · '+term;
+  $('#aiSub').textContent=sc.title;
+  $('#aiScoreChip').classList.add('hidden');
+  const favorite=$('#aiFavorite');if(favorite){favorite.textContent='收藏对话';favorite.disabled=true;}
+  $('#aiScene').innerHTML='';
+  $('#aiModal').classList.add('show');
+  if(!aAiReady()){
+    aiShowBody();
+    aiSetChatbar('scenes');
+    $('#aiScene').innerHTML=aiGuideHtml('未配置模型 API，练习前请先在设置里填写');
+    const r=$('#aiRetry'); if(r) r.addEventListener('click',()=>openAiPractice(term,sc));
+    const g=$('#aiGotoSettings'); if(g) g.addEventListener('click',()=>{ closeAiModal(); openSettings(); });
+    return;
+  }
+  if(session===aiSession) startScene(sc);
+}
+function aiAgainAction(){
+  if(aiState.phase==='scenes'){ if(aiState.multiTurn){ aiRefreshScenes(); return; } openAiDialogue(); return; }
+  if(aiState.phase==='practice'){ aiGotoScenes(); return; }
+  if(aiState.phase==='error'){ startScene(aiState.scene); return; }
+  if(aiState.phase==='review'){ startScene(aiState.scene); }
+}
+let aiDictation=null;
+let aiDictationBlocked=false;
+function stopAiDictation(){
+  const rec=aiDictation;
+  aiDictation=null;
+  $('#aiMic').classList.remove('on');
+  if(rec){try{rec.abort();}catch(_){}}
+}
+function aiMicDictate(){
+  if(aiState.busy||aiDictation)return;
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition,input=$('#aiInput');
+  const keyboard=()=>{
+    input.focus();
+    toast('可用键盘上的麦克风听写，或直接输入','warn');
+  };
+  if(!SR||aiDictationBlocked){keyboard();return;}
+  try{
+    const rec=new SR();
+    aiDictation=rec;
+    rec.lang='en-US'; rec.interimResults=false; rec.maxAlternatives=1;
+    rec.onresult=e=>{
+      if(aiDictation!==rec)return;
+      const t=(e.results[0][0].transcript||'').trim();
+      if(t){input.value=(input.value?input.value+' ':'')+t;input.focus();}
+    };
+    rec.onerror=e=>{
+      if(aiDictation!==rec)return;
+      stopAiDictation();
+      if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+        aiDictationBlocked=true;
+        keyboard();
+      }else toast('没听清，可以再试一次','warn');
+    };
+    rec.onend=()=>{
+      if(aiDictation!==rec)return;
+      aiDictation=null;
+      $('#aiMic').classList.remove('on');
+    };
+    stopSpeech();
+    rec.start();
+    $('#aiMic').classList.add('on');
+    toast('请说出你的英文翻译…');
+  }catch(_){stopAiDictation();keyboard();}
+}
+function aiGuideHtml(msg){
+  return '<div class="empty-state">'+esc(msg)+
+    '<div style="font-size:12.5px;color:var(--text2);line-height:1.9;margin-top:10px;text-align:left;background:var(--s2);border:1px solid var(--s4);border-radius:10px;padding:12px">使用方法：<br>① 点左上角菜单 → 最下方「设置」<br>② 点一个服务商按钮（DeepSeek / OpenAI / 智谱）<br>③ 粘贴你的 API Key → 保存设置<br>④ 回到这里再点「AI 对话」</div>'+
+    '<div style="display:flex;gap:8px;justify-content:center;margin-top:14px">'+
+    '<button class="btn" id="aiRetry">重试</button>'+
+    '<button class="btn primary" id="aiGotoSettings">去设置</button></div></div>';
+}
+function openAiDialogue(ev){
+  /* 只认真人点击：无事件的调用（自动触发）在词卡刚打开 1.5 秒内一律忽略 */
+  if(ev&&ev.isTrusted===false) return;
+  if(!wmState&&!$('#aiModal').classList.contains('show')) return;
+  if(!ev&&!$('#aiModal').classList.contains('show')&&Date.now()-(wmOpenedAt||0)<1500) return;
+  const term=wmState?wmState.term:aiState.term;
+  if(!term) return;
+  const session=++aiSession;
+  const ex=state.words.find(x=>x.term.toLowerCase()===term.toLowerCase());
+  const definition=(wmState&&($('#wmDefinition').value||'').trim())||(ex&&ex.definition)||aiState.definition||'';
+  const examples=wmState?collectExamples().map(x=>x.en).filter(Boolean):(aiState.examples||[]).slice();
+  if(!examples.length&&ex) examples.push(...(ex.examples||[]).map(x=>x.en).filter(Boolean));
+  aiState={seq:0,phase:'scenes',term,termIds:ex?[ex.id]:[],terms:[],multiTurn:false,sceneIndex:-1,turnIndex:0,currentTargetWord:term,turnResults:[],definition,examples,scenes:[],scene:null,lines:[],attempt:'',attemptPromptCn:'',busy:false};
+  if(typeof aiDialogueHistoryStart==='function') aiDialogueHistoryStart(ex?[ex]:[]);
+  $('#aiTitle').textContent='情景口语 · '+term;
+  $('#aiSub').textContent='选情景 → 开口翻译 → AI 批改 → 跟读';
+  $('#aiScoreChip').classList.add('hidden');
+  const favorite=$('#aiFavorite');if(favorite){favorite.textContent='收藏对话';favorite.disabled=true;}
+  $('#aiScene').innerHTML='';
+  $('#aiModal').classList.add('show');
+  const mySeq=++aiState.seq;
+  aiShowLoading('正在为你挑选最常用的情景…');
+  if(!aAiReady()){
+    aiShowBody();
+    aiSetChatbar('scenes');
+    $('#aiScene').innerHTML=aiGuideHtml('未配置模型 API，请先在设置中填写');
+    $('#aiRetry').addEventListener('click',openAiDialogue);
+    $('#aiGotoSettings').addEventListener('click',()=>{ closeAiModal(); openSettings(); });
+    return;
+  }
+  aiSuggestScenes().then(r=>{
+    if(session!==aiSession||term!==aiState.term||mySeq!==aiState.seq) return;
+    const sc=(r.scenes||[]).filter(x=>x&&x.title).slice(0,3);
+    if(!sc.length) throw new Error('返回内容无法解析，请重试');
+    aiState.scenes=sc;
+    aiState.phase='scenes';
+    aiShowBody();
+    aiSetChatbar('scenes');
+    aiRenderScenes();
+  }).catch(err=>{
+    if(session!==aiSession||term!==aiState.term||mySeq!==aiState.seq) return;
+    aiShowBody();
+    $('#aiScene').innerHTML='<div class="empty-state">'+esc(String(err&&err.message||'生成失败，请重试'))+'</div>';
+    const r=$('#aiRetry'); if(r) r.addEventListener('click',openAiDialogue);
+  });
+}
+function aiFinishAction(){
+  /* 批量对话：有下一个场景就自动进入，全部练完才关闭并回到分组列表 */
+  if(aiState&&aiState.multiTurn){
+    if(typeof batchAdvanceDialogueScene==='function'&&batchAdvanceDialogueScene()) return;
+    if(typeof batchMarkActiveGroup==='function') batchMarkActiveGroup();
+    if(typeof batchMarkActiveSegment==='function') batchMarkActiveSegment();
+    closeAiModal();
+    if(typeof batchOpen==='function') setTimeout(batchOpen,120);
+    return;
+  }
+  closeAiModal();
+}function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} }
+
