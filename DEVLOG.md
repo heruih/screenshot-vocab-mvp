@@ -129,6 +129,7 @@
 | 2026-11-19 | 真机验收“可以了”，新阶段7问题，确认方案一（先地基后功能）。①修复遮挡：#bCloudStatus 云状态按钮原固定右上角压住加号，改为 .cloud-status 固定 tabbar 上方（编辑/侧栏贴底、桌面贴底），帮助文案同步改“底部状态条” | node --check 通过；pages 构建 576794；浏览器验证加号命中自己、云状态条 sitsAboveTabbar | 已提交 042bfbb | 架构整理 |
 | 2026-11-19 | 架构轻整理：10 号大模块（309KB/1555行）按职责切 8 块（10a 收件箱、10b OCR、10c AI配额、10d 抽屉、10e 对话、10f 学习、10g 云、10h 种子）；156KB 种子独立成 10h，逻辑数据分离；构建模块列表同步 | 切割脚本校验重建逐字节一致；pages 产物 576794 与拆分前相同；两种构建通过；浏览器回归数据/收件箱24张/加号全正常 | 已提交 8d55e04 | 双产品管道 |
 | 2026-11-19 | 双产品管道：新增 src/products/personal.config.js 与 commercial.config.js（APP_CONFIG 含产品名+9个功能开关，暂全启用）；build.mjs 支持 --product=commercial/personal，构建时 config 注入单文件最前面；商业版输出路径不变，个人版输出 personal.html，pages 共用 ocr-assets | 两产品分别构建成功（577286/577471）；浏览器 DOM 注入验证两版 APP_CONFIG.product 正确、页面功能正常 | 已提交 eac0260 | 功能阶段：新手手册/左右滑/备忘录/易用性 |
+| 2026-11-19 | 跨设备兼容性排查 + 方案一落地（5 子任务）。①能力检测：新增 00_capabilities.js（SIMD/IDB/canvas/blob/standalone 探测，冻结 CAP），OCR 不支持时 loadOcrEngine 直接拦截、单图不显示重试、批量照常存图，顶部 cap-banner 友好提示；②PWA：新增 manifest（商业/个人各自 start_url）+ 图标（sharp 生成 192/512/maskable/180），maybeShowInstallGuide 第2次启动引导安装，根治 iOS 7 天数据驱逐；③适配：viewport-fit=cover、bottom-sheet 补 safe-area，长句 chunkSpeech 拆分+speakQueued 队列（防 Chrome 15 秒截断），首次手势 resume；④底部 5 tab（今日/笔记/表达库/复习/更多），侧栏瘦身去重只留标签聚合/口语/文件夹；⑤首页顶部今日任务卡（待复习/待整理+一键开始复习） | 两产品构建通过（586964/587158）；浏览器验证 CAP 全绿无横幅、长句切4块内容完整、5 tab 切换、任务卡按钮、五页回归 0 控制台错误 | 待提交 | 真机验收后发布商业站 |
 
 ## 规矩
 

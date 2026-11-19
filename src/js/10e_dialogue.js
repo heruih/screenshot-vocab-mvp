@@ -145,8 +145,22 @@ renderToday=function(){
   const quote=todayDailyQuote(),encouragement=todayEncouragement(pending.length,due.length,weak.length);
   const batch=dialogueBatchState(),reviewed=batchReviewedWords(batch).length,batchEntry=(batchReady(batch)||batch.plan)?'<div class="a-batch-entry"><div><b>今日批量情景对话</b><small>已完成复习 '+reviewed+' 个表达 · 每组约 5 个</small></div><button class="btn primary" id="aBatchOpen">'+(batch.plan?'继续场景练习':'规划今日场景')+'</button></div>':'';
   const inboxN=ocrInboxRead().length;
+  const organizeN=pending.length+inboxN;
+  const todayHero=
+    '<div class="today-hero">'+
+      '<div class="th-title">今日任务</div>'+
+      '<div class="th-nums">'+
+        '<div class="th-num"><b>'+due.length+'</b><span>待复习</span></div>'+
+        '<div class="th-num'+(organizeN?' hot':'')+'"><b>'+organizeN+'</b><span>待整理</span></div>'+
+      '</div>'+
+      '<div class="th-actions">'+
+        '<button class="th-btn primary" type="button" id="thStart">开始今日复习</button>'+
+        (organizeN?'<button class="th-btn" type="button" id="thOrganize">去整理</button>':'')+
+      '</div>'+
+    '</div>';
   const inboxEntry='<button class="inbox-entry'+(inboxN?' has-pending':'')+'" id="aInboxEntry" type="button"><span class="inbox-entry-main"><b>截图收件箱</b><small>'+(inboxN?inboxN+' 张待匹配截图':'已清空，点这里查看')+'</small></span><span class="inbox-entry-count">'+inboxN+'</span></button>';
   box.innerHTML=
+    todayHero+
     '<section class="daily-quote" aria-label="每日一句"><div class="daily-quote-kicker">每日一句</div><p class="daily-quote-en">'+esc(quote.en)+'</p><p class="daily-quote-cn">'+esc(quote.cn)+'</p><p class="daily-quote-foot">'+esc(encouragement)+'</p></section>'+
     '<div class="home-quick">'+
       '<button class="home-quick-item" data-hq="recall" type="button"><span class="hq-t">场景回想</span><span class="hq-d">看场景说英文 · 先回忆</span></button>'+
@@ -170,6 +184,10 @@ renderToday=function(){
     else if(g==='ai')todayAiDialogue();
   });
   $('#aInboxEntry').onclick=ocrInboxShow;
+  const thStart=$('#thStart');
+  if(thStart)thStart.onclick=()=>{ui.mode='flash';ui.flash=null;render();};
+  const thOrganize=$('#thOrganize');
+  if(thOrganize)thOrganize.onclick=()=>{ if(inboxN)ocrInboxShow(); else aOpenWords('pending'); };
   const go=g=>{if(g==='organize')aOpenWords('pending');if(g==='recall')aStartRecall();if(g==='flash'){ui.mode='flash';ui.flash=null;render();}};
   $$('#noteList [data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
   $('#aTodayWords').onclick=()=>aOpenWords('all');$('#aTodayWrite').onclick=()=>openWriteModal();$('#aTodayFavorites').onclick=aiOpenFavorites;$('#aTodayNew').onclick=aNewWord;$('#aTodayBackup').onclick=aOpenBackup;

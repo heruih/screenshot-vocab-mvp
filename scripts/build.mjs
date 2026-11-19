@@ -20,6 +20,7 @@ const read = (file) => fs.readFile(path.join(source, file), 'utf8');
 const template = await read('index.html');
 const style = await read('style.css');
 const modules = [
+  '00_capabilities.js',
   '01_core.js',
   '02_render.js',
   '03_editor.js',
@@ -71,5 +72,36 @@ await fs.mkdir(output, { recursive: true });
 // 商业版沿用现有文件名；个人版用独立文件名，两者在 pages 目录共用同一份 ocr-assets
 const fileBase = product === 'commercial' ? 'index' : 'personal';
 const target = path.join(output, publishPages ? `${fileBase}.html` : `英语学习笔记${product === 'commercial' ? '' : '-个人'}.html`);
-await fs.writeFile(target, html, 'utf8');
-console.log(`built ${target} (${Buffer.byteLength(html, 'utf8')} bytes, product=${product}, pages=${publishPages})`);
+
+// PWA：商业版与个人版各自的 manifest（start_url 指向自己的页面），图标共享
+const manifestFile = product === 'commercial' ? 'manifest.webmanifest' : 'personal-manifest.webmanifest';
+const manifest = {
+  name: '英语学习笔记',
+  short_name: '英语笔记',
+  description: '截图导入单词、AI 例句、间隔复习的随身英语学习工具',
+  id: `./${fileBase}.html`,
+  start_url: `./${fileBase}.html`,
+  scope: './',
+  display: 'standalone',
+  orientation: 'portrait',
+  background_color: '#000000',
+  theme_color: '#34c759',
+  icons: [
+    { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+    { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+    { src: 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+  ],
+};
+const finalHtml = html.replace('__MANIFEST__', () => manifestFile);
+await fs.writeFile(target, finalHtml, 'utf8');
+console.log(`built ${target} (${Buffer.byteLength(finalHtml, 'utf8')} bytes, product=${product}, pages=${publishPages})`);
+
+if (publishPages) {
+  await fs.writeFile(path.join(output, manifestFile), JSON.stringify(manifest, null, 2), 'utf8');
+  const iconsOut = path.join(output, 'icons');
+  await fs.mkdir(iconsOut, { recursive: true });
+  for (const f of ['icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon-180.png']) {
+    await fs.copyFile(path.join(source, 'pwa', f), path.join(iconsOut, f));
+  }
+  console.log('pwa manifest + icons ready');
+}

@@ -19,6 +19,7 @@ Promise.all([shotsInit(),inboxInit()]).catch(()=>{}).then(()=>{
 });
 syncKbUI();
 setTimeout(backupReminder,1600);
+setTimeout(maybeShowInstallGuide,2200);
 syncOnBoot();
 
 /* 页面被切走 / 直接关掉（没点保存）：先把 empower 草稿落盘 */

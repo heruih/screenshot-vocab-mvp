@@ -141,6 +141,7 @@ let ocrEngineMod=null;
 /* 动态 import 独立 PP-OCR 引擎并初始化（外部资源位于 ocr-assets/，单 HTML 不内联模型） */
 async function loadOcrEngine(){
   if(ocrEngineMod) return ocrEngineMod;
+  if(!CAP.ocr) throw new Error('当前浏览器不支持本地识别（需较新系统：iOS 16.4+ 或 Chrome 91+）');
   const base=new URL('ocr-assets/', document.baseURI).href;
   const mod=await import(base+'ocr-engine.mjs');
   await mod.init({ wasmPaths:base+'ort/', modelBase:base+'models/' });
@@ -236,10 +237,13 @@ async function ocrImportImage(event){
   };
   const attachRetry=()=>{ const rb=$('#ocrRetry'); if(rb) rb.addEventListener('click',doRetry); };
   const showFail=err=>{
-    if(st){
-      st.innerHTML='识别暂不可用（'+esc((err&&err.message)||'未知错误')+'）。可在下方手动输入，或 <button type="button" class="link-btn" id="ocrRetry">重试识别</button>';
-      attachRetry();
+    if(!st) return;
+    if(!CAP.ocr){
+      st.textContent='当前浏览器不支持自动识别（需 iOS 16.4+ 或 Chrome 91+），可在下方手动输入完整表达并保存截图。';
+      return;
     }
+    st.innerHTML='识别暂不可用（'+esc((err&&err.message)||'未知错误')+'）。可在下方手动输入，或 <button type="button" class="link-btn" id="ocrRetry">重试识别</button>';
+    attachRetry();
   };
   const doRetry=async ()=>{
     try{ await runRecognize(); }

@@ -45,9 +45,10 @@ async function volcTtsRequest(text){
   const raw=String(data&&data.data||'').trim();if(!raw)throw new Error('豆包语音没有返回音频');return raw.indexOf('data:')===0?raw:'data:audio/mpeg;base64,'+raw;
 }
 function volcTtsPlay(src,onend){const audio=new Audio(src);volcAudio=audio;let done=false;const finish=()=>{if(done)return;done=true;if(volcAudio===audio)volcAudio=null;if(cancelVolcSpeech===cancel)cancelVolcSpeech=null;onend&&onend();};const cancel=()=>{try{audio.pause();audio.currentTime=0;}catch(_){}if(cancelVolcSpeech===cancel)cancelVolcSpeech=null;};cancelVolcSpeech=cancel;audio.addEventListener('ended',finish,{once:true});audio.addEventListener('error',finish,{once:true});const p=audio.play();if(p&&p.catch)p.catch(finish);}
-async function playVolcAudio(text,lang,onend){stopSpeech();const key=volcTtsCacheKey(text,lang),seq=Date.now()+Math.random();volcTtsPlayPending=seq;try{let src=volcTtsReadCache(key);if(!src){src=await volcTtsRequest(text);volcTtsWriteCache(key,src);}if(volcTtsPlayPending!==seq)return false;volcTtsLastError='';volcTtsPlay(src,onend);return true;}catch(e){volcTtsLastError=(e&&e.message)||'豆包语音请求失败';if(volcTtsPlayPending===seq){const value=String(text||'').trim();if(lang==='en-US'&&!/\s/.test(value))playYoudaoAudio(value,lang,onend);else speakRaw(value,lang,onend);}return false;}}
+async function playVolcAudio(text,lang,onend){stopSpeech();const key=volcTtsCacheKey(text,lang),seq=Date.now()+Math.random();volcTtsPlayPending=seq;try{let src=volcTtsReadCache(key);if(!src){src=await volcTtsRequest(text);volcTtsWriteCache(key,src);}if(volcTtsPlayPending!==seq)return false;volcTtsLastError='';volcTtsPlay(src,onend);return true;}catch(e){volcTtsLastError=(e&&e.message)||'豆包语音请求失败';if(volcTtsPlayPending===seq){const value=String(text||'').trim();if(lang==='en-US'&&!/\s/.test(value))playYoudaoAudio(value,lang,onend);else speakQueued(value,lang,onend);}return false;}}
 let cancelDictionarySpeech=null;
 function stopSpeech(){
+  speechSeq++;
   if(cancelVolcSpeech)cancelVolcSpeech();
   if(cancelDictionarySpeech)cancelDictionarySpeech();
   try{window.speechSynthesis?.cancel();}catch(_){}
@@ -65,6 +66,43 @@ function speakRaw(text,lang,onend,voice){
     utterance.onerror=e=>{if(e.error!=='canceled'&&e.error!=='interrupted')onend();};
   }
   speechSynthesis.speak(utterance);
+}
+/* 长文本切分：优先在句末标点切，其次逗号/空格，绝不切断单词；每块不超过 max 字符 */
+function chunkSpeech(text,max){
+  const str=String(text||'').trim();
+  if(str.length<=max) return [str];
+  const out=[]; let cur='';
+  const flush=s=>{ const t=s.trim(); if(t)out.push(t); };
+  const sentences=str.match(/[^.!?;。！？；]+[.!?;。！？；]?\s*/g)||[str];
+  for(const s of sentences){
+    if((cur+s).length<=max){ cur+=s; continue; }
+    if(cur)flush(cur);
+    if(s.trim().length<=max){ cur=s; continue; }
+    cur='';
+    const tokens=s.split(/(\s+)/); let c='';
+    for(const tk of tokens){
+      if((c+tk).length<=max){ c+=tk; continue; }
+      if(c)flush(c);
+      c=tk;
+    }
+    cur=c;
+  }
+  if(cur)flush(cur);
+  return out;
+}
+let speechSeq=0;
+/* 长句队列：逐块顺序播放，前一块结束再播下一块；被 stopSpeech 中断即停止 */
+function speakQueued(text,lang,onend,voice){
+  const chunks=chunkSpeech(text,180);
+  if(!chunks.length){ onend?.(); return; }
+  if(chunks.length===1){ speakRaw(chunks[0],lang,onend,voice); return; }
+  const seq=++speechSeq; let i=0;
+  const next=()=>{
+    if(seq!==speechSeq) return;
+    if(i>=chunks.length){ onend?.(); return; }
+    speakRaw(chunks[i++],lang,next,voice);
+  };
+  next();
 }
 function playYoudaoAudio(text,lang,onend){
   stopSpeech();
@@ -97,13 +135,17 @@ function speak(text,lang,onend){
     playYoudaoAudio(value,locale,onend);
     return;
   }
-  speakRaw(value,locale,onend,voice);
+  speakQueued(value,locale,onend,voice);
 }
 function speakWord(term){speak(term,'en-US');}
 if('speechSynthesis' in window){
   const warm=()=>{ try{ speechSynthesis.getVoices(); }catch(e){} };
   try{ speechSynthesis.addEventListener('voiceschanged',warm); }catch(e){}
   warm();
+  // iOS 首次发声必须在用户手势内：第一次触摸/点击时 resume 解锁，避免后续播放被静默拦截
+  const unlock=()=>{ try{ if(speechSynthesis.paused)speechSynthesis.resume(); speechSynthesis.getVoices(); }catch(e){} };
+  try{ window.addEventListener('pointerdown',unlock,{once:true,passive:true}); }
+  catch(_){ window.addEventListener('touchstart',unlock,{once:true,passive:true}); }
 }
 function speakBtn(text,lang,kind){
   return '<button class="speak-btn" data-play="'+esc(text)+'"'+(lang?' data-play-lang="'+lang+'"':'')+(kind?' data-play-kind="'+kind+'"':'')+' aria-label="朗读"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>';
@@ -157,19 +199,13 @@ function syncTabbar(){
 
 function renderSidebar(){
   const sum=srsSummary();
-  $('#navAllCount').textContent=state.notes.length;
-  const tc=$('#navTodayCount'); if(tc) tc.textContent=todayNewWords().length;
-  $('#navWordCount').textContent=state.words.length;
-  $('#navTagCount').textContent=new Set(state.words.flatMap(w=>w.tags)).size;
-  $('#navFlashCount').textContent=sum.due;
-  const dot=$('#navFlashDot');
-  if(dot) dot.classList.toggle('hidden',sum.due===0);
+  const tagN=$('#navTagCount'); if(tagN) tagN.textContent=new Set(state.words.flatMap(w=>w.tags)).size;
   const sc=$('#navSpeakCount');
   if(sc) sc.textContent=state.aiLog.length;
   $('#statWords').textContent='收录 '+sum.all+' 词 · 待复习 '+sum.due+(sum.done?' · 已掌握 '+sum.done:'');
   $$('#sideNav .nav-item').forEach(el=>{
     const k=el.dataset.nav;
-    el.classList.toggle('active',(k==='today'&&ui.mode==='today')||(k==='all'&&ui.mode==='list'&&ui.folder==='all')||(k==='words'&&ui.mode==='words')||(k==='tags'&&ui.mode==='tags')||(k==='flash'&&ui.mode==='flash')||(k==='speak'&&ui.mode==='speak'));
+    el.classList.toggle('active',(k==='tags'&&ui.mode==='tags')||(k==='speak'&&ui.mode==='speak'));
   });
   const fl=$('#folderList');
   fl.innerHTML=state.folders.map(f=>{
