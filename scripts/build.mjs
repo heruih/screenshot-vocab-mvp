@@ -3,7 +3,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const publishPages = process.argv.includes('--pages');
+const args = process.argv.slice(2);
+const publishPages = args.includes('--pages');
+
+// 产品维度：默认 commercial；可选 personal
+const productArg = args.find((a) => a.startsWith('--product='));
+const product = productArg ? productArg.split('=')[1] : 'commercial';
+if (!['commercial', 'personal'].includes(product)) {
+  throw new Error(`未知产品 --product=${product}，只支持 commercial / personal`);
+}
+
 const source = path.join(project, 'src');
 const output = path.join(project, 'dist', publishPages ? 'pages' : '');
 const read = (file) => fs.readFile(path.join(source, file), 'utf8');
@@ -52,9 +61,15 @@ function buildPagesScript(sourceScript) {
     .replace("bSetStatus('离线本机 · 已保存');", "bSetStatus('本机已保存');");
 }
 
-const appScript = publishPages ? buildPagesScript(script) : script;
+// 产品配置：注入到脚本最前面，成为全局 APP_CONFIG（在 pages 处理之后注入，不干扰行定位）
+const config = await read(path.join('products', `${product}.config.js`));
+const bodyScript = publishPages ? buildPagesScript(script) : script;
+const appScript = config + '\n' + bodyScript;
+
 const html = template.replace('__EN_STYLE__', () => style).replace('__EN_SCRIPT__', () => appScript);
 await fs.mkdir(output, { recursive: true });
-const target = path.join(output, publishPages ? 'index.html' : '英语学习笔记.html');
+// 商业版沿用现有文件名；个人版用独立文件名，两者在 pages 目录共用同一份 ocr-assets
+const fileBase = product === 'commercial' ? 'index' : 'personal';
+const target = path.join(output, publishPages ? `${fileBase}.html` : `英语学习笔记${product === 'commercial' ? '' : '-个人'}.html`);
 await fs.writeFile(target, html, 'utf8');
-console.log(`built ${target} (${Buffer.byteLength(html, 'utf8')} bytes)`);
+console.log(`built ${target} (${Buffer.byteLength(html, 'utf8')} bytes, product=${product}, pages=${publishPages})`);
