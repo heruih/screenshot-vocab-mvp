@@ -1,6 +1,7 @@
-function ocrAttachShot(w,dataUrl){
+async function ocrAttachShot(w,dataUrl){
   const all=shotsAll(),k=shotsKeyOf(w.term),list=Array.isArray(all[k])?all[k]:[];
-  if(list.length>=SHOT_MAX_PER_WORD||shotsTotal(all)>=SHOT_MAX_TOTAL)return false;
+  const attachCap=await shotCapacity();
+  if(list.length>=SHOT_MAX_PER_WORD||shotsTotal(all)>=attachCap)return false;
   list.push({id:uid(),dataUrl,at:Date.now()});all[k]=list;return shotsFlush(all);
 }
 async function ocrInboxConfirm(id){
@@ -24,10 +25,10 @@ async function ocrInboxConfirm(id){
   if(!targets.length){toast('先点候选词，或手动输入至少一个词','warn');return;}
   /* 同一张图依次挂到所有目标词；某个词满了就跳过并记录 */
   let ok=0;const failed=[],createdIds=[];
-  targets.forEach(t=>{
-    if(ocrAttachShot(t.w,item.dataUrl)){ok++;if(t.created)createdIds.push(t.w.id);}
+  for(const t of targets){
+    if(await ocrAttachShot(t.w,item.dataUrl)){ok++;if(t.created)createdIds.push(t.w.id);}
     else failed.push(t.w.term);
-  });
+  }
   if(!ok){toast('这些词都没挂上（可能已满 4 张），截图保留在收件箱','warn');return;}
   await inboxRemoveItem(id);
   createdIds.forEach(cid=>aPut(cid,{stage:'pending'}));save();if(ui.mode==='words')renderWordsPane();render();ocrInboxRender();
@@ -51,10 +52,11 @@ async function ocrImportBatch(files,noteId){
     if(pText)pText.textContent='正在导入 '+n+' / '+files.length+' 张';
   };
   setProgress(0);
-  /* 导入前提示：IDB 模式按张数上限，LS 模式按剩余字节 */
+  /* 动态配额：IDB 模式按真实剩余空间算可存张数，不再写死 2000；LS 模式按剩余字节 */
+  const shotCap=inboxUseIdb?await shotCapacity():0;
   if(inboxUseIdb){
     const curN=shotsTotal(shotsAll())+(inboxCache?inboxCache.length:0);
-    if(st)st.textContent='正在处理 '+files.length+' 张截图…截图库共可存 '+SHOT_MAX_TOTAL+' 张，当前已有 '+curN+' 张（每处理一张就保存，可随时关闭）';
+    if(st)st.textContent='正在处理 '+files.length+' 张截图…按当前剩余空间预计还可存约 '+shotCap+' 张，当前已有 '+curN+' 张（每处理一张就保存，可随时关闭）';
   }else{
     const pre=storageQuote();
     if(st)st.textContent='正在处理 '+files.length+' 张截图…当前剩余空间约 '+fmtBytes(pre.free)+'（每处理一张就保存，可随时关闭）';
@@ -78,13 +80,13 @@ async function ocrImportBatch(files,noteId){
       }
     }catch(_){failed++;continue;}
     /* 写入前容量预检：
-       IDB 模式不受 LS 5MB 限制，只按总张数上限 SHOT_MAX_TOTAL 控制；
+       IDB 模式按动态配额（真实剩余空间）控制；
        LS 回退模式才按字节配额提前停止，不触发 setItem 异常。 */
     const itemBytes=byteLen(dataUrl)+128;
     if(inboxUseIdb){
-      if(shotsTotal(shotsAll())+list.length+1>SHOT_MAX_TOTAL){
-        if(st)st.textContent='已达截图库上限（'+SHOT_MAX_TOTAL+' 张）：已保存 '+saved+' 张，剩余 '+(files.length-i)+' 张未导入。';
-        toast('截图库已达上限','warn');
+      if(shotsTotal(shotsAll())+list.length+1>shotCap){
+        if(st)st.textContent='剩余空间将满：已保存 '+saved+' 张，剩余 '+(files.length-i)+' 张未导入。可先导出备份或清理后再导入。';
+        toast('截图库剩余空间不足，已停止导入','warn');
         if(prog)prog.classList.add('hidden');
         ocrInboxRender();
         return;
@@ -104,7 +106,7 @@ async function ocrImportBatch(files,noteId){
       setProgress(saved);
       estAvg=estAvg?Math.round((estAvg+itemBytes)/2):itemBytes;
       const canMore=inboxUseIdb
-        ? Math.max(0,SHOT_MAX_TOTAL-shotsTotal(shotsAll())-inboxCache.length)
+        ? Math.max(0,shotCap-shotsTotal(shotsAll())-inboxCache.length)
         : (estAvg?Math.floor(storageQuote().free/estAvg):0);
       if(st)st.textContent='已保存 '+(i+1)+' / '+files.length+' 张 · 预计还能存约 '+canMore+' 张（可随时关闭，已存的不会丢）';
     }catch(writeErr){
@@ -256,7 +258,7 @@ async function ocrImportImage(event){
     showFail(e);
   }
 }
-function ocrMount(){
+async function ocrMount(){
   const ed=$('#ocrEdit');
   const text=ed?ed.value.trim():'';
   if(!ocrDataUrl){ toast('先选一张截图','warn'); return; }
@@ -273,7 +275,8 @@ function ocrMount(){
   const k=shotsKeyOf(w.term);
   const list=Array.isArray(all[k])?all[k]:[];
   let linked=0;
-  if(list.length<SHOT_MAX_PER_WORD&&shotsTotal(all)<SHOT_MAX_TOTAL){
+  const mountCap=await shotCapacity();
+  if(list.length<SHOT_MAX_PER_WORD&&shotsTotal(all)<mountCap){
     list.push({id:uid(),dataUrl:ocrDataUrl,at:Date.now()});
     all[k]=list; linked=1;
   }

@@ -20,6 +20,8 @@ Promise.all([shotsInit(),inboxInit()]).catch(()=>{}).then(()=>{
 syncKbUI();
 setTimeout(backupReminder,1600);
 setTimeout(dataSafetyLaunch,2200);
+/* 首屏稳定后再启动存量配图落地，后台静默、不抢资源、不影响使用 */
+setTimeout(()=>{ try{ imgBackfillSchedule(); }catch(_){} },6000);
 syncOnBoot();
 
 /* 页面被切走 / 直接关掉（没点保存）：先把 empower 草稿落盘 */

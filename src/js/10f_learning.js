@@ -192,6 +192,15 @@ async function aImageOpen(term,force){
   const t=String(term||'').trim();if(!t)return;
   if(aImageRequestTerm&&aImageRequestTerm!==t)aImageCancel();
   const rec=aImageRecord(t);rec.term=t;
+  /* 本地已落地的图优先：固定显示，不依赖网络、不重新搜（force 时才允许走外链强刷） */
+  if(!force){
+    const blobUrl=await imgLocalUrl(t);
+    if(blobUrl){
+      wmIllusPaint({term:t,cands:[{src:blobUrl,thumb:blobUrl,credit:''}],idx:0,src:'local-blob'});
+      aImageBindSwipe();
+      return;
+    }
+  }
   if(!force&&rec.confirmed&&aImageRenderAi(t)){aImageBindSwipe();return;}
   if(!force&&aImageRenderAi(t)){aImageBindSwipe();return;}
   const photo=typeof photoKey==='function'?photoKey():null;

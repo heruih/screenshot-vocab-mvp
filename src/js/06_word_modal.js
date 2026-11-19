@@ -13,6 +13,83 @@ let imgState={term:'',cands:[],idx:0,src:''};
 let paintedTerm='';               /* 已经画出来的词：同一个词再打开直接沿用 */
 let wmOpenedAt=0;                 /* 词卡刚打开的时间：用于挡住"自动弹情景口语" */
 let paintedRec=null;
+
+/* ============ 配图落地：把外链图下载、压缩成 Blob 存 IDB，真正固定、离线可用 ============ */
+const IMG_LOCAL_EDGE=320;          /* 落地缩略图长边 */
+const IMG_LOCAL_QUALITY=0.6;
+let imgObjectUrlMap={};            /* term -> 当前 objectURL，避免重复创建/泄漏 */
+function imgRevokeObjectUrl(term){
+  const k=wmImgKeyOf(term);
+  if(imgObjectUrlMap[k]){ try{URL.revokeObjectURL(imgObjectUrlMap[k]);}catch(_){} delete imgObjectUrlMap[k]; }
+}
+function imgMakeObjectUrl(term,blob){
+  const k=wmImgKeyOf(term);
+  if(imgObjectUrlMap[k]){ try{URL.revokeObjectURL(imgObjectUrlMap[k]);}catch(_){} }
+  const u=URL.createObjectURL(blob);
+  imgObjectUrlMap[k]=u;
+  return u;
+}
+/* 压缩任意图片 Blob 到 320 长边 JPEG Blob */
+function imgShrinkBlob(blob){
+  return createImageBitmap(blob).then(bm=>{
+    const sc=Math.min(1,IMG_LOCAL_EDGE/Math.max(bm.width,bm.height));
+    const w=Math.max(1,Math.round(bm.width*sc)),h=Math.max(1,Math.round(bm.height*sc));
+    const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+    cv.getContext('2d').drawImage(bm,0,0,w,h);
+    try{ bm.close&&bm.close(); }catch(_){}
+    return new Promise(res=>cv.toBlob(res,'image/jpeg',IMG_LOCAL_QUALITY));
+  });
+}
+/* 落地一个词：fetch 外链 -> 压缩 -> 存 IDB。失败静默返回 false，保留 URL 兜底，不打扰用户 */
+async function imgLocalize(term,url){
+  try{
+    const res=await fetch(url);
+    if(!res.ok)return false;
+    const blob=await res.blob();
+    if(!blob||blob.size===0)return false;
+    const small=await imgShrinkBlob(blob);
+    if(!small)return false;
+    await imgBlobSet(term,small);
+    return true;
+  }catch(_){ return false; }
+}
+/* 取本地落地图的 objectURL；没有返回 null */
+async function imgLocalUrl(term){
+  try{
+    const blob=await imgBlobGet(term);
+    if(!blob||!(blob.size>0))return null;
+    return imgMakeObjectUrl(term,blob);
+  }catch(_){ return null; }
+}
+/* 存量配图后台迁移：把已有外链图逐个落地，串行+让出主线程，不阻塞、不影响使用 */
+let imgBackfillRunning=false,imgBackfillQueued=false;
+async function imgBackfillOnce(){
+  if(imgBackfillRunning)return;
+  imgBackfillRunning=true;
+  try{
+    const all=wmImgAll(),keys=Object.keys(all);
+    for(const k of keys){
+      const rec=all[k];if(!rec)continue;
+      const term=rec.term||k;
+      let has=false;
+      try{ const b=await imgBlobGet(term);has=!!(b&&b.size); }catch(_){}
+      if(has)continue;
+      const cand=(Array.isArray(rec.cands)&&(rec.cands[rec.idx||0]||rec.cands[0]))||null;
+      const url=cand&&(cand.thumb||cand.src);
+      if(!url||!/^https?:\/\//i.test(url))continue;
+      await imgLocalize(term,url);
+      await new Promise(r=>setTimeout(r,150));   /* 每个之间让出主线程，保持流畅 */
+    }
+  }catch(_){}
+  imgBackfillRunning=false;
+}
+function imgBackfillSchedule(){
+  if(imgBackfillQueued)return;
+  imgBackfillQueued=true;
+  const kick=()=>{ imgBackfillQueued=false;imgBackfillOnce(); };
+  if(window.requestIdleCallback)requestIdleCallback(kick,{timeout:4000});
+  else setTimeout(kick,1800);
+}
 function wmImgAll(){
   try{ const o=JSON.parse(localStorage.getItem(WM_IMG_KEY)||'{}'); return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}; }catch(_){ return {}; }
 }
@@ -148,7 +225,15 @@ function wmIllusPaint(rec){
   if(img){
     img.alt=rec.term||'';
     try{ img.referrerPolicy='no-referrer'; }catch(_){ }
-    img.onload=()=>{ if(skel) skel.classList.add('hidden'); img.classList.add('ok'); };
+    img.onload=()=>{
+      if(skel) skel.classList.add('hidden');
+      img.classList.add('ok');
+      /* 外链图加载成功：后台静默落地，下次打开即固定本地这张，不阻塞当前操作 */
+      const picUrl=c.thumb||c.src||'';
+      if(rec.src!=='local-blob'&&/^https?:\/\//i.test(picUrl)){
+        try{ imgLocalize(rec.term,picUrl); }catch(_){ }
+      }
+    };
     img.onerror=()=>wmIllusBroken(rec);
     img.src=c.thumb||c.src;
   }
@@ -284,6 +369,18 @@ async function wmIllusLoad(term){
     if(boxEl) boxEl.classList.remove('hidden');
     const sk=$('#wmIllusSkel'); if(sk) sk.classList.add('hidden');
     if(paintedRec) imgState=paintedRec;
+    return;
+  }
+  /* 0) 本地已落地的图：直接读 Blob 固定显示，不依赖网络、不闪骨架、不重新搜 */
+  ++imgSeq;
+  const myBlob=imgSeq;
+  const localBlobUrl=await imgLocalUrl(t);
+  if(myBlob!==imgSeq)return;
+  if(localBlobUrl){
+    wmMemoHide();
+    if(boxEl)boxEl.classList.remove('hidden');
+    const skb=$('#wmIllusSkel');if(skb)skb.classList.add('hidden');
+    wmIllusPaint({term:t,cands:[{src:localBlobUrl,thumb:localBlobUrl,credit:''}],idx:0,src:'local-blob'});
     return;
   }
   ++imgSeq;

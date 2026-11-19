@@ -155,7 +155,7 @@ function aImageCacheStats(all,words){
   const missingTerms=[];
   list.forEach(w=>{
     const rec=cache[wmImgKeyOf(w&&w.term)],has=!!(rec&&(rec.local||(Array.isArray(rec.cands)&&rec.cands.length)||(rec.memo&&rec.memo.scene)));
-    if(has){cachedWords++;if(rec.confirmed)confirmedWords;}else if(w&&w.term)missingTerms.push(String(w.term));
+    if(has){cachedWords++;if(rec.confirmed)confirmedWords++;}else if(w&&w.term)missingTerms.push(String(w.term));
   });
   return {records:Object.keys(cache).length,cachedWords,confirmedWords,missingWords:missingTerms.length,missingTerms:missingTerms.slice(0,20)};
 }
@@ -166,16 +166,39 @@ function aImageStatsFromStorage(storage){
   return aImageCacheStats(all,words);
 }
 function aBackupKeys(){const out={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('english-notes-'))out[k]=localStorage.getItem(k);}return out;}
-function aBackupObject(){
+/* 落地配图备份 key：存 {单词小写: dataURL}，独立 key，不与旧缓存冲突 */
+const WM_IMG_BLOB_KEY='english-notes-wmimg-blob-v1';
+/* 把 images store 的 Blob 全部转 dataURL，组装成备份对象 */
+async function imgBlobToBackup(){
+  const out={};
+  let keys=[];
+  try{ keys=await imgBlobAllKeys(); }catch(_){ return out; }
+  for(const k of keys){
+    let b=null;
+    try{ b=await idbGet(IDB_STORE_IMAGES,k); }catch(_){}
+    if(!b)continue;
+    const durl=await new Promise(res=>{
+      const fr=new FileReader();
+      fr.onload=()=>res(fr.result);
+      fr.onerror=()=>res(null);
+      fr.readAsDataURL(b);
+    });
+    if(durl)out[k]=durl;
+  }
+  return out;
+}
+async function aBackupObject(){
   const image=aImageCacheStats(wmImgAll(),state.words);
   const storage=aBackupKeys();
   /* 截图/收件箱已迁到 IDB，导出时用内存里的最新数据覆盖，避免漏掉新图 */
   if(shotReady) storage[SHOTS_KEY]=JSON.stringify(shotCache);
   if(inboxReady) storage[SHOT_INBOX_KEY]=JSON.stringify(inboxCache);
+  /* 落地配图：Blob 转 dataURL 纳入备份，保证换设备不丢 */
+  try{ const blobPack=await imgBlobToBackup(); if(Object.keys(blobPack).length)storage[WM_IMG_BLOB_KEY]=JSON.stringify(blobPack); }catch(_){}
   return {format:'english-notes-full',version:2,exportedAt:new Date().toISOString(),origin:location.origin,counts:{words:state.words.length,notes:state.notes.length,shots:shotsTotal(shotsAll()),writing:writeLogAll().length,imageCache:image.records,imageCacheWords:image.cachedWords,imageCacheConfirmed:image.confirmedWords,imageCacheMissing:image.missingWords},storage:storage};
 }
-function aDownloadBackup(){
-  try{if(ui.mode==='edit')persistEditor();if(wmState&&!wmState.saved)wmDraftSave();writeDraftSave();const pack=aBackupObject();const blob=new Blob([JSON.stringify(pack,null,2)],{type:'application/json'});const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download='英语学习完整备份-'+aDate(Date.now())+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);$('#aBackupStatus').textContent='已请求下载：'+pack.counts.words+' 个表达、'+pack.counts.shots+' 张截图、'+pack.counts.writing+' 篇写作。请在下载列表确认文件已保存。';}
+async function aDownloadBackup(){
+  try{if(ui.mode==='edit')persistEditor();if(wmState&&!wmState.saved)wmDraftSave();writeDraftSave();const pack=await aBackupObject();const blob=new Blob([JSON.stringify(pack,null,2)],{type:'application/json'});const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download='英语学习完整备份-'+aDate(Date.now())+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);$('#aBackupStatus').textContent='已请求下载：'+pack.counts.words+' 个表达、'+pack.counts.shots+' 张截图、'+pack.counts.writing+' 篇写作。请在下载列表确认文件已保存。';}
   catch(e){toast('备份失败：'+e.message,'warn');}
 }
 function aMergeArray(local,remote,kind){
@@ -237,7 +260,13 @@ function aPrepareImport(pack){
   Object.keys(storage).forEach(k=>{if(k===LS_KEY||!k.startsWith('english-notes-')||typeof storage[k]!=='string')return;plan[k]=aMergeExtra(k,localStorage.getItem(k),storage[k]);});
   /* 收件箱 key 不以 english-notes- 开头，单独合并 */
   if(typeof storage[SHOT_INBOX_KEY]==='string') plan[SHOT_INBOX_KEY]=aMergeExtra(SHOT_INBOX_KEY,localStorage.getItem(SHOT_INBOX_KEY),storage[SHOT_INBOX_KEY]);
-  return {plan,merged,added:merged.words.length-(base.words||[]).length,imageStats:aImageStatsFromStorage(storage)};
+  /* 落地配图不进 LS：取出原始 dataURL 包，从 plan 移除，稍后由 syncImportedBlobs 转 Blob 存 IDB */
+  let imageBlobRaw=null;
+  if(typeof storage[WM_IMG_BLOB_KEY]==='string'){
+    imageBlobRaw=storage[WM_IMG_BLOB_KEY];
+    delete plan[WM_IMG_BLOB_KEY];
+  }
+  return {plan,merged,added:merged.words.length-(base.words||[]).length,imageStats:aImageStatsFromStorage(storage),imageBlobRaw};
 }
 function aCommitImport(prepared){
   const before={};Object.keys(prepared.plan).forEach(k=>before[k]=localStorage.getItem(k));
@@ -260,6 +289,20 @@ async function syncImportedBlobs(prepared){
       const inbox=JSON.parse(prepared.plan[SHOT_INBOX_KEY]);
       if(inboxUseIdb){
         for(const item of inbox){ await inboxPutItem(item); }
+      }
+    }
+    /* 落地配图：dataURL -> Blob，逐个存 IDB images store；本机已有的不覆盖 */
+    if(prepared.imageBlobRaw){
+      let pack={};
+      try{ pack=JSON.parse(prepared.imageBlobRaw); }catch(_){ pack={}; }
+      const terms=Object.keys(pack);
+      for(const term of terms){
+        try{
+          const exist=await imgBlobGet(term);
+          if(exist&&exist.size)continue;
+          const b=await fetch(pack[term]).then(r=>r.blob()).catch(()=>null);
+          if(b)await imgBlobSet(term,b);
+        }catch(_){}
       }
     }
   }catch(e){ console.error('导入截图同步失败',e); }

@@ -1,9 +1,11 @@
 /* ============ 我的截图：单词关联截图（独立 key，不碰 words 数据） ============ */
 /* ---- IndexedDB 大对象存储：把截图/收件箱从 localStorage 5MB 挪到 IDB ---- */
 const IDB_NAME='english-notes-blob-v1';
-const IDB_VERSION=1;
+const IDB_VERSION=2;
 const IDB_STORE_SHOTS='shots';
 const IDB_STORE_INBOX='inbox';
+/* v2 新增：配图落地库，key=单词小写，value=压缩后的图片 Blob（独立库，不碰旧数据） */
+const IDB_STORE_IMAGES='images';
 let idbPromise=null;
 function idbOpen(){
   if(idbPromise)return idbPromise;
@@ -15,6 +17,7 @@ function idbOpen(){
       const db=req.result;
       if(!db.objectStoreNames.contains(IDB_STORE_SHOTS))db.createObjectStore(IDB_STORE_SHOTS);
       if(!db.objectStoreNames.contains(IDB_STORE_INBOX))db.createObjectStore(IDB_STORE_INBOX);
+      if(!db.objectStoreNames.contains(IDB_STORE_IMAGES))db.createObjectStore(IDB_STORE_IMAGES);
     };
     req.onsuccess=()=>resolve(req.result);
     req.onerror=()=>reject(req.error||new Error('idb-open-failed'));
@@ -62,8 +65,25 @@ function idbHasKey(store,key){
 }
 const SHOTS_KEY='english-notes-shots-v1';
 const SHOT_MAX_PER_WORD=4;
-/* 总上限放宽：IDB 容量足够大，不再用 80 的硬限制，保留一个大值做兜底 */
+/* 历史写死值，已废弃：实际可存张数由 shotCapacity() 按真实剩余空间动态计算；保留仅为兼容，不再使用 */
 const SHOT_MAX_TOTAL=2000;
+const SHOT_FALLBACK_MAX=50000;        /* estimate 异常时的安全兜底 */
+const SHOT_AVG_BYTES=120*1024;         /* 平均单张字节，与压缩目标一致 */
+const SHOT_WATER_RATIO=0.8;            /* 只用剩余空间的 80%，给其它数据留余量 */
+/* 动态配额：按 navigator.storage.estimate 真实剩余空间实时算可存张数，不写死数字 */
+async function shotCapacity(){
+  try{
+    if(navigator.storage&&typeof navigator.storage.estimate==='function'){
+      const est=await navigator.storage.estimate();
+      if(est&&est.quota){
+        const freeBytes=Math.max(0,(est.quota||0)-(est.usage||0));
+        const n=Math.floor((freeBytes*SHOT_WATER_RATIO)/SHOT_AVG_BYTES);
+        if(n>0)return n;
+      }
+    }
+  }catch(_){}
+  return SHOT_FALLBACK_MAX;
+}
 function shotsReadLocal(){
   try{ const o=JSON.parse(localStorage.getItem(SHOTS_KEY)||'{}'); return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}; }catch(_){ return {}; }
 }
@@ -210,5 +230,31 @@ function shotsHTML(w){
   const list=w?shotsGet(w.term):[];
   if(!list.length) return '';
   return '<div class="wc-shot-row">'+list.map((s,i)=>'<img class="word-shot" src="'+s.dataUrl+'" alt="截图" data-wshot="'+w.id+'" data-shoti="'+i+'">').join('')+'</div>';
+}
+
+/* ============ 配图落地库（IDB images store）：存压缩后的图片 Blob ============ */
+function imgBlobKey(t){ return wmImgKeyOf(t); }
+function imgBlobGet(term){ return idbGet(IDB_STORE_IMAGES,imgBlobKey(term)); }
+function imgBlobSet(term,blob){ return idbSet(IDB_STORE_IMAGES,imgBlobKey(term),blob); }
+function imgBlobDelete(term){ return idbDelete(IDB_STORE_IMAGES,imgBlobKey(term)); }
+function imgBlobAllKeys(){
+  return idbOpen().then(db=>new Promise((resolve,reject)=>{
+    const rq=db.transaction(IDB_STORE_IMAGES,'readonly').objectStore(IDB_STORE_IMAGES).getAllKeys();
+    rq.onsuccess=()=>resolve(Array.isArray(rq.result)?rq.result:[]);
+    rq.onerror=()=>reject(rq.error);
+  }));
+}
+/* 落地库总字节数（存储占用/配额管理用） */
+function imgBlobBytes(){
+  return idbOpen().then(db=>new Promise(resolve=>{
+    let bytes=0;
+    const tx=db.transaction(IDB_STORE_IMAGES,'readonly').objectStore(IDB_STORE_IMAGES).openCursor();
+    tx.onsuccess=e=>{
+      const cur=e.target.result;
+      if(cur){ const b=cur.value; if(b&&typeof b.size==='number')bytes+=b.size; cur.continue(); }
+      else resolve(bytes);
+    };
+    tx.onerror=()=>resolve(0);
+  }));
 }
 
