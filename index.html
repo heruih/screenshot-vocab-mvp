@@ -5339,6 +5339,83 @@ let imgState={term:'',cands:[],idx:0,src:''};
 let paintedTerm='';               /* 已经画出来的词：同一个词再打开直接沿用 */
 let wmOpenedAt=0;                 /* 词卡刚打开的时间：用于挡住"自动弹情景口语" */
 let paintedRec=null;
+
+/* ============ 配图落地：把外链图下载、压缩成 Blob 存 IDB，真正固定、离线可用 ============ */
+const IMG_LOCAL_EDGE=320;          /* 落地缩略图长边 */
+const IMG_LOCAL_QUALITY=0.6;
+let imgObjectUrlMap={};            /* term -> 当前 objectURL，避免重复创建/泄漏 */
+function imgRevokeObjectUrl(term){
+  const k=wmImgKeyOf(term);
+  if(imgObjectUrlMap[k]){ try{URL.revokeObjectURL(imgObjectUrlMap[k]);}catch(_){} delete imgObjectUrlMap[k]; }
+}
+function imgMakeObjectUrl(term,blob){
+  const k=wmImgKeyOf(term);
+  if(imgObjectUrlMap[k]){ try{URL.revokeObjectURL(imgObjectUrlMap[k]);}catch(_){} }
+  const u=URL.createObjectURL(blob);
+  imgObjectUrlMap[k]=u;
+  return u;
+}
+/* 压缩任意图片 Blob 到 320 长边 JPEG Blob */
+function imgShrinkBlob(blob){
+  return createImageBitmap(blob).then(bm=>{
+    const sc=Math.min(1,IMG_LOCAL_EDGE/Math.max(bm.width,bm.height));
+    const w=Math.max(1,Math.round(bm.width*sc)),h=Math.max(1,Math.round(bm.height*sc));
+    const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+    cv.getContext('2d').drawImage(bm,0,0,w,h);
+    try{ bm.close&&bm.close(); }catch(_){}
+    return new Promise(res=>cv.toBlob(res,'image/jpeg',IMG_LOCAL_QUALITY));
+  });
+}
+/* 落地一个词：fetch 外链 -> 压缩 -> 存 IDB。失败静默返回 false，保留 URL 兜底，不打扰用户 */
+async function imgLocalize(term,url){
+  try{
+    const res=await fetch(url);
+    if(!res.ok)return false;
+    const blob=await res.blob();
+    if(!blob||blob.size===0)return false;
+    const small=await imgShrinkBlob(blob);
+    if(!small)return false;
+    await imgBlobSet(term,small);
+    return true;
+  }catch(_){ return false; }
+}
+/* 取本地落地图的 objectURL；没有返回 null */
+async function imgLocalUrl(term){
+  try{
+    const blob=await imgBlobGet(term);
+    if(!blob||!(blob.size>0))return null;
+    return imgMakeObjectUrl(term,blob);
+  }catch(_){ return null; }
+}
+/* 存量配图后台迁移：把已有外链图逐个落地，串行+让出主线程，不阻塞、不影响使用 */
+let imgBackfillRunning=false,imgBackfillQueued=false;
+async function imgBackfillOnce(){
+  if(imgBackfillRunning)return;
+  imgBackfillRunning=true;
+  try{
+    const all=wmImgAll(),keys=Object.keys(all);
+    for(const k of keys){
+      const rec=all[k];if(!rec)continue;
+      const term=rec.term||k;
+      let has=false;
+      try{ const b=await imgBlobGet(term);has=!!(b&&b.size); }catch(_){}
+      if(has)continue;
+      const cand=(Array.isArray(rec.cands)&&(rec.cands[rec.idx||0]||rec.cands[0]))||null;
+      const url=cand&&(cand.thumb||cand.src);
+      if(!url||!/^https?:\/\//i.test(url))continue;
+      await imgLocalize(term,url);
+      await new Promise(r=>setTimeout(r,150));   /* 每个之间让出主线程，保持流畅 */
+    }
+  }catch(_){}
+  imgBackfillRunning=false;
+}
+function imgBackfillSchedule(){
+  if(imgBackfillQueued)return;
+  imgBackfillQueued=true;
+  const kick=()=>{ imgBackfillQueued=false;imgBackfillOnce(); };
+  if(window.requestIdleCallback)requestIdleCallback(kick,{timeout:4000});
+  else setTimeout(kick,1800);
+}
 function wmImgAll(){
   try{ const o=JSON.parse(localStorage.getItem(WM_IMG_KEY)||'{}'); return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}; }catch(_){ return {}; }
 }
@@ -5474,7 +5551,15 @@ function wmIllusPaint(rec){
   if(img){
     img.alt=rec.term||'';
     try{ img.referrerPolicy='no-referrer'; }catch(_){ }
-    img.onload=()=>{ if(skel) skel.classList.add('hidden'); img.classList.add('ok'); };
+    img.onload=()=>{
+      if(skel) skel.classList.add('hidden');
+      img.classList.add('ok');
+      /* 外链图加载成功：后台静默落地，下次打开即固定本地这张，不阻塞当前操作 */
+      const picUrl=c.thumb||c.src||'';
+      if(rec.src!=='local-blob'&&/^https?:\/\//i.test(picUrl)){
+        try{ imgLocalize(rec.term,picUrl); }catch(_){ }
+      }
+    };
     img.onerror=()=>wmIllusBroken(rec);
     img.src=c.thumb||c.src;
   }
@@ -5610,6 +5695,18 @@ async function wmIllusLoad(term){
     if(boxEl) boxEl.classList.remove('hidden');
     const sk=$('#wmIllusSkel'); if(sk) sk.classList.add('hidden');
     if(paintedRec) imgState=paintedRec;
+    return;
+  }
+  /* 0) 本地已落地的图：直接读 Blob 固定显示，不依赖网络、不闪骨架、不重新搜 */
+  ++imgSeq;
+  const myBlob=imgSeq;
+  const localBlobUrl=await imgLocalUrl(t);
+  if(myBlob!==imgSeq)return;
+  if(localBlobUrl){
+    wmMemoHide();
+    if(boxEl)boxEl.classList.remove('hidden');
+    const skb=$('#wmIllusSkel');if(skb)skb.classList.add('hidden');
+    wmIllusPaint({term:t,cands:[{src:localBlobUrl,thumb:localBlobUrl,credit:''}],idx:0,src:'local-blob'});
     return;
   }
   ++imgSeq;
@@ -8461,9 +8558,11 @@ function removeWmColl(i){
 /* ============ 我的截图：单词关联截图（独立 key，不碰 words 数据） ============ */
 /* ---- IndexedDB 大对象存储：把截图/收件箱从 localStorage 5MB 挪到 IDB ---- */
 const IDB_NAME='english-notes-blob-v1';
-const IDB_VERSION=1;
+const IDB_VERSION=2;
 const IDB_STORE_SHOTS='shots';
 const IDB_STORE_INBOX='inbox';
+/* v2 新增：配图落地库，key=单词小写，value=压缩后的图片 Blob（独立库，不碰旧数据） */
+const IDB_STORE_IMAGES='images';
 let idbPromise=null;
 function idbOpen(){
   if(idbPromise)return idbPromise;
@@ -8475,6 +8574,7 @@ function idbOpen(){
       const db=req.result;
       if(!db.objectStoreNames.contains(IDB_STORE_SHOTS))db.createObjectStore(IDB_STORE_SHOTS);
       if(!db.objectStoreNames.contains(IDB_STORE_INBOX))db.createObjectStore(IDB_STORE_INBOX);
+      if(!db.objectStoreNames.contains(IDB_STORE_IMAGES))db.createObjectStore(IDB_STORE_IMAGES);
     };
     req.onsuccess=()=>resolve(req.result);
     req.onerror=()=>reject(req.error||new Error('idb-open-failed'));
@@ -8522,8 +8622,25 @@ function idbHasKey(store,key){
 }
 const SHOTS_KEY='english-notes-shots-v1';
 const SHOT_MAX_PER_WORD=4;
-/* 总上限放宽：IDB 容量足够大，不再用 80 的硬限制，保留一个大值做兜底 */
+/* 历史写死值，已废弃：实际可存张数由 shotCapacity() 按真实剩余空间动态计算；保留仅为兼容，不再使用 */
 const SHOT_MAX_TOTAL=2000;
+const SHOT_FALLBACK_MAX=50000;        /* estimate 异常时的安全兜底 */
+const SHOT_AVG_BYTES=120*1024;         /* 平均单张字节，与压缩目标一致 */
+const SHOT_WATER_RATIO=0.8;            /* 只用剩余空间的 80%，给其它数据留余量 */
+/* 动态配额：按 navigator.storage.estimate 真实剩余空间实时算可存张数，不写死数字 */
+async function shotCapacity(){
+  try{
+    if(navigator.storage&&typeof navigator.storage.estimate==='function'){
+      const est=await navigator.storage.estimate();
+      if(est&&est.quota){
+        const freeBytes=Math.max(0,(est.quota||0)-(est.usage||0));
+        const n=Math.floor((freeBytes*SHOT_WATER_RATIO)/SHOT_AVG_BYTES);
+        if(n>0)return n;
+      }
+    }
+  }catch(_){}
+  return SHOT_FALLBACK_MAX;
+}
 function shotsReadLocal(){
   try{ const o=JSON.parse(localStorage.getItem(SHOTS_KEY)||'{}'); return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}; }catch(_){ return {}; }
 }
@@ -8670,6 +8787,32 @@ function shotsHTML(w){
   const list=w?shotsGet(w.term):[];
   if(!list.length) return '';
   return '<div class="wc-shot-row">'+list.map((s,i)=>'<img class="word-shot" src="'+s.dataUrl+'" alt="截图" data-wshot="'+w.id+'" data-shoti="'+i+'">').join('')+'</div>';
+}
+
+/* ============ 配图落地库（IDB images store）：存压缩后的图片 Blob ============ */
+function imgBlobKey(t){ return wmImgKeyOf(t); }
+function imgBlobGet(term){ return idbGet(IDB_STORE_IMAGES,imgBlobKey(term)); }
+function imgBlobSet(term,blob){ return idbSet(IDB_STORE_IMAGES,imgBlobKey(term),blob); }
+function imgBlobDelete(term){ return idbDelete(IDB_STORE_IMAGES,imgBlobKey(term)); }
+function imgBlobAllKeys(){
+  return idbOpen().then(db=>new Promise((resolve,reject)=>{
+    const rq=db.transaction(IDB_STORE_IMAGES,'readonly').objectStore(IDB_STORE_IMAGES).getAllKeys();
+    rq.onsuccess=()=>resolve(Array.isArray(rq.result)?rq.result:[]);
+    rq.onerror=()=>reject(rq.error);
+  }));
+}
+/* 落地库总字节数（存储占用/配额管理用） */
+function imgBlobBytes(){
+  return idbOpen().then(db=>new Promise(resolve=>{
+    let bytes=0;
+    const tx=db.transaction(IDB_STORE_IMAGES,'readonly').objectStore(IDB_STORE_IMAGES).openCursor();
+    tx.onsuccess=e=>{
+      const cur=e.target.result;
+      if(cur){ const b=cur.value; if(b&&typeof b.size==='number')bytes+=b.size; cur.continue(); }
+      else resolve(bytes);
+    };
+    tx.onerror=()=>resolve(0);
+  }));
 }
 
 /* ============ 截图导入：PP-OCR 整句识别 → 可点单词/自由编辑 → 挂载 ============ */
@@ -8848,9 +8991,10 @@ function pickNoteForImport(){
     cancelBtn.onclick=()=>{cleanup();resolve(null);};
   });
 }
-function ocrAttachShot(w,dataUrl){
+async function ocrAttachShot(w,dataUrl){
   const all=shotsAll(),k=shotsKeyOf(w.term),list=Array.isArray(all[k])?all[k]:[];
-  if(list.length>=SHOT_MAX_PER_WORD||shotsTotal(all)>=SHOT_MAX_TOTAL)return false;
+  const attachCap=await shotCapacity();
+  if(list.length>=SHOT_MAX_PER_WORD||shotsTotal(all)>=attachCap)return false;
   list.push({id:uid(),dataUrl,at:Date.now()});all[k]=list;return shotsFlush(all);
 }
 async function ocrInboxConfirm(id){
@@ -8874,10 +9018,10 @@ async function ocrInboxConfirm(id){
   if(!targets.length){toast('先点候选词，或手动输入至少一个词','warn');return;}
   /* 同一张图依次挂到所有目标词；某个词满了就跳过并记录 */
   let ok=0;const failed=[],createdIds=[];
-  targets.forEach(t=>{
-    if(ocrAttachShot(t.w,item.dataUrl)){ok++;if(t.created)createdIds.push(t.w.id);}
+  for(const t of targets){
+    if(await ocrAttachShot(t.w,item.dataUrl)){ok++;if(t.created)createdIds.push(t.w.id);}
     else failed.push(t.w.term);
-  });
+  }
   if(!ok){toast('这些词都没挂上（可能已满 4 张），截图保留在收件箱','warn');return;}
   await inboxRemoveItem(id);
   createdIds.forEach(cid=>aPut(cid,{stage:'pending'}));save();if(ui.mode==='words')renderWordsPane();render();ocrInboxRender();
@@ -8901,10 +9045,11 @@ async function ocrImportBatch(files,noteId){
     if(pText)pText.textContent='正在导入 '+n+' / '+files.length+' 张';
   };
   setProgress(0);
-  /* 导入前提示：IDB 模式按张数上限，LS 模式按剩余字节 */
+  /* 动态配额：IDB 模式按真实剩余空间算可存张数，不再写死 2000；LS 模式按剩余字节 */
+  const shotCap=inboxUseIdb?await shotCapacity():0;
   if(inboxUseIdb){
     const curN=shotsTotal(shotsAll())+(inboxCache?inboxCache.length:0);
-    if(st)st.textContent='正在处理 '+files.length+' 张截图…截图库共可存 '+SHOT_MAX_TOTAL+' 张，当前已有 '+curN+' 张（每处理一张就保存，可随时关闭）';
+    if(st)st.textContent='正在处理 '+files.length+' 张截图…按当前剩余空间预计还可存约 '+shotCap+' 张，当前已有 '+curN+' 张（每处理一张就保存，可随时关闭）';
   }else{
     const pre=storageQuote();
     if(st)st.textContent='正在处理 '+files.length+' 张截图…当前剩余空间约 '+fmtBytes(pre.free)+'（每处理一张就保存，可随时关闭）';
@@ -8928,13 +9073,13 @@ async function ocrImportBatch(files,noteId){
       }
     }catch(_){failed++;continue;}
     /* 写入前容量预检：
-       IDB 模式不受 LS 5MB 限制，只按总张数上限 SHOT_MAX_TOTAL 控制；
+       IDB 模式按动态配额（真实剩余空间）控制；
        LS 回退模式才按字节配额提前停止，不触发 setItem 异常。 */
     const itemBytes=byteLen(dataUrl)+128;
     if(inboxUseIdb){
-      if(shotsTotal(shotsAll())+list.length+1>SHOT_MAX_TOTAL){
-        if(st)st.textContent='已达截图库上限（'+SHOT_MAX_TOTAL+' 张）：已保存 '+saved+' 张，剩余 '+(files.length-i)+' 张未导入。';
-        toast('截图库已达上限','warn');
+      if(shotsTotal(shotsAll())+list.length+1>shotCap){
+        if(st)st.textContent='剩余空间将满：已保存 '+saved+' 张，剩余 '+(files.length-i)+' 张未导入。可先导出备份或清理后再导入。';
+        toast('截图库剩余空间不足，已停止导入','warn');
         if(prog)prog.classList.add('hidden');
         ocrInboxRender();
         return;
@@ -8954,7 +9099,7 @@ async function ocrImportBatch(files,noteId){
       setProgress(saved);
       estAvg=estAvg?Math.round((estAvg+itemBytes)/2):itemBytes;
       const canMore=inboxUseIdb
-        ? Math.max(0,SHOT_MAX_TOTAL-shotsTotal(shotsAll())-inboxCache.length)
+        ? Math.max(0,shotCap-shotsTotal(shotsAll())-inboxCache.length)
         : (estAvg?Math.floor(storageQuote().free/estAvg):0);
       if(st)st.textContent='已保存 '+(i+1)+' / '+files.length+' 张 · 预计还能存约 '+canMore+' 张（可随时关闭，已存的不会丢）';
     }catch(writeErr){
@@ -9106,7 +9251,7 @@ async function ocrImportImage(event){
     showFail(e);
   }
 }
-function ocrMount(){
+async function ocrMount(){
   const ed=$('#ocrEdit');
   const text=ed?ed.value.trim():'';
   if(!ocrDataUrl){ toast('先选一张截图','warn'); return; }
@@ -9123,7 +9268,8 @@ function ocrMount(){
   const k=shotsKeyOf(w.term);
   const list=Array.isArray(all[k])?all[k]:[];
   let linked=0;
-  if(list.length<SHOT_MAX_PER_WORD&&shotsTotal(all)<SHOT_MAX_TOTAL){
+  const mountCap=await shotCapacity();
+  if(list.length<SHOT_MAX_PER_WORD&&shotsTotal(all)<mountCap){
     list.push({id:uid(),dataUrl:ocrDataUrl,at:Date.now()});
     all[k]=list; linked=1;
   }
@@ -9298,7 +9444,7 @@ function aImageCacheStats(all,words){
   const missingTerms=[];
   list.forEach(w=>{
     const rec=cache[wmImgKeyOf(w&&w.term)],has=!!(rec&&(rec.local||(Array.isArray(rec.cands)&&rec.cands.length)||(rec.memo&&rec.memo.scene)));
-    if(has){cachedWords++;if(rec.confirmed)confirmedWords;}else if(w&&w.term)missingTerms.push(String(w.term));
+    if(has){cachedWords++;if(rec.confirmed)confirmedWords++;}else if(w&&w.term)missingTerms.push(String(w.term));
   });
   return {records:Object.keys(cache).length,cachedWords,confirmedWords,missingWords:missingTerms.length,missingTerms:missingTerms.slice(0,20)};
 }
@@ -9309,16 +9455,39 @@ function aImageStatsFromStorage(storage){
   return aImageCacheStats(all,words);
 }
 function aBackupKeys(){const out={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('english-notes-'))out[k]=localStorage.getItem(k);}return out;}
-function aBackupObject(){
+/* 落地配图备份 key：存 {单词小写: dataURL}，独立 key，不与旧缓存冲突 */
+const WM_IMG_BLOB_KEY='english-notes-wmimg-blob-v1';
+/* 把 images store 的 Blob 全部转 dataURL，组装成备份对象 */
+async function imgBlobToBackup(){
+  const out={};
+  let keys=[];
+  try{ keys=await imgBlobAllKeys(); }catch(_){ return out; }
+  for(const k of keys){
+    let b=null;
+    try{ b=await idbGet(IDB_STORE_IMAGES,k); }catch(_){}
+    if(!b)continue;
+    const durl=await new Promise(res=>{
+      const fr=new FileReader();
+      fr.onload=()=>res(fr.result);
+      fr.onerror=()=>res(null);
+      fr.readAsDataURL(b);
+    });
+    if(durl)out[k]=durl;
+  }
+  return out;
+}
+async function aBackupObject(){
   const image=aImageCacheStats(wmImgAll(),state.words);
   const storage=aBackupKeys();
   /* 截图/收件箱已迁到 IDB，导出时用内存里的最新数据覆盖，避免漏掉新图 */
   if(shotReady) storage[SHOTS_KEY]=JSON.stringify(shotCache);
   if(inboxReady) storage[SHOT_INBOX_KEY]=JSON.stringify(inboxCache);
+  /* 落地配图：Blob 转 dataURL 纳入备份，保证换设备不丢 */
+  try{ const blobPack=await imgBlobToBackup(); if(Object.keys(blobPack).length)storage[WM_IMG_BLOB_KEY]=JSON.stringify(blobPack); }catch(_){}
   return {format:'english-notes-full',version:2,exportedAt:new Date().toISOString(),origin:location.origin,counts:{words:state.words.length,notes:state.notes.length,shots:shotsTotal(shotsAll()),writing:writeLogAll().length,imageCache:image.records,imageCacheWords:image.cachedWords,imageCacheConfirmed:image.confirmedWords,imageCacheMissing:image.missingWords},storage:storage};
 }
-function aDownloadBackup(){
-  try{if(ui.mode==='edit')persistEditor();if(wmState&&!wmState.saved)wmDraftSave();writeDraftSave();const pack=aBackupObject();const blob=new Blob([JSON.stringify(pack,null,2)],{type:'application/json'});const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download='英语学习完整备份-'+aDate(Date.now())+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);$('#aBackupStatus').textContent='已请求下载：'+pack.counts.words+' 个表达、'+pack.counts.shots+' 张截图、'+pack.counts.writing+' 篇写作。请在下载列表确认文件已保存。';}
+async function aDownloadBackup(){
+  try{if(ui.mode==='edit')persistEditor();if(wmState&&!wmState.saved)wmDraftSave();writeDraftSave();const pack=await aBackupObject();const blob=new Blob([JSON.stringify(pack,null,2)],{type:'application/json'});const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download='英语学习完整备份-'+aDate(Date.now())+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);$('#aBackupStatus').textContent='已请求下载：'+pack.counts.words+' 个表达、'+pack.counts.shots+' 张截图、'+pack.counts.writing+' 篇写作。请在下载列表确认文件已保存。';}
   catch(e){toast('备份失败：'+e.message,'warn');}
 }
 function aMergeArray(local,remote,kind){
@@ -9380,7 +9549,13 @@ function aPrepareImport(pack){
   Object.keys(storage).forEach(k=>{if(k===LS_KEY||!k.startsWith('english-notes-')||typeof storage[k]!=='string')return;plan[k]=aMergeExtra(k,localStorage.getItem(k),storage[k]);});
   /* 收件箱 key 不以 english-notes- 开头，单独合并 */
   if(typeof storage[SHOT_INBOX_KEY]==='string') plan[SHOT_INBOX_KEY]=aMergeExtra(SHOT_INBOX_KEY,localStorage.getItem(SHOT_INBOX_KEY),storage[SHOT_INBOX_KEY]);
-  return {plan,merged,added:merged.words.length-(base.words||[]).length,imageStats:aImageStatsFromStorage(storage)};
+  /* 落地配图不进 LS：取出原始 dataURL 包，从 plan 移除，稍后由 syncImportedBlobs 转 Blob 存 IDB */
+  let imageBlobRaw=null;
+  if(typeof storage[WM_IMG_BLOB_KEY]==='string'){
+    imageBlobRaw=storage[WM_IMG_BLOB_KEY];
+    delete plan[WM_IMG_BLOB_KEY];
+  }
+  return {plan,merged,added:merged.words.length-(base.words||[]).length,imageStats:aImageStatsFromStorage(storage),imageBlobRaw};
 }
 function aCommitImport(prepared){
   const before={};Object.keys(prepared.plan).forEach(k=>before[k]=localStorage.getItem(k));
@@ -9403,6 +9578,20 @@ async function syncImportedBlobs(prepared){
       const inbox=JSON.parse(prepared.plan[SHOT_INBOX_KEY]);
       if(inboxUseIdb){
         for(const item of inbox){ await inboxPutItem(item); }
+      }
+    }
+    /* 落地配图：dataURL -> Blob，逐个存 IDB images store；本机已有的不覆盖 */
+    if(prepared.imageBlobRaw){
+      let pack={};
+      try{ pack=JSON.parse(prepared.imageBlobRaw); }catch(_){ pack={}; }
+      const terms=Object.keys(pack);
+      for(const term of terms){
+        try{
+          const exist=await imgBlobGet(term);
+          if(exist&&exist.size)continue;
+          const b=await fetch(pack[term]).then(r=>r.blob()).catch(()=>null);
+          if(b)await imgBlobSet(term,b);
+        }catch(_){}
       }
     }
   }catch(e){ console.error('导入截图同步失败',e); }
@@ -9935,6 +10124,15 @@ async function aImageOpen(term,force){
   const t=String(term||'').trim();if(!t)return;
   if(aImageRequestTerm&&aImageRequestTerm!==t)aImageCancel();
   const rec=aImageRecord(t);rec.term=t;
+  /* 本地已落地的图优先：固定显示，不依赖网络、不重新搜（force 时才允许走外链强刷） */
+  if(!force){
+    const blobUrl=await imgLocalUrl(t);
+    if(blobUrl){
+      wmIllusPaint({term:t,cands:[{src:blobUrl,thumb:blobUrl,credit:''}],idx:0,src:'local-blob'});
+      aImageBindSwipe();
+      return;
+    }
+  }
   if(!force&&rec.confirmed&&aImageRenderAi(t)){aImageBindSwipe();return;}
   if(!force&&aImageRenderAi(t)){aImageBindSwipe();return;}
   const photo=typeof photoKey==='function'?photoKey():null;
@@ -10279,6 +10477,8 @@ Promise.all([shotsInit(),inboxInit()]).catch(()=>{}).then(()=>{
 syncKbUI();
 setTimeout(backupReminder,1600);
 setTimeout(dataSafetyLaunch,2200);
+/* 首屏稳定后再启动存量配图落地，后台静默、不抢资源、不影响使用 */
+setTimeout(()=>{ try{ imgBackfillSchedule(); }catch(_){} },6000);
 syncOnBoot();
 
 /* 页面被切走 / 直接关掉（没点保存）：先把 empower 草稿落盘 */
