@@ -1,14 +1,15 @@
 /* Service Worker · 核心资源预缓存实现 PWA 秒开/离线可用；OCR 引擎等大文件运行时缓存 */
-const CACHE_NAME='svocab-20261119105916';
+const CACHE_NAME='svocab-20261119124903';
 const CORE=[
-  './personal.html',
-  './personal-manifest.webmanifest',
+  './index.html',
+  './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
   './icons/apple-touch-icon-180.png'
 ];
 const RUNTIME_RE=/ocr-assets\//;
+const GUIDE_RE=/guide-assets\//;
 
 self.addEventListener('install',e=>{
   e.waitUntil(
@@ -52,7 +53,7 @@ self.addEventListener('fetch',e=>{
     caches.match(req).then(cached=>{
       if(cached)return cached;
       return fetch(req).then(res=>{
-        if(res&&res.ok&&(RUNTIME_RE.test(url.pathname)||url.pathname.includes('/icons/'))){
+        if(res&&res.ok&&(RUNTIME_RE.test(url.pathname)||GUIDE_RE.test(url.pathname)||url.pathname.includes('/icons/'))){
           const copy=res.clone();
           caches.open(CACHE_NAME).then(c=>c.put(req,copy));
         }
