@@ -210,7 +210,7 @@ function aImageStatsFromStorage(storage){
   try{all=JSON.parse(storage&&storage[WM_IMG_KEY]||'{}')||{};}catch(_){ }
   return aImageCacheStats(all,words);
 }
-function aBackupKeys(){const out={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('english-notes-'))out[k]=localStorage.getItem(k);}return out;}
+function aBackupKeys(){const out={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('english-notes-')&&k!==CLIPBOARD_KEY)out[k]=localStorage.getItem(k);}return out;}
 /* 落地配图备份 key：存 {单词小写: dataURL}，独立 key，不与旧缓存冲突 */
 const WM_IMG_BLOB_KEY='english-notes-wmimg-blob-v1';
 /* 把 images store 的 Blob 全部转 dataURL，组装成备份对象 */

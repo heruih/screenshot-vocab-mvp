@@ -146,6 +146,7 @@ function mvDoneBar(label,revert){
 }
 /* 把拿起的词放进去：target 是大标题（放在这一节末尾），传 null 就是文末 */
 function mvDropWord(target){
+  histPush();
   const node=mvState.node;
   if(!node||!bodyEl.contains(node)) return mvFail('原词不见了');
   const div=document.createElement('div');
@@ -183,6 +184,7 @@ function mvDropWord(target){
   return true;
 }
 function mvDropSection(target){
+  histPush();
   const g=mvState.nodes;
   if(!g||!g.length) return mvFail();
   if(!target) return mvFail('整节只能放到某个大标题下面');
@@ -212,6 +214,7 @@ function mvDropSection(target){
 /* 「⋯」里的上移 / 下移一节 */
 function mvMoveSection(h,dir){
   if(!h||!bodyEl.contains(h)) return false;
+  histPush();
   const g=secGroup(h);
   if(dir<0){
     const prev=h.previousElementSibling;
@@ -252,7 +255,10 @@ function mvFindSpan(term,wid){
 function openNote(id){
   persistEditor();
   ui.note=id; ui.mode='edit'; ui.tag=null; ui.sideOpen=false;
+  histStack=[];
   render();
+  try{ histSyncUndoBtn(); }catch(_){ }
+  try{ clipSyncBtn(); }catch(_){ }
   const n=state.notes.find(x=>x.id===id);
   restoreCaret(n&&n.sel);
   revealCaret();
@@ -271,7 +277,10 @@ function newNote(){
   const n={id:uid(),folderId,title:'无标题',content:'',createdAt:Date.now(),updatedAt:Date.now()};
   state.notes.push(n); save();
   ui.note=n.id; ui.mode='edit'; ui.tag=null; ui.sideOpen=false;
+  histStack=[];
   render();
+  try{ histSyncUndoBtn(); }catch(_){ }
+  try{ clipSyncBtn(); }catch(_){ }
   titleEl.focus();
 }
 function createFolder(name){
@@ -474,6 +483,144 @@ function handleWordTap(ev){
   }
   if(!w){ toast('未找到该单词的记录','warn'); return; }
   openWordModal(w.term,null,null,w);
+}
+
+/* ============ 跨笔记剪贴板：整节 / 词条 复制·剪切·粘贴（独立 key） ============ */
+const CLIPBOARD_KEY='english-notes-clipboard-v1';
+/* 给词加一条笔记关联（去重）；移除一条笔记关联 */
+function linkWordToNote(word,noteId,noteTitle){
+  if(!word||!noteId)return;
+  word.notes=Array.isArray(word.notes)?word.notes:[];
+  if(word.notes.some(l=>l.noteId===noteId))return;
+  word.notes.push({noteId:noteId,noteTitle:noteTitle||'无标题'});
+}
+function unlinkWordFromNote(word,noteId){
+  if(!word||!Array.isArray(word.notes))return;
+  word.notes=word.notes.filter(l=>l.noteId!==noteId);
+}
+function clipGet(){
+  try{ return JSON.parse(localStorage.getItem(CLIPBOARD_KEY))||null; }catch(_){ return null; }
+}
+function clipSet(obj){
+  try{ localStorage.setItem(CLIPBOARD_KEY,JSON.stringify(obj)); }catch(_){ }
+  clipSyncBtn();
+}
+function clipClear(){
+  try{ localStorage.removeItem(CLIPBOARD_KEY); }catch(_){ }
+  clipSyncBtn();
+}
+/* 克隆一段 DOM 并清掉临时装饰/属性，得到可保存、可粘贴的干净 HTML */
+function clipClean(nodes){
+  const tmp=document.createElement('div');
+  nodes.forEach(n=>tmp.appendChild(n.cloneNode(true)));
+  tmp.querySelectorAll('.mf,.mv-drop').forEach(e=>e.remove());
+  tmp.querySelectorAll('.en-word').forEach(e=>{
+    e.removeAttribute('contenteditable');e.removeAttribute('spellcheck');
+  });
+  return tmp.innerHTML;
+}
+/* 复制 / 剪切整节 */
+function clipCopySection(h,cut){
+  if(!h||!bodyEl.contains(h))return;
+  const g=secGroup(h);
+  histPush();
+  clipSet({kind:'section',mode:cut?'cut':'copy',html:clipClean(g),at:Date.now()});
+  if(cut){
+    const srcId=ui.note;
+    g.forEach(el=>{
+      el.querySelectorAll('.en-word').forEach(sp=>{
+        const wm=findWordOfSpan(sp);
+        if(wm)unlinkWordFromNote(wm,srcId);
+      });
+    });
+    g.forEach(el=>el.remove());
+    foldClear(); applyFolds(); mvDecorate(); persistEditor();
+  }
+  toast(cut?'已剪切整节，到其它笔记点粘贴':'已复制整节，到其它笔记点粘贴');
+}
+/* 复制 / 剪切单个词条（.en-word 可能是词组，即“一段单词”） */
+function clipCopyWord(span,cut){
+  if(!span||!bodyEl.contains(span)){ toast('词条不在正文里','warn');return; }
+  histPush();
+  clipSet({kind:'block',mode:cut?'cut':'copy',html:'<div>'+clipClean([span])+'</div>',at:Date.now()});
+  if(cut){
+    const srcId=ui.note, wm=findWordOfSpan(span);
+    if(wm)unlinkWordFromNote(wm,srcId);
+    const block=span.parentElement;
+    span.remove();
+    if(block&&block!==bodyEl&&!(block.textContent.trim()||block.querySelector('.en-word')))block.remove();
+    applyFolds(); mvDecorate(); persistEditor();
+  }
+  toast(cut?'已剪切词条，到其它笔记点粘贴':'已复制词条，到其它笔记点粘贴');
+}
+function findWordOfSpan(span){
+  const wid=span.getAttribute('data-wid');
+  let w=wid?state.words.find(x=>x.id===wid):null;
+  if(!w){ const t=span.textContent.trim(); w=state.words.find(x=>x.term.toLowerCase()===t.toLowerCase()); }
+  return w||null;
+}
+/* 把剪贴板 HTML 解析成元素数组（浏览器自动建 DOM） */
+function clipParse(html){
+  const tmp=document.createElement('div');
+  tmp.innerHTML=html||'';
+  return Array.prototype.slice.call(tmp.children);
+}
+/* 粘贴到目标节（targetHead=null 表示文末）；复制可多次、剪切粘一次后清空 */
+function clipPaste(targetHead){
+  const c=clipGet();
+  if(!c){ toast('剪贴板是空的','warn');return; }
+  histPush();
+  const els=clipParse(c.html);
+  if(!els.length){ toast('剪贴板内容无效','warn');return; }
+  const anchor=targetHead?sectionEnd(targetHead):null;
+  const noteId=ui.note;
+  const note=state.notes.find(x=>x.id===noteId);
+  const noteTitle=note?note.title:'无标题';
+  const frag=document.createDocumentFragment();
+  els.forEach(el=>frag.appendChild(el));
+  try{
+    if(anchor)anchor.parentNode.insertBefore(frag,anchor.nextSibling);
+    else bodyEl.appendChild(frag);
+  }catch(_){ toast('粘贴失败','warn');return; }
+  /* 粘贴进来的词条：关联到当前目标笔记 */
+  els.forEach(el=>{
+    el.querySelectorAll&&el.querySelectorAll('.en-word').forEach(sp=>{
+      const wm=findWordOfSpan(sp);
+      if(wm)linkWordToNote(wm,noteId,noteTitle);
+    });
+  });
+  lockWords(bodyEl); mvDecorate(); applyFolds(); persistEditor();
+  if(c.mode==='cut')clipClear();
+  try{ if(navigator.vibrate)navigator.vibrate(8); }catch(_){}
+  toast(c.mode==='cut'?'已粘贴，剪贴板已清空':'已粘贴，可继续粘贴到别处');
+}
+/* 点「粘贴」按钮：先选放到哪一节（高亮各节），也可直接放文末 */
+let clipChoosing=false;
+function clipStartChoose(){
+  if(!clipGet()){ toast('剪贴板是空的，先在笔记里复制或剪切','warn');return; }
+  clipChoosing=true;
+  headList().forEach(h=>h.classList.add('mv-pick'));
+  /* 各节投放区 */
+  headList().forEach((h,i)=>{
+    if(!h.querySelector('.mv-drop')){
+      const b=document.createElement('span');
+      b.className='mv-drop';b.setAttribute('contenteditable','false');b.setAttribute('data-clipdrop',String(i));
+      h.appendChild(b);
+    }
+  });
+  document.body.classList.add('mv-lift');
+  toast('点某一节放进去，或点「文末」');
+}
+function clipCancelChoose(){
+  clipChoosing=false;
+  mvClearTargets();
+}
+function clipSyncBtn(){
+  const b=$('#btnClipPaste');
+  if(!b)return;
+  const has=!!clipGet();
+  b.classList.toggle('disabled',!has);
+  b.disabled=!has;
 }
 
 

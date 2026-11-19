@@ -20,6 +20,7 @@ body{
   --bar-bg:rgba(10,10,12,.96);--toast-bg:rgba(28,28,30,.94);
   --shadow-sm:0 4px 16px rgba(0,0,0,.55);--shadow-lg:0 12px 34px rgba(0,0,0,.45);
   --font-display:"Cormorant Garamond","Iowan Old Style",Georgia,serif;
+  --font-body:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",sans-serif;
   --radius-card:16px;--radius-control:12px;
   --fs-body:17px;
 }
@@ -213,7 +214,7 @@ body.mode-edit #editorPane{display:flex}
 body.mode-edit #noteListPane{display:none}
 @media (min-width:768px){body.mode-edit #noteListPane{display:flex}}
 .editor-header{
-  display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--sep);min-height:56px;
+  display:flex;align-items:center;gap:4px;padding:calc(env(safe-area-inset-top,0px) + 6px) 10px 6px;border-bottom:1px solid var(--sep);min-height:56px;
 }
 #edBreadcrumb{flex:1;min-width:0;font-size:13px;color:var(--text3);padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .note-organize-btn{flex:none;min-height:40px;padding:0 12px;border:1px solid var(--sep);border-radius:10px;background:var(--s2);color:var(--accent-fg);font-size:13px;font-weight:600}
@@ -224,7 +225,7 @@ body.mode-edit #noteListPane{display:none}
 .note-editor-context{font-size:12px;color:var(--text3)}
 #noteTitle{font-family:var(--font-display);letter-spacing:.01em;font-size:clamp(26px,3.2vw,34px);font-weight:700;line-height:1.25;padding:6px 0 6px;outline:none;min-height:1.2em;word-break:break-word}
 .note-body-label{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--text3);padding:18px 0 7px;border-bottom:1px solid var(--sep);text-transform:uppercase}
-#noteBody{font-size:var(--fs-body);line-height:1.75;padding-top:16px;outline:none;min-height:55vh;word-break:break-word;color:var(--text-body)}
+#noteBody{font-family:var(--font-body);font-size:var(--fs-body);line-height:1.75;padding-top:16px;outline:none;min-height:55vh;word-break:break-word;color:var(--text-body)}
 /* 每 10 行（每按一次回车算一行）多留一小档，长文读起来有节奏 */
 #noteBody>*:nth-child(10n+1):not(:first-child){margin-top:18px}
 /* 正文大标题：左边一块小箭头，点它收起下面这一段 */
@@ -256,15 +257,11 @@ body.mode-edit #noteListPane{display:none}
 .note-organize-actions{display:flex;gap:8px;margin-top:16px}.note-organize-actions .btn{flex:1;min-height:44px}
 .ce.empty::before{content:attr(data-ph);color:var(--ph);pointer-events:none}
 .en-word{
-  position:relative;color:var(--accent);background:var(--accent-soft);
-  font-weight:600;cursor:pointer;border:none;border-radius:6px;
-  padding:1px 5px 1px 4px;margin:0 1px;
-  border-bottom:1px solid color-mix(in srgb,var(--accent) 38%,transparent);
+  position:relative;color:var(--word-color,var(--accent));background:none;
+  font-weight:600;cursor:pointer;border:none;border-radius:4px;
+  padding:0 1px;margin:0;
 }
-.en-word::before{
-  content:'';display:inline-block;width:5px;height:5px;border-radius:50%;
-  background:var(--accent);margin:0 4px 2px 0;vertical-align:middle;
-}
+.en-word::before{content:none}
 .en-word:active{filter:brightness(.95)}
 @media (max-width:767px){
   body.mode-edit #editorWrap{padding:18px 16px 120px}
@@ -611,7 +608,9 @@ body.side-open #scrim{display:block}
 .btn:disabled{opacity:.4;cursor:default}
 
 /* ============ 闪卡复习 ============ */
-.flash-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:22px 20px;gap:16px;min-height:0}
+.flash-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow-y:auto;padding:22px 20px;gap:16px;min-height:0}
+.flash-wrap>.flash-progress{margin-top:auto}
+.flash-wrap>:last-child{margin-bottom:auto}
 .flash-progress{font-size:13px;color:var(--text3)}
 .flash-scene{perspective:1200px;width:min(92%,560px);height:min(50vh,360px)}
 .flash-card{
@@ -977,6 +976,7 @@ body.side-open #scrim{display:block}
   .grade-btn{min-height:50px;font-size:14px}
   body.mode-flash #tabbar{display:none}
   body.mode-flash .flash-wrap{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+  body.mode-flash .coach-bubble{display:none}
   #followBody{padding:26px 20px 150px}
   #followSentence{font-size:20px}
 }
@@ -1404,13 +1404,40 @@ html[data-theme="study"] .a-batch-entry{
 }
 html[data-theme="study"] .a-batch-entry b{color:var(--text)}
 html[data-theme="study"] .a-batch-entry small{color:var(--text2)}
-/* 编辑器正文是深底：单词用明亮浅蓝，保证对比清晰（浅纸底的复习卡不受影响，仍用 accent） */
-html[data-theme="study"] #noteBody .en-word{
-  color:#c2d3ec;
-  background:rgba(128,160,205,.22);
-  border-bottom-color:rgba(158,186,222,.5);
+/* ============ 正文词条配色（独立偏好，纯色无边框；capsule 为复古胶囊） ============ */
+/* 深底主题（midnight/study）：明亮色；浅底主题（paper/lavender）：深色 */
+html[data-word-color="sky"]{--word-color:#7db4ff}
+html[data-word-color="mint"]{--word-color:#7fd6a8}
+html[data-word-color="amber"]{--word-color:#f0b27a}
+html[data-word-color="lilac"]{--word-color:#c3aee8}
+html[data-word-color="pearl"]{--word-color:#f2f0ea}
+html[data-theme="paper"][data-word-color="sky"],html[data-theme="lavender"][data-word-color="sky"]{--word-color:#2f6fc0}
+html[data-theme="paper"][data-word-color="mint"],html[data-theme="lavender"][data-word-color="mint"]{--word-color:#1f8a5b}
+html[data-theme="paper"][data-word-color="amber"],html[data-theme="lavender"][data-word-color="amber"]{--word-color:#b06a1e}
+html[data-theme="paper"][data-word-color="lilac"],html[data-theme="lavender"][data-word-color="lilac"]{--word-color:#7a5bb0}
+html[data-theme="paper"][data-word-color="pearl"],html[data-theme="lavender"][data-word-color="pearl"]{--word-color:#2b2830}
+/* 复古胶囊：恢复背景、边框、圆点 */
+html[data-word-color="capsule"] #noteBody .en-word{
+  color:var(--accent);background:var(--accent-soft);
+  border-radius:6px;padding:1px 5px 1px 4px;margin:0 1px;
+  border-bottom:1px solid color-mix(in srgb,var(--accent) 38%,transparent);
 }
-html[data-theme="study"] #noteBody .en-word::before{background:#c2d3ec}
+html[data-word-color="capsule"] #noteBody .en-word::before{
+  content:'';display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:var(--accent);margin:0 4px 2px 0;vertical-align:middle;
+}
+html[data-theme="midnight"][data-word-color="capsule"] #noteBody .en-word,
+html[data-theme="study"][data-word-color="capsule"] #noteBody .en-word{
+  color:#c2d3ec;background:rgba(128,160,205,.22);border-bottom-color:rgba(158,186,222,.5);
+}
+html[data-theme="midnight"][data-word-color="capsule"] #noteBody .en-word::before,
+html[data-theme="study"][data-word-color="capsule"] #noteBody .en-word::before{background:#c2d3ec}
+
+/* ============ 正文字体（独立偏好，系统字体栈、离线零加载） ============ */
+html[data-font="system"]{--font-body:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",sans-serif}
+html[data-font="serif"]{--font-body:Georgia,"Iowan Old Style","Times New Roman","Songti SC",serif}
+html[data-font="rounded"]{--font-body:ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN","Microsoft YaHei",-apple-system,sans-serif}
+html[data-font="mono"]{--font-body:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
 
 /* ============ 手机端表达库：筛选收进底部抽屉（桌面端布局保持不变） ============ */
 .word-filter-trigger{display:none}

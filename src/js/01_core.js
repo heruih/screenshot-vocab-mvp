@@ -20,6 +20,32 @@ const SOURCE_LABEL={ai:'AI 生成',dict:'词典',manual:'手动',demo:'示例',s
 
 /* ============ 数据模型与持久化 ============ */
 const LS_KEY='english-notes-app-v1';
+/* 外观偏好独立 key：不进主数据，可随时回退，不影响已有内容 */
+const WORD_COLOR_KEY='english-notes-wordcolor-v1';
+const FONT_CHOICE_KEY='english-notes-font-v1';
+const WORD_COLORS=['sky','mint','amber','lilac','pearl','capsule'];
+const FONT_CHOICES=['system','serif','rounded','mono'];
+function lookPref(key,list,fallback){
+  let v=null;
+  try{ v=localStorage.getItem(key); }catch(_){ v=null; }
+  return list.indexOf(v)>=0?v:fallback;
+}
+function getWordColor(){ return lookPref(WORD_COLOR_KEY,WORD_COLORS,'sky'); }
+function getFontChoice(){ return lookPref(FONT_CHOICE_KEY,FONT_CHOICES,'system'); }
+function setWordColor(v){
+  if(WORD_COLORS.indexOf(v)<0)return;
+  try{ localStorage.setItem(WORD_COLOR_KEY,v); }catch(_){ }
+  applyLookPrefs();
+}
+function setFontChoice(v){
+  if(FONT_CHOICES.indexOf(v)<0)return;
+  try{ localStorage.setItem(FONT_CHOICE_KEY,v); }catch(_){ }
+  applyLookPrefs();
+}
+function applyLookPrefs(){
+  document.documentElement.setAttribute('data-word-color',getWordColor());
+  document.documentElement.setAttribute('data-font',getFontChoice());
+}
 let state=null;
 let ui={sideOpen:false,mode:'today',folder:'all',note:null,tag:null,lastNote:null,selectedRange:null,empowerText:'',wordFilter:'all',prevMode:'list',search:'',wordSort:'time',wordTag:'',selMode:false,sel:[],logTerm:'',tagEdit:false,tagNewOpen:false};
 

@@ -346,6 +346,8 @@ function syncSettingsUI(){
   const activeTheme=st.theme==='dark'?'midnight':(st.theme==='light'?'paper':(st.theme||'midnight'));
   $$('#stTheme [data-theme-val]').forEach(b=>b.classList.toggle('on',activeTheme===b.dataset.themeVal));
   $$('#stFs [data-fs-val]').forEach(b=>b.classList.toggle('on',(st.fs||'m')===b.dataset.fsVal));
+  $$('#stWordColor [data-wc-val]').forEach(b=>b.classList.toggle('on',getWordColor()===b.dataset.wcVal));
+  $$('#stFont [data-font-val]').forEach(b=>b.classList.toggle('on',getFontChoice()===b.dataset.fontVal));
   const n=$('#stBackupNote');
   if(n){
     n.textContent=backupNoteText();
@@ -708,8 +710,20 @@ function bindPageSwipe(){
     if(!on||!locked){on=false;return;}
     on=false;
     const w=window.innerWidth,idx=PAGE_SWIPE_MODES.indexOf(ui.mode),goNext=dx<0;
+    const passed=Math.abs(dx)>w*0.22;
+    /* 今日页左滑：直接打开「更多」抽屉，不经过笔记页 */
+    if(passed&&goNext&&idx===0){
+      pane.style.transition='transform .2s ease,opacity .2s ease';
+      pane.style.transform='translateX(-'+w+'px)';pane.style.opacity='.8';
+      setTimeout(()=>{
+        pane.style.transition='none';pane.style.transform='';pane.style.opacity='';
+        try{ persistEditor(); }catch(_){}
+        ui.sideOpen=true; render();
+      },190);
+      return;
+    }
     let target=idx;
-    if(Math.abs(dx)>w*0.22){
+    if(passed){
       if(goNext&&idx<PAGE_SWIPE_MODES.length-1)target=idx+1;
       else if(!goNext&&idx>0)target=idx-1;
     }
@@ -723,6 +737,80 @@ function bindPageSwipe(){
         pane.style.transition='none';pane.style.transform='';pane.style.opacity='';
         applyPageMode(PAGE_SWIPE_MODES[target]);
       },200);
+    }
+  },{passive:true});
+}
+/* ============ 底部 tabbar 横滑切换 ============ */
+function bindTabbarSwipe(){
+  const bar=$('#tabbar');
+  if(!bar)return;
+  let x0=0,y0=0,locked=0,on=false;
+  bar.addEventListener('touchstart',e=>{
+    on=true;locked=0;
+    if(ui.sideOpen||ui.mode==='edit'){on=false;return;}
+    x0=e.touches[0].clientX;y0=e.touches[0].clientY;
+  },{passive:true});
+  bar.addEventListener('touchmove',e=>{
+    if(!on||locked)return;
+    const t=e.touches[0],ddx=t.clientX-x0,ddy=t.clientY-y0;
+    if(Math.abs(ddx)<10&&Math.abs(ddy)<10)return;
+    if(Math.abs(ddy)>Math.abs(ddx)){on=false;return;}
+    locked=1;
+  },{passive:true});
+  bar.addEventListener('touchend',e=>{
+    if(!on||!locked){on=false;return;}
+    on=false;
+    const t=e.changedTouches[0],dx=t.clientX-x0;
+    if(Math.abs(dx)<40)return;
+    const goNext=dx<0;
+    const idx=PAGE_SWIPE_MODES.indexOf(ui.mode);
+    if(goNext){
+      if(idx>=0&&idx<PAGE_SWIPE_MODES.length-1)applyPageMode(PAGE_SWIPE_MODES[idx+1]);
+      else if(idx===PAGE_SWIPE_MODES.length-1){ try{persistEditor();}catch(_){} ui.sideOpen=true; render(); }
+    }else{
+      if(idx>0)applyPageMode(PAGE_SWIPE_MODES[idx-1]);
+    }
+  },{passive:true});
+}
+/* ============ 编辑器左滑退出（跟手） ============ */
+function bindEditorSwipe(){
+  const pane=$('#noteListPane');
+  if(!pane)return;
+  let x0=0,y0=0,dx=0,locked=0,on=false;
+  pane.addEventListener('touchstart',e=>{
+    on=false;locked=0;dx=0;
+    if(ui.mode!=='edit'||ui.sideOpen)return;
+    if(document.querySelector('.modal.show,.ai-page.show,#shotViewer.show'))return;
+    const tg=e.target;
+    if(tg.closest&&tg.closest('[data-no-swipe],.hscroll,.carousel,.wm-shots,.shot-strip,.img-swipe,.en-word,.nh'))return;
+    const t=e.touches[0];x0=t.clientX;y0=t.clientY;on=true;
+  },{passive:true});
+  pane.addEventListener('touchmove',e=>{
+    if(!on)return;
+    const t=e.touches[0],ddx=t.clientX-x0,ddy=t.clientY-y0;
+    if(!locked){
+      if(Math.abs(ddx)<8&&Math.abs(ddy)<8)return;
+      if(Math.abs(ddy)>Math.abs(ddx)){on=false;return;}
+      locked=1;pane.style.transition='none';
+    }
+    dx=Math.min(0,ddx);
+    pane.style.transform='translateX('+dx+'px)';
+    pane.style.opacity=String(Math.max(.78,1-Math.abs(dx)/(window.innerWidth*1.4)));
+  },{passive:true});
+  pane.addEventListener('touchend',()=>{
+    if(!on||!locked){on=false;return;}
+    on=false;
+    const w=window.innerWidth,go=dx<-w*0.22;
+    pane.style.transition='transform .22s ease,opacity .22s ease';
+    if(go){
+      pane.style.transform='translateX(-'+w+'px)';pane.style.opacity='.8';
+      setTimeout(()=>{
+        pane.style.transition='none';pane.style.transform='';pane.style.opacity='';
+        backToList();
+      },200);
+    }else{
+      pane.style.transform='';pane.style.opacity='';
+      setTimeout(()=>{pane.style.transition='';pane.style.transform='';pane.style.opacity='';},240);
     }
   },{passive:true});
 }
@@ -799,6 +887,12 @@ function bindEvents(){
   }));
   $$('#stFs [data-fs-val]').forEach(b=>b.addEventListener('click',()=>{
     state.settings.fs=b.dataset.fsVal; save(); applyTheme(); syncSettingsUI();
+  }));
+  $$('#stWordColor [data-wc-val]').forEach(b=>b.addEventListener('click',()=>{
+    setWordColor(b.dataset.wcVal); syncSettingsUI();
+  }));
+  $$('#stFont [data-font-val]').forEach(b=>b.addEventListener('click',()=>{
+    setFontChoice(b.dataset.fontVal); syncSettingsUI();
   }));
   $('#stAnki').addEventListener('click',exportAnki);
   /* 云同步 */
@@ -995,10 +1089,13 @@ function bindEvents(){
     const t=e.target;
     if(t.id==='wbSort'){ ui.wordSort=t.value; if(ui.wordFilterOpen)wfCloseSheet();renderPane(); return; }
     if(t.id==='wbTag'){ ui.wordTag=t.value; if(ui.wordFilterOpen)wfCloseSheet();renderPane(); return; }
+    if(t.id==='wbNote'){ ui.wordNote=t.value; if(ui.wordFilterOpen)wfCloseSheet();renderPane(); return; }
   });
 
   /* 编辑器 */
   $('#btnBack').addEventListener('click',backToList);
+  $('#btnHistUndo').addEventListener('click',histUndo);
+  $('#btnClipPaste').addEventListener('click',clipStartChoose);
   $('#btnDelNote').addEventListener('click',()=>{ if(ui.note) deleteNote(ui.note); });
   $('#btnNoteOrganize').addEventListener('click',openNoteOrganize);
   $('#noteOrganizeClose').addEventListener('click',closeNoteOrganize);
@@ -1059,6 +1156,13 @@ function bindEvents(){
     const drop=e.target.closest&&e.target.closest('.mv-drop');
     if(drop&&bodyEl.contains(drop)){
       e.preventDefault(); e.stopPropagation();
+      /* 剪贴板选目标节 */
+      if(clipChoosing&&drop.hasAttribute('data-clipdrop')){
+        const h=drop.parentElement;
+        clipChoosing=false;
+        clipPaste(h);
+        return;
+      }
       const h=drop.parentElement, hi=headList().indexOf(h);
       if(mvState.kind==='word') mvDropWord(h||null);
       else if(mvState.kind==='section') mvDropSection(h);
@@ -1138,6 +1242,20 @@ function bindEvents(){
     if(!sp){ toast('先在正文里打开带这个词的笔记','warn'); return; }
     mvLiftWord(sp);
   });
+  const wmCopyBtn=$('#wmCopyClip');
+  if(wmCopyBtn) wmCopyBtn.addEventListener('click',()=>{
+    const sp=mvFindSpan(wmState.term,wmState.existing&&wmState.existing.id);
+    if(!sp){ toast('先在正文里打开带这个词的笔记','warn'); return; }
+    try{ closeWordModal(); }catch(_){ }
+    clipCopyWord(sp,false);
+  });
+  const wmCutBtn=$('#wmCutClip');
+  if(wmCutBtn) wmCutBtn.addEventListener('click',()=>{
+    const sp=mvFindSpan(wmState.term,wmState.existing&&wmState.existing.id);
+    if(!sp){ toast('先在正文里打开带这个词的笔记','warn'); return; }
+    try{ closeWordModal(); }catch(_){ }
+    clipCopyWord(sp,true);
+  });
   $('#mvCancel').addEventListener('click',()=>{ mvReset(); toast('已取消，原样没动'); });
   $('#mvPrev').addEventListener('click',()=>mvJump(-1));
   $('#mvNext').addEventListener('click',()=>mvJump(1));
@@ -1154,7 +1272,9 @@ function bindEvents(){
     const act=it.getAttribute('data-act'), h=mvMenuHead;
     closeMvMenu();
     if(!h) return;
-    if(act==='lift') mvLiftSection(h);
+    if(act==='copysec') clipCopySection(h,false);
+    else if(act==='cutsec') clipCopySection(h,true);
+    else if(act==='lift') mvLiftSection(h);
     else if(act==='up') mvMoveSection(h,-1);
     else if(act==='down') mvMoveSection(h,1);
   });

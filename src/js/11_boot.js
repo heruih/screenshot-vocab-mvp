@@ -7,6 +7,7 @@ try{aiDialogueHistoryMigrate();}catch(e){}
 try{ shotsInit(); }catch(e){}
 try{ inboxInit(); }catch(e){}
 applyTheme();
+try{ applyLookPrefs(); }catch(e){ console.error('外观偏好应用失败',e); }
 // Preserve existing image cache on upgrade.
 /* 老标亮（标了词就到处亮）搬迁成「只亮当时那一处」 */
 // Preserve existing highlights on upgrade.
@@ -14,6 +15,8 @@ if(!localStorage.getItem(LS_KEY)) save();
 try{bindEvents();}catch(e){console.error('界面事件绑定失败',e);}
 try{bindSideSwipe();}catch(e){console.error('侧滑绑定失败',e);}
 try{bindPageSwipe();}catch(e){console.error('页面左右滑绑定失败',e);}
+try{bindTabbarSwipe();}catch(e){console.error('底部横滑绑定失败',e);}
+try{bindEditorSwipe();}catch(e){console.error('编辑器左滑绑定失败',e);}
 try{render();}catch(e){console.error('页面渲染失败',e);const box=document.querySelector('#noteList');if(box)box.innerHTML='<div class="empty-state"><b>页面初始化没有完成</b><br>请刷新页面；如果仍为空，请从旧文件导出完整备份后导入。</div>';}
 Promise.all([shotsInit(),inboxInit()]).catch(()=>{}).then(()=>{
   try{ if(['words','flash','list'].includes(ui.mode)) render(); }catch(_){}

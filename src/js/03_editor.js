@@ -269,7 +269,49 @@ function updatePlaceholders(){
   bodyEl.classList.toggle('empty',!bodyEl.textContent.trim());
 }
 let saveTimer=null;
+/* ============ 编辑历史栈（内存，限 20 步，覆盖输入/移动/粘贴/跨笔记操作） ============ */
+const HIST_MAX=20;
+let histStack=[];
+let histLastInput=0;
+function histSnapshot(){
+  return {title:titleEl.innerText.trim()||'无标题', content:bodyCleanHTML()};
+}
+/* 压入一个「可回到的过去状态」；与栈顶相同不重复压，超长度丢最旧 */
+function histPush(){
+  const snap=histSnapshot();
+  const top=histStack[histStack.length-1];
+  if(top&&top.title===snap.title&&top.content===snap.content)return;
+  histStack.push(snap);
+  if(histStack.length>HIST_MAX)histStack.shift();
+  histSyncUndoBtn();
+}
+/* 离散操作（移动/粘贴/剪切/折叠）前调用；连续输入由 onEditorInput 按时间节流 */
+function histArmInput(){
+  const now=Date.now();
+  if(now-histLastInput>1200)histPush();
+  histLastInput=now;
+}
+function histSyncUndoBtn(){
+  const b=$('#btnHistUndo');
+  if(!b)return;
+  b.classList.toggle('disabled',!histStack.length);
+  b.disabled=!histStack.length;
+}
+function histUndo(){
+  if(!histStack.length){toast('没有可撤销的操作');return;}
+  const snap=histStack.pop();
+  titleEl.innerText=snap.title;
+  bodyEl.innerHTML=snap.content;
+  try{ lockWords(bodyEl); }catch(_){ }
+  try{ mvDecorate(); }catch(_){ }
+  try{ applyFolds(); }catch(_){ }
+  try{ persistEditor(); }catch(_){ }
+  histSyncUndoBtn();
+  try{ if(navigator.vibrate)navigator.vibrate(8); }catch(_){}
+  toast('已撤销');
+}
 function onEditorInput(){
+  try{ histArmInput(); }catch(_){ }
   try{ healWords(); }catch(_){ }
   try{ autoHeading(); }catch(_){ }
   try{ hideEdHint(true); }catch(_){ }

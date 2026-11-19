@@ -434,6 +434,7 @@ function filteredWords(){
   if(ui.wordFilter==='pending') list=list.filter(aPending);
   if(ui.wordDate) list=list.filter(w=>aDate(w.createdAt)===ui.wordDate);
   if(ui.wordTag) list=list.filter(w=>(w.tags||[]).includes(ui.wordTag));
+  if(ui.wordNote) list=list.filter(w=>(w.notes||[]).some(l=>l.noteId===ui.wordNote));
   const sort=ui.wordSort||'time';
   list.sort((a,b)=>{
     if(sort==='alpha') return a.term.toLowerCase().localeCompare(b.term.toLowerCase());
@@ -461,6 +462,7 @@ function renderWordsPane(){
   const chip=(k,label,n)=>'<button class="tag-chip'+(ui.wordFilter===k?' active':'')+'" data-wfilter="'+k+'">'+label+(n!=null?' <span class="tag-n">'+n+'</span>':'')+'</button>';
   const chips=chip('all','全部',nAll)+chip('due','待复习',nDue)+chip('today','今日新增',todayNewWords().length)+chip('todo','未掌握',nTodo)+chip('done','已掌握',nDone)+chip('noex','缺例句',nNoEx);
   const tagOpts=['<option value="">全部标签</option>'].concat(allTags().map(([t,n])=>'<option value="'+esc(t)+'"'+(ui.wordTag===t?' selected':'')+'># '+esc(t)+' ('+n+')</option>')).join('');
+  const noteOpts=['<option value="">全部笔记</option>'].concat(state.notes.map(n=>'<option value="'+esc(n.id)+'"'+(ui.wordNote===n.id?' selected':'')+'>'+esc(n.title||'无标题')+'</option>')).join('');
   const sortOpts=[['time','最近更新'],['created','最近添加'],['alpha','字母顺序'],['due','到期时间']]
     .map(([v,l])=>'<option value="'+v+'"'+(ui.wordSort===v?' selected':'')+'>'+l+'</option>').join('');
   let words=filteredWords();
@@ -479,6 +481,7 @@ function renderWordsPane(){
     '<div class="wb-bar">'+
       '<select class="wb-sel" id="wbSort">'+sortOpts+'</select>'+
       '<select class="wb-sel" id="wbTag">'+tagOpts+'</select>'+
+      '<select class="wb-sel" id="wbNote">'+noteOpts+'</select>'+
       '<span class="wb-spacer"></span>'+
       '<span class="wb-count">'+words.length+' 个</span>'+
       '<button class="mini-btn" id="wbSelMode">'+(ui.selMode?'退出多选':'多选')+'</button>'+
