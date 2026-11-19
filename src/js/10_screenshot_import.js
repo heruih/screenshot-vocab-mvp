@@ -216,6 +216,17 @@ async function ocrImportBatch(files,noteId){
   const folderId=targetNote?targetNote.folderId:'';
   $('#ocrSheet').classList.add('show');$('#ocrImgWrap').classList.add('hidden');$('#ocrSelected').classList.add('hidden');$('#ocrBatch').classList.remove('hidden');
   const st=$('#ocrStatus');
+  /* 进度条：批量开始即显示；完成卡片先隐藏 */
+  const prog=$('#ocrProgress'),doneCard=$('#ocrDoneCard'),pFill=$('#ocrProgressFill'),pText=$('#ocrProgressText'),pPct=$('#ocrProgressPct');
+  if(prog)prog.classList.remove('hidden');
+  if(doneCard)doneCard.classList.add('hidden');
+  const setProgress=n=>{
+    const pct=Math.round((n/files.length)*100);
+    if(pFill)pFill.style.width=pct+'%';
+    if(pPct)pPct.textContent=pct+'%';
+    if(pText)pText.textContent='正在导入 '+n+' / '+files.length+' 张';
+  };
+  setProgress(0);
   /* 导入前提示：IDB 模式按张数上限，LS 模式按剩余字节 */
   if(inboxUseIdb){
     const curN=shotsTotal(shotsAll())+(inboxCache?inboxCache.length:0);
@@ -234,7 +245,7 @@ async function ocrImportBatch(files,noteId){
     try{
       dataUrl=await shotCompress(files[i]);
       if(ocrReady){
-        const blobUrl=URL.createObjectURL(files[i]);
+        const blobUrl=await recognitionUrlFor(files[i]);
         try{
           text=await ocrEngineMod.recognize(blobUrl);
           candidates=ocrCandidates(text);
@@ -250,12 +261,14 @@ async function ocrImportBatch(files,noteId){
       if(shotsTotal(shotsAll())+list.length+1>SHOT_MAX_TOTAL){
         if(st)st.textContent='已达截图库上限（'+SHOT_MAX_TOTAL+' 张）：已保存 '+saved+' 张，剩余 '+(files.length-i)+' 张未导入。';
         toast('截图库已达上限','warn');
+        if(prog)prog.classList.add('hidden');
         ocrInboxRender();
         return;
       }
     }else if(storageUsedBytes()+itemBytes>LS_QUOTA){
       if(st)st.textContent='空间将满：已保存 '+saved+' 张，剩余 '+(files.length-i)+' 张未导入。请先在设置查看占用、整理或导出备份。';
       toast('剩余空间不够再存一张，已停止导入','warn');
+      if(prog)prog.classList.add('hidden');
       ocrInboxRender();
       return;
     }
@@ -264,6 +277,7 @@ async function ocrImportBatch(files,noteId){
     try{
       await inboxPutItem(item);
       saved++;
+      setProgress(saved);
       estAvg=estAvg?Math.round((estAvg+itemBytes)/2):itemBytes;
       const canMore=inboxUseIdb
         ? Math.max(0,SHOT_MAX_TOTAL-shotsTotal(shotsAll())-inboxCache.length)
@@ -273,11 +287,30 @@ async function ocrImportBatch(files,noteId){
       await inboxRemoveItem(item.id);
       if(st)st.textContent='存储失败：已保存 '+saved+' 张，剩余 '+(files.length-i-1)+' 张未导入。请先整理或导出备份。';
       toast('收件箱写入失败，先处理已存截图','warn');
+      if(prog)prog.classList.add('hidden');
       ocrInboxRender();
       return;
     }
   }
   ocrInboxRender();
+  if(prog)prog.classList.add('hidden');
+  if(doneCard){
+    const sub=$('#ocrDoneSub');
+    if(sub)sub.textContent='已导入 '+saved+' 张到《'+(targetNote?(targetNote.title||'无标题'):'未分笔记')+'》';
+    doneCard.classList.remove('hidden');
+    const proc=$('#ocrDoneProcess'),close=$('#ocrDoneClose');
+    if(proc&&!proc.__bound){
+      proc.addEventListener('click',()=>{
+        doneCard.classList.add('hidden');
+        const lbl=$('#ocrBatchLabel'); if(lbl)lbl.scrollIntoView({block:'start'});
+      });
+      proc.__bound=true;
+    }
+    if(close&&!close.__bound){
+      close.addEventListener('click',()=>{ $('#ocrSheet').classList.remove('show'); });
+      close.__bound=true;
+    }
+  }
   if(!ocrReady&&st)st.textContent='识别组件未加载，'+saved+' 张截图已先保存，可稍后在收件箱手动匹配。';
 }
 let ocrEngineMod=null;
@@ -289,6 +322,27 @@ async function loadOcrEngine(){
   await mod.init({ wasmPaths:base+'ort/', modelBase:base+'models/' });
   ocrEngineMod=mod;
   return mod;
+}
+/* 识别用最大边：超过就等比缩小，控制 iPhone 全尺寸处理的内存峰值；小于限制的图原样用 */
+const RECOGNIZE_MAX_EDGE=1920;
+function recognitionUrlFor(file){
+  const srcUrl=URL.createObjectURL(file);
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{
+      let w=img.naturalWidth,h=img.naturalHeight;
+      if(Math.max(w,h)<=RECOGNIZE_MAX_EDGE){ resolve(srcUrl); return; }
+      const ratio=RECOGNIZE_MAX_EDGE/Math.max(w,h);
+      w=Math.round(w*ratio);h=Math.round(h*ratio);
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(srcUrl);
+      canvas.toBlob(blob=>resolve(URL.createObjectURL(blob)),'image/jpeg',0.9);
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(srcUrl); reject(new Error('image load error')); };
+    img.src=srcUrl;
+  });
 }
 function ocrStopWords(){
   return new Set(['the','and','for','with','that','this','from','have','has','had','you','your','are','was','were','not','but','what','when','where','who','why','how','all','can','will','just','like','about','into','out','over','again','then','than','them','they','their','there','here','because','very','really','much','more','most','some','any','get','got','going','go','goes','been','being','would','could','should','shall','may','might','must','do','does','did','done','is','it','its','i','he','she','we','on','in','at','to','of','a','an','so','if','or','as','up','down','off','no','yes','ok','okay','oh','yeah','wanna','gonna','know','knows','say','says','said','see','saw','seen','look','looks','think','thinks','thought','want','wants','need','needs','make','makes','made','take','takes','took','come','comes','came','right','good','bad','day','days','time','times','thing','things','one','two','three','new','now','us','im','ive','ill','dont','cant','didnt','wont','isnt','wasnt','werent','arent','youre','hes','shes','theyre','whats','thats','its','guys','guy','girl','boy','people','person','man','woman','men','women','kids','child','children','home','house','work','works','way','ways','lot','lots','little','big','long','short','well','really','actually','pretty','quite','very']);
@@ -320,8 +374,16 @@ async function ocrImportImage(event){
     $('#ocrImgWrap').classList.remove('hidden');
     $('#ocrSelected').classList.remove('hidden');
     $('#ocrBoxes').innerHTML=''; // PP-OCR 无词级坐标，不再在图上叠词框
+  }catch(e){
+    console.error('截图压缩失败',e);
+    if(st) st.textContent='图片读取失败，请换一张试试。';
+    return;
+  }
+  /* 识别+渲染 chips 单独成函数，失败可点重试，不用重新选图/压缩 */
+  const runRecognize=async ()=>{
+    if(st) st.textContent='正在识别…';
     await loadOcrEngine();
-    const blobUrl=URL.createObjectURL(f);
+    const blobUrl=await recognitionUrlFor(f);
     let sentence='';
     try{ sentence=await ocrEngineMod.recognize(blobUrl); }
     finally{ URL.revokeObjectURL(blobUrl); }
@@ -347,8 +409,23 @@ async function ocrImportImage(event){
         .join(' ');
     });
     if(st) st.textContent='识别到整句：默认整句，点单词可移除/加回，也可直接在下方编辑';
+  };
+  const attachRetry=()=>{ const rb=$('#ocrRetry'); if(rb) rb.addEventListener('click',doRetry); };
+  const showFail=err=>{
+    if(st){
+      st.innerHTML='识别暂不可用（'+esc((err&&err.message)||'未知错误')+'）。可在下方手动输入，或 <button type="button" class="link-btn" id="ocrRetry">重试识别</button>';
+      attachRetry();
+    }
+  };
+  const doRetry=async ()=>{
+    try{ await runRecognize(); }
+    catch(e2){ console.error('重试仍失败',e2); showFail(e2); }
+  };
+  try{
+    await runRecognize();
   }catch(e){
-    if(st) st.textContent='识别暂不可用，仍可在下方手动输入完整表达并保存截图。';
+    console.error('单图识别失败',e);
+    showFail(e);
   }
 }
 function ocrMount(){

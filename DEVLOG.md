@@ -124,7 +124,8 @@
 | 2026-11-18 | 批量多选完整链路验证：3 张→新建归属笔记→逐张识别写收件箱（3/3，约1张/秒）→收件箱识别文本核对正确→手动输入新词确认挂词，IDB 验证截图挂到正确词、收件箱移除该项 | 浏览器自动化端到端（多文件用 fetch→File→DataTransfer 构造，CDP setInputFiles 不可用） | 通过 | 发布真机验收 |
 | 2026-11-18 | 发布完整产品 MVP：新建独立公开仓 heruih/screenshot-vocab-mvp（index.html + ocr-assets，约40MB），启用 Pages；7 个资源 HTTP200，线上真实识别冒烟通过（首加载含 CDN 11.9s、缓存后 4.9s，桌面端） | gh Pages 构建 built；线上识别结果准确 | 桌面端通过，手机真机待验 | Simon 手机走完整流程 |
 | 2026-11-19 | 真机反馈四问题，方案 A（每条独立存储+一次性可回滚迁移）：09 新增 idbGetAll/idbDelete/idbHasKey；10 重写收件箱，inboxInit 迁移旧单 key 'all'（核对覆盖才删、失败保留重试），inboxPutItem/inboxRemoveItem 单条 O(1) 读写，消除旧 O(n²) 整体重写；新增 inboxFilterNoteId，渲染按 at 降序、总收件箱分组/单笔记不分组，ocrInboxShowNote + updateNoteInboxBar；编辑器顶部加 #noteInboxBar（正常流不遮挡）；单图 #ocrImgWrap img 加 max-height:30vh+object-fit:contain；备份恢复改逐条写入 | node --check 通过；构建单 HTML 570788 字节 | 本地验证全过 | 19 张性能实测 |
-| 2026-11-19 | 19 张批量性能实测：fetch→File→DataTransfer 构造，归属已有笔记；稳定约 1 张/秒（识别主导，写入不再是瓶颈），总耗时约 19–30s（旧版约 60s）；IDB 21 条独立记录全有效、旧 'all' 已删；总收件箱 21 项最新 19 在前、最早 02 在后 | 本地端到端全过 | 已发布 a89f833 并 Pages built，线上含全部新功能 | Simon 手机真机验收 |
+| 2026-11-19 | 19 张批量性能实测：fetch→File→DataTransfer 构造，归属已有笔记；稳定约 1 张/秒（识别主导，写入不再是瓶颈），总耗时约 19–30s（旧版约 60s）；IDB 21 条独立记录全有效、旧 'all' 已删；总收件箱 21 项最新 19 在前、最早 02 在最后 | 本地端到端全过 | 已发布 a89f833 并 Pages built，线上含全部新功能 | Simon 手机真机验收 |
+| 2026-11-19 | 真机反馈四问题，方案 A：①识别图限边——新增 recognitionUrlFor（最大边1920，超过等比缩，JPEG0.9），单图/批量统一，竖图像素降约46%，修复 iPhone 全尺寸内存爆掉导致的"识别暂不可用"；②单图重构，runRecognize 可重试，catch 改 console.error 暴露真实错误+错误信息+重试按钮（不再吞错误）；③批量进度条 #ocrProgress（X/N+百分比+fill，实时走，结束100%）；④完成卡片 #ocrDoneCard（"已导入N张到《笔记》"，去处理=隐藏卡片滚动列表、完成=关闭面板）；提前停止三 return 隐藏进度条；新增 .link-btn/.ocr-progress/.ocr-done-card 样式 | node --check 通过；构建单 HTML 575969 字节 | 本地 3 张批量进度条+完成卡片+两按钮、单图/竖图识别全过 | 已发布 6d67505 并 Pages built | Simon 真机验收，重点确认单图不再"暂不可用" |
 
 ## 规矩
 

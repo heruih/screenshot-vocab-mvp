@@ -683,7 +683,20 @@
         </div>
       </div>
       <div id="ocrBatch" class="hidden">
-        <div class="wm-label" style="margin-top:14px">待匹配截图</div>
+        <div id="ocrProgress" class="ocr-progress hidden">
+          <div class="ocr-progress-meta"><span id="ocrProgressText">准备中…</span><span id="ocrProgressPct">0%</span></div>
+          <div class="ocr-progress-track"><div id="ocrProgressFill"></div></div>
+        </div>
+        <div id="ocrDoneCard" class="ocr-done-card hidden">
+          <div class="odc-check">✓</div>
+          <div class="odc-title">导入完成</div>
+          <div class="odc-sub" id="ocrDoneSub">已导入 0 张</div>
+          <div class="odc-actions">
+            <button class="btn primary" id="ocrDoneProcess" type="button">去处理</button>
+            <button class="btn" id="ocrDoneClose" type="button">完成</button>
+          </div>
+        </div>
+        <div class="wm-label" id="ocrBatchLabel" style="margin-top:14px">待匹配截图</div>
         <div id="ocrBatchList"></div>
       </div>
       <div class="ocr-foot"><button class="btn" id="ocrMount">挂载到表达库</button></div>
