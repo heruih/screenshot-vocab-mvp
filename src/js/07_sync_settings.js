@@ -657,6 +657,75 @@ function bindSideSwipe(){
     if(dx<-60){ ui.sideOpen=false; render(); }
   },{passive:true});
 }
+/* ============ 主页面跟手左右滑 ============ */
+const PAGE_SWIPE_MODES=['today','list','words','flash'];
+function pageSwipeBlocked(target){
+  if(ui.sideOpen)return true;
+  if(PAGE_SWIPE_MODES.indexOf(ui.mode)<0)return true;
+  /* 任何浮层打开时不抢手势 */
+  if(document.querySelector('.modal.show,.ai-page.show,#shotViewer.show,#qdSheet.show,#writeModal.show,.bottom-sheet.show,#noteOrganize.show,#dictPage.show,#followPage.show'))return true;
+  /* 起点落在可横向滑动的元素（图片轮播/横滚条），让它自己处理 */
+  if(target.closest&&target.closest('[data-no-swipe],.hscroll,.carousel,.wm-shots,.shot-strip,.img-swipe'))return true;
+  return false;
+}
+/* 切到指定主页面：字段重置与底部 tab 点击保持一致 */
+function applyPageMode(k){
+  try{ persistEditor(); }catch(_){}
+  if(k==='today'){ui.mode='today';ui.note=null;ui.tag=null;}
+  else if(k==='list'){ui.mode='list';ui.folder='all';ui.note=null;ui.tag=null;}
+  else if(k==='words'){ui.mode='words';ui.note=null;ui.selMode=false;ui.sel=[];ui.wordFilter='all';ui.wordTag='';}
+  else if(k==='flash'){ui.mode='flash';ui.note=null;ui.flash=null;}
+  ui.sideOpen=false;
+  render();
+}
+function bindPageSwipe(){
+  const pane=$('#noteListPane');
+  if(!pane)return;
+  let x0=0,y0=0,dx=0,locked=0,on=false;
+  pane.addEventListener('touchstart',e=>{
+    on=false;locked=0;dx=0;
+    if(pageSwipeBlocked(e.target))return;
+    const t=e.touches[0];x0=t.clientX;y0=t.clientY;on=true;
+  },{passive:true});
+  pane.addEventListener('touchmove',e=>{
+    if(!on)return;
+    const t=e.touches[0];
+    const ddx=t.clientX-x0,ddy=t.clientY-y0;
+    if(!locked){
+      if(Math.abs(ddx)<8&&Math.abs(ddy)<8)return;
+      if(Math.abs(ddy)>Math.abs(ddx)){on=false;return;}   /* 纵向滚动，放行不拦截 */
+      locked=1;pane.style.transition='none';
+    }
+    const idx=PAGE_SWIPE_MODES.indexOf(ui.mode);
+    let x=ddx;
+    /* 到头（第一个不能再往右、最后一个不能再往左）加阻尼 */
+    if((x>0&&idx<=0)||(x<0&&idx>=PAGE_SWIPE_MODES.length-1))x=x*0.3;
+    dx=x;
+    pane.style.transform='translateX('+x+'px)';
+    pane.style.opacity=String(Math.max(.78,1-Math.abs(x)/(window.innerWidth*1.4)));
+  },{passive:true});
+  pane.addEventListener('touchend',()=>{
+    if(!on||!locked){on=false;return;}
+    on=false;
+    const w=window.innerWidth,idx=PAGE_SWIPE_MODES.indexOf(ui.mode),goNext=dx<0;
+    let target=idx;
+    if(Math.abs(dx)>w*0.22){
+      if(goNext&&idx<PAGE_SWIPE_MODES.length-1)target=idx+1;
+      else if(!goNext&&idx>0)target=idx-1;
+    }
+    pane.style.transition='transform .22s ease,opacity .22s ease';
+    if(target===idx){
+      pane.style.transform='';pane.style.opacity='';
+      setTimeout(()=>{pane.style.transition='';pane.style.transform='';pane.style.opacity='';},240);
+    }else{
+      pane.style.transform='translateX('+(goNext?-w:w)+'px)';
+      setTimeout(()=>{
+        pane.style.transition='none';pane.style.transform='';pane.style.opacity='';
+        applyPageMode(PAGE_SWIPE_MODES[target]);
+      },200);
+    }
+  },{passive:true});
+}
 /* ============ 备份提醒 ============ */
 let backupWarned=false;
 function backupReminder(){
@@ -868,6 +937,8 @@ function bindEvents(){
     if(wf){ ui.wordFilter=wf.dataset.wfilter; if(ui.wordFilterOpen)wfCloseSheet();render(); return; }
     const ndel=e.target.closest('[data-ndel]');
     if(ndel){ e.stopPropagation(); deleteNote(ndel.dataset.ndel); return; }
+    const npin=e.target.closest('[data-npin]');
+    if(npin){ e.stopPropagation(); toggleNotePin(npin.dataset.npin); return; }
     const wlink=e.target.closest('[data-wlink]');
     if(wlink){ e.stopPropagation(); jumpToNote(wlink.dataset.wlink); return; }
     const chip=e.target.closest('[data-chip]');

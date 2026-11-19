@@ -381,6 +381,16 @@ function deleteNote(id){
     save();
   });
 }
+/* 置顶/取消置顶：只加或删一个可选 pinAt 字段，旧笔记没有它默认不置顶、不影响现有数据 */
+function toggleNotePin(id){
+  const n=state.notes.find(x=>x.id===id);
+  if(!n)return;
+  if(n.pinAt){ delete n.pinAt; }
+  else{ n.pinAt=Date.now(); }
+  save();
+  render();
+  try{ if(navigator.vibrate) navigator.vibrate(8); }catch(_){}
+}
 /* 删文件夹（会连带笔记）：保留确认框，删完同样可撤销 */
 function deleteFolder(id){
   const f=state.folders.find(x=>x.id===id);

@@ -318,10 +318,58 @@ scheduleSync=function(){};
 syncOnBoot=function(){};
 exportData=aDownloadBackup;
 importData=aImportFile;
+/* ============ 首次使用渐进气泡（独立 key，可永久关闭） ============ */
+const COACH_KEY='english-notes-coach-v1';
+const COACH_TIPS={
+  today:{title:'今日任务',text:'这里是今天要复习的内容，先把待复习的过一遍，再学新的。'},
+  list:{title:'笔记',text:'点右上角 ＋ 新建笔记；相机按钮可以一次选多张截图，AI 自动识别。'},
+  words:{title:'表达库',text:'点任意单词看例句和配图，喇叭图标可以练发音。'},
+  flash:{title:'复习',text:'先自己开口说，再看答案；记不住的会安排以后再见。'}
+};
+function coachState(){
+  try{const o=JSON.parse(localStorage.getItem(COACH_KEY)||'{}');if(o&&typeof o==='object')return Object.assign({seen:{},off:false},o);}catch(_){}
+  return {seen:{},off:false};
+}
+function coachSave(s){try{localStorage.setItem(COACH_KEY,JSON.stringify(s));}catch(_){}}
+let _coachEl=null,_coachTimer=0;
+function coachClose(){
+  if(_coachEl){_coachEl.remove();_coachEl=null;}
+  if(_coachTimer){clearTimeout(_coachTimer);_coachTimer=0;}
+}
+function coachDismiss(mode){
+  const s=coachState();s.seen[mode]=true;coachSave(s);coachClose();
+}
+function coachShow(mode){
+  const tip=COACH_TIPS[mode];if(!tip)return;
+  coachClose();
+  const el=document.createElement('div');
+  el.className='coach-bubble';
+  el.innerHTML='<div class="coach-bubble-head"><b>'+esc(tip.title)+'</b><button class="coach-x" aria-label="关闭提示">×</button></div>'+
+    '<p>'+esc(tip.text)+'</p>'+
+    '<div class="coach-actions"><button class="coach-ok">知道了</button><button class="coach-off">不再提示</button></div>';
+  document.body.appendChild(el);_coachEl=el;
+  el.querySelector('.coach-x').onclick=()=>coachDismiss(mode);
+  el.querySelector('.coach-ok').onclick=()=>coachDismiss(mode);
+  el.querySelector('.coach-off').onclick=()=>{const s=coachState();s.off=true;coachSave(s);coachClose();};
+}
+function coachMaybe(){
+  const s=coachState();
+  if(s.off)return;
+  const mode=ui.mode;
+  if(!COACH_TIPS[mode]||s.seen[mode])return;
+  if(_coachTimer)clearTimeout(_coachTimer);
+  _coachTimer=setTimeout(()=>{
+    const cur=coachState();
+    if(!cur.off&&!cur.seen[mode]&&ui.mode===mode&&!document.querySelector('.modal.show,.ai-page.show'))coachShow(mode);
+  },450);
+}
 function aInit(){
   aData=aRead(A_KEY,{words:{},attempts:[]});if(!aData.words||typeof aData.words!=='object')aData.words={};if(!Array.isArray(aData.attempts))aData.attempts=[];
   const guideButton=document.createElement('button');guideButton.id='aGuideOpen';guideButton.type='button';guideButton.className='a-guide-hero';guideButton.innerHTML='<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg><span class="agh-copy"><b>使用小手册</b><small>5 步上手，不知道点哪就看它</small></span>';guideButton.onclick=()=>$('#aGuide').classList.add('show');const sideNav=$('#sideNav');if(sideNav&&!$('#aGuideOpen'))sideNav.insertBefore(guideButton,sideNav.firstChild);
   $('#aGuideClose').onclick=()=>$('#aGuide').classList.remove('show');$('#aGuide').addEventListener('click',e=>{if(e.target.id==='aGuide')$('#aGuide').classList.remove('show');});
+  /* 每次渲染后检查当前页面是否有待显示的首次气泡 */
+  const _coachRender=render;
+  render=function(){_coachRender();try{coachMaybe();}catch(_){}};
   /* 手机端表达库筛选抽屉：触发、遮罩、关闭 */
   $('#wordFilterTrigger').onclick=wfOpenSheet;
   $('#wordFilterClose').onclick=wfCloseSheet;

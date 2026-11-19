@@ -53,10 +53,25 @@ function storageBreakdown(){
   }
   return out.sort((a,b)=>b.bytes-a.bytes);
 }
-/* 当前配额快照 */
+/* 当前配额快照（仅 localStorage 的保守口径，拿不到 estimate 时兜底用） */
 function storageQuote(){
   const used=storageUsedBytes();
   return {used,quota:LS_QUOTA,free:Math.max(0,LS_QUOTA-used),ratio:used/LS_QUOTA};
+}
+/* 总存储视角：navigator.storage.estimate 覆盖 localStorage + IndexedDB + Cache 的真实占用与配额 */
+let _estCache=null,_estPending=false;
+async function storageEstimate(){
+  try{
+    if(navigator.storage&&typeof navigator.storage.estimate==='function'){
+      const est=await navigator.storage.estimate();
+      if(est&&est.quota){
+        _estCache={usage:est.usage||0,quota:est.quota||0};
+        return _estCache;
+      }
+    }
+  }catch(_){}
+  _estCache=null;
+  return null;
 }
 /* 把内部 key 名翻译成大白话标签，不认识的保留原名 */
 function storageKeyLabel(k){
@@ -74,28 +89,58 @@ function storageKeyLabel(k){
   };
   return map[k]||k;
 }
-/* 渲染设置弹窗里的存储占用：进度条 + 文案 + 预警 + 明细 */
+/* 渲染设置弹窗里的存储占用：先同步画，再异步刷新真实总存储 */
 function storageRender(){
+  storageRenderStatic();
+  storageRefreshAsync();
+}
+/* 纯同步：进度条 + 文案 + 预警 + 明细（用当前缓存的 estimate，没有就退回 LS 口径） */
+function storageRenderStatic(){
   const fill=$('#stStoreFill'),text=$('#stStoreText'),warn=$('#stStoreWarn'),br=$('#stStoreBreak');
   if(!fill)return;
-  const q=storageQuote();
-  const pct=Math.min(100,Math.round(q.ratio*100));
+  let used,quota;
+  if(_estCache){used=_estCache.usage;quota=_estCache.quota;}
+  else{const q=storageQuote();used=q.used;quota=q.quota;}
+  const free=Math.max(0,quota-used),ratio=quota?used/quota:0;
+  const pct=Math.min(100,Math.round(ratio*100));
   fill.style.width=pct+'%';
-  fill.classList.toggle('hot',q.ratio>=LS_WARN_RATIO);
-  text.textContent='已用 '+fmtBytes(q.used)+' / 约 '+fmtBytes(q.quota)+'（'+pct+'%）· 剩余 '+fmtBytes(q.free);
-  if(q.ratio>=LS_WARN_RATIO){
+  fill.classList.toggle('hot',ratio>=LS_WARN_RATIO);
+  text.textContent='已用 '+fmtBytes(used)+' / 约 '+fmtBytes(quota)+'（'+pct+'%）· 剩余 '+fmtBytes(free);
+  if(ratio>=LS_WARN_RATIO){
     warn.hidden=false;
     warn.textContent='占用已超过 80%，建议先导出完整备份，再清理不需要的截图或配图缓存。';
   }else{warn.hidden=true;}
   const rows=storageBreakdown().slice(0,6);
   br.innerHTML=rows.map(r=>'<div class="sb-row"><span class="sb-label">'+esc(storageKeyLabel(r.key))+'</span><span class="sb-bytes">'+fmtBytes(r.bytes)+'</span></div>').join('');
+  renderIdbRow(_imgBlobCache);
+}
+/* 截图库行（同步）+ 已固定配图行（字节拿到后才显示） */
+let _imgBlobCache=null;
+function renderIdbRow(imgBytes){
   const idbEl=$('#stStoreIdb');
-  if(idbEl){
-    const idbOn=shotUseIdb||inboxUseIdb;
-    const shotsN=(shotReady?shotsTotal(shotCache):0)+(inboxReady&&inboxCache?inboxCache.length:0);
-    if(idbOn) idbEl.innerHTML='<div class="sb-row"><span class="sb-label">截图库（大容量）· '+shotsN+' 张（含收件箱）</span><span class="sb-bytes">'+fmtBytes(idbUsedBytes())+'</span></div>';
-    else idbEl.innerHTML='<div class="sb-row"><span class="sb-label">截图库未启用，仍占本地存储</span><span class="sb-bytes">'+fmtBytes(idbUsedBytes())+'</span></div>';
+  if(!idbEl)return;
+  const idbOn=shotUseIdb||inboxUseIdb;
+  const shotsN=(shotReady?shotsTotal(shotCache):0)+(inboxReady&&inboxCache?inboxCache.length:0);
+  let h=idbOn
+    ?'<div class="sb-row"><span class="sb-label">截图库（大容量）· '+shotsN+' 张（含收件箱）</span><span class="sb-bytes">'+fmtBytes(idbUsedBytes())+'</span></div>'
+    :'<div class="sb-row"><span class="sb-label">截图库未启用，仍占本地存储</span><span class="sb-bytes">'+fmtBytes(idbUsedBytes())+'</span></div>';
+  if(typeof imgBytes==='number'){
+    h+='<div class="sb-row"><span class="sb-label">单词配图（已固定到本机）</span><span class="sb-bytes">'+fmtBytes(imgBytes)+'</span></div>';
   }
+  idbEl.innerHTML=h;
+}
+/* 异步拿真实总存储和配图字节，设置面板仍开着就重画，不递归触发新请求 */
+function storageRefreshAsync(){
+  if(_estPending)return;
+  _estPending=true;
+  (async()=>{
+    try{
+      await storageEstimate();
+      try{_imgBlobCache=await imgBlobBytes();}catch(_){}
+      const modal=$('#settingsModal');
+      if(modal&&modal.classList.contains('show'))storageRenderStatic();
+    }finally{_estPending=false;}
+  })();
 }
 function aRead(key,fallback){try{return JSON.parse(localStorage.getItem(key))||fallback;}catch(_){return fallback;}}
 function aFlush(){if(!aStore(A_KEY,JSON.stringify(aData)))throw new Error('学习信息没有保存成功');}
