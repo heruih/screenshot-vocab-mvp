@@ -19,7 +19,7 @@ Promise.all([shotsInit(),inboxInit()]).catch(()=>{}).then(()=>{
 });
 syncKbUI();
 setTimeout(backupReminder,1600);
-setTimeout(maybeShowInstallGuide,2200);
+setTimeout(dataSafetyLaunch,2200);
 syncOnBoot();
 
 /* 页面被切走 / 直接关掉（没点保存）：先把 empower 草稿落盘 */
@@ -27,5 +27,10 @@ window.addEventListener('pagehide',()=>{ try{ if(wmState&&!wmState.saved) wmDraf
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden'){ try{ if(wmState&&!wmState.saved) wmDraftSave(); }catch(_){ } }
 });
+
+/* 注册 Service Worker：PWA 秒开与离线缓存，失败不影响主功能 */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{ try{ navigator.serviceWorker.register('sw.js'); }catch(e){} });
+}
 
 

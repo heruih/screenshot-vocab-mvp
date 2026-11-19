@@ -26,7 +26,17 @@ function bSnapshot(){
   out[LS_KEY]={words:state.words,notes:state.notes,folders:state.folders,aiLog:state.aiLog,grave:state.grave||[],tagList:state.tagList||[]};
   return JSON.parse(JSON.stringify(out));
 }
-function bSetStatus(text){bStatus=text;const s=$('#bCloudStatus');if(s)s.textContent=text;}
+let bStatusTimer=0;
+function bSetStatus(text){
+  bStatus=text;
+  const s=$('#bCloudStatus');
+  if(!s)return;
+  s.textContent=text;
+  clearTimeout(bStatusTimer);
+  const isErr=/未完成|失败|离线|错误|不可用|重试|请用/.test(text);
+  s.classList.add('show');
+  if(!isErr)bStatusTimer=setTimeout(()=>s.classList.remove('show'),1500);
+}
 function bQueue(){if(bApplying)return;clearTimeout(bTimer);bTimer=setTimeout(()=>bSync(),1600);bSetStatus('已存本机，等待云保存…');}
 const bStore=aStore;
 aStore=function(k,v){const ok=bStore(k,v);if(ok&&!bApplying&&k!==B_BASE)bQueue();return ok;};

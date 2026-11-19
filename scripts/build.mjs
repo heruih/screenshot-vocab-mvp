@@ -104,4 +104,14 @@ if (publishPages) {
     await fs.copyFile(path.join(source, 'pwa', f), path.join(iconsOut, f));
   }
   console.log('pwa manifest + icons ready');
+
+  // Service Worker：注入当前产品页面、manifest 与缓存版本，输出 sw.js（PWA 秒开/离线可用）
+  const swTemplate = await fs.readFile(path.join(source, 'sw.js'), 'utf8');
+  const cacheVersion = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
+  const sw = swTemplate
+    .replace('__CACHE_VERSION__', cacheVersion)
+    .replace('__PAGE__', `${fileBase}.html`)
+    .replace('__MANIFEST__', manifestFile);
+  await fs.writeFile(path.join(output, 'sw.js'), sw, 'utf8');
+  console.log('service worker ready');
 }

@@ -131,6 +131,8 @@
 | 2026-11-19 | 双产品管道：新增 src/products/personal.config.js 与 commercial.config.js（APP_CONFIG 含产品名+9个功能开关，暂全启用）；build.mjs 支持 --product=commercial/personal，构建时 config 注入单文件最前面；商业版输出路径不变，个人版输出 personal.html，pages 共用 ocr-assets | 两产品分别构建成功（577286/577471）；浏览器 DOM 注入验证两版 APP_CONFIG.product 正确、页面功能正常 | 已提交 eac0260 | 功能阶段：新手手册/左右滑/备忘录/易用性 |
 | 2026-11-19 | 跨设备兼容性排查 + 方案一落地（5 子任务）。①能力检测：新增 00_capabilities.js（SIMD/IDB/canvas/blob/standalone 探测，冻结 CAP），OCR 不支持时 loadOcrEngine 直接拦截、单图不显示重试、批量照常存图，顶部 cap-banner 友好提示；②PWA：新增 manifest（商业/个人各自 start_url）+ 图标（sharp 生成 192/512/maskable/180），maybeShowInstallGuide 第2次启动引导安装，根治 iOS 7 天数据驱逐；③适配：viewport-fit=cover、bottom-sheet 补 safe-area，长句 chunkSpeech 拆分+speakQueued 队列（防 Chrome 15 秒截断），首次手势 resume；④底部 5 tab（今日/笔记/表达库/复习/更多），侧栏瘦身去重只留标签聚合/口语/文件夹；⑤首页顶部今日任务卡（待复习/待整理+一键开始复习） | 两产品构建通过（586964/587158）；浏览器验证 CAP 全绿无横幅、长句切4块内容完整、5 tab 切换、任务卡按钮、五页回归 0 控制台错误 | 待提交 | 真机验收后发布商业站 |
 
+| 2026-11-19 | 真机反馈五问题，第二轮改造。①统一数据保护卡片：融合安装引导与用完导出，一个卡片+统一 key（en-data-safety-v1），两次忽略安装后自动主推导出、安装降为小字链接，仅移动且有新改动才提示；②Service Worker：新增 sw.js（核心6资源预缓存、ocr-assets 运行时缓存、SWR 导航、版本化+清旧），PWA 秒开离线可用；③保存状态：常驻整条横幅改小胶囊，1.5 秒自动隐藏、出错才常驻；④顶部 pane-header/side-header 补 safe-area-inset-top，修复 standalone 被状态栏遮挡；⑤构建复制 sw 并注册 | 两产品构建（591501/591695）；浏览器验证 SW activated+controlled+缓存6项、卡片两布局按钮与展开指引、胶囊自动隐藏、五 tab 回归 0 错误 | 已发布 8faf951，线上 200 | 真机复验 |
+
 ## 规矩
 
 - **失败也记**，而且记真实的："跑 5 个词坏了 1 个"比"基本可用"有用一百倍。

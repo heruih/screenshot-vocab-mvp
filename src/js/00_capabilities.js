@@ -56,57 +56,140 @@ function capBanner(){
 }
 capBanner();
 
-/* ============ PWA 安装引导（仅移动设备、未安装时；根治 iOS 7 天数据驱逐） ============ */
-const PWA_INSTALL_KEY='en-pwa-install-state-v1', PWA_VISIT_KEY='en-pwa-visit-count-v1';
-let pwaDeferredPrompt=null;
+/* ============ 统一数据保护卡片（融合"装桌面"与"导出备份"，按用户倾向智能切换重点） ============ */
+const SAFETY_KEY='en-data-safety-v1', PWA_VISIT_KEY='en-pwa-visit-count-v1';
+let pwaDeferredPrompt=null, launchFingerprint='';
 window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); pwaDeferredPrompt=e; });
-window.addEventListener('appinstalled',()=>{ try{localStorage.setItem(PWA_INSTALL_KEY,'installed');}catch(_){} });
+window.addEventListener('appinstalled',()=>{ try{const s=readSafety();s.installed=true;writeSafety(s);}catch(_){} });
+function readSafety(){
+  try{ return Object.assign({installIgnored:0,lastBackupAt:0,installed:false},JSON.parse(localStorage.getItem(SAFETY_KEY)||'{}')); }
+  catch(_){ return {installIgnored:0,lastBackupAt:0,installed:false}; }
+}
+function writeSafety(s){ try{ localStorage.setItem(SAFETY_KEY,JSON.stringify(s)); }catch(_){} }
 function pwaPlatform(){
   const ua=navigator.userAgent||'';
   return { ios:/iphone|ipad|ipod/i.test(ua), android:/android/i.test(ua) };
 }
-function maybeShowInstallGuide(){
+/* 数据指纹：词/笔记/收件箱/截图数量，用来判断本次会话有没有新改动 */
+function dataFingerprint(){
   try{
-    if(CAP.standalone) return;
+    const words=(typeof state!=='undefined'&&state.words)?state.words.length:0;
+    const notes=(typeof state!=='undefined'&&state.notes)?state.notes.length:0;
+    const inbox=(typeof ocrInboxRead==='function')?ocrInboxRead().length:0;
+    const shots=(typeof shotsAll==='function')?shotsAll().length:0;
+    return words+':'+notes+':'+inbox+':'+shots;
+  }catch(_){ return ''; }
+}
+function doExport(){
+  try{
+    if(typeof aDownloadBackup==='function') aDownloadBackup();
+    else if(typeof exportData==='function') exportData();
+    const s=readSafety(); s.lastBackupAt=Date.now(); writeSafety(s);
+    launchFingerprint=dataFingerprint(); // 导出后重置基准，避免重复提醒
+  }catch(e){ if(typeof toast==='function') toast('导出失败：'+e.message,'warn'); }
+}
+function installStepsEl(ios){
+  const d=document.createElement('div');
+  d.className='pwa-steps';
+  d.textContent=ios
+    ? '点浏览器底部「分享」按钮（方框向上箭头），在弹出菜单里选「添加到主屏幕」，再点「添加」。'
+    : '点浏览器菜单（右上角三个点），选「添加到主屏幕」。';
+  return d;
+}
+async function androidInstall(){
+  if(pwaDeferredPrompt){
+    pwaDeferredPrompt.prompt();
+    await pwaDeferredPrompt.userChoice;
+    pwaDeferredPrompt=null;
+  }
+}
+function showDataSafety(reason){
+  try{
+    if(CAP.standalone)return;
     const {ios,android}=pwaPlatform();
-    if(!ios && !android) return;
-    const st=localStorage.getItem(PWA_INSTALL_KEY);
-    if(st==='installed'||st==='dismissed') return;
-    const visits=(Number(localStorage.getItem(PWA_VISIT_KEY))||0)+1;
-    localStorage.setItem(PWA_VISIT_KEY,String(visits));
-    if(visits<2) return; // 第 2 次启动才提示，先让用户体验
+    if(!ios&&!android)return;
+    const s=readSafety();
+    if(s.installed)return;
+    if(reason==='resume' && dataFingerprint()===launchFingerprint)return; // 没新改动不打扰
+    if(document.querySelector('.pwa-guide'))return;
 
+    const preferExport=s.installIgnored>=2; // 两次忽略安装 → 判定不想装，主推导出
     const card=document.createElement('div');
     card.className='pwa-guide'; card.setAttribute('role','dialog');
     card.innerHTML=
-      '<div class="pwa-guide-head"><b>装到手机桌面，数据不丢</b>'+
+      '<div class="pwa-guide-head"><b>保护你的学习数据</b>'+
       '<button type="button" class="pwa-guide-x" aria-label="关闭">×</button></div>'+
-      '<p class="pwa-guide-sub">浏览器里的网页数据可能在一段时间不访问后被系统自动清除；装到桌面后有独立存储，还能全屏打开。</p>'+
+      '<p class="pwa-guide-sub">浏览器里的数据可能被系统定期清除；装到桌面有独立存储，或导出一份备份更稳妥。</p>'+
       '<div class="pwa-guide-act"></div>';
     const act=card.querySelector('.pwa-guide-act');
-    const dismiss=()=>{ card.remove(); try{localStorage.setItem(PWA_INSTALL_KEY,'dismissed');}catch(_){} };
-    card.querySelector('.pwa-guide-x').addEventListener('click',dismiss);
+    const close=()=>card.remove();
+    const ignore=()=>{ const z=readSafety(); z.installIgnored++; writeSafety(z); close(); };
+    card.querySelector('.pwa-guide-x').addEventListener('click',ignore);
 
-    if(android && pwaDeferredPrompt){
-      const btn=document.createElement('button');
-      btn.type='button'; btn.className='pwa-btn primary'; btn.textContent='立即安装';
-      btn.addEventListener('click',async()=>{
-        pwaDeferredPrompt.prompt();
-        await pwaDeferredPrompt.userChoice;
-        pwaDeferredPrompt=null; dismiss();
-      });
-      act.appendChild(btn);
+    const mkBtn=(txt,primary)=>{
+      const b=document.createElement('button');
+      b.type='button'; b.className='pwa-btn'+(primary?' primary':''); b.textContent=txt;
+      return b;
+    };
+    const mkLink=(txt)=>{
+      const b=document.createElement('button');
+      b.type='button'; b.className='pwa-link'; b.textContent=txt;
+      return b;
+    };
+    const installGuideBtn=mkBtn('装到桌面，数据不丢',true);
+    installGuideBtn.addEventListener('click',async()=>{
+      if(android){ await androidInstall(); close(); }
+      else{
+        const existing=card.querySelector('.pwa-steps');
+        if(existing){ existing.remove(); return; }
+        act.parentNode.insertBefore(installStepsEl(ios),act);
+      }
+    });
+
+    if(!preferExport){
+      // 主推安装 + 导出兜底
+      act.appendChild(installGuideBtn);
+      const row=document.createElement('div'); row.className='pwa-mini-row';
+      const exportMini=mkLink('先导出备份');
+      exportMini.addEventListener('click',()=>{ doExport(); close(); });
+      const okMini=mkLink('知道了');
+      okMini.addEventListener('click',ignore);
+      row.appendChild(exportMini); row.appendChild(okMini);
+      act.parentNode.insertBefore(row,act.nextSibling);
     }else{
-      const steps=document.createElement('div');
-      steps.className='pwa-steps';
-      steps.textContent=ios
-        ? '点浏览器底部的「分享」按钮（方框向上箭头），在弹出菜单里选「添加到主屏幕」，再点「添加」。'
-        : '点浏览器菜单（右上角三个点），选「添加到主屏幕」。';
-      const ok=document.createElement('button');
-      ok.type='button'; ok.className='pwa-btn primary'; ok.textContent='知道了';
-      ok.addEventListener('click',dismiss);
-      act.appendChild(steps); act.appendChild(ok);
+      // 主推导出 + 安装降为小字链接
+      const exportBtn=mkBtn('立即导出备份',true);
+      exportBtn.addEventListener('click',()=>{ doExport(); close(); });
+      act.appendChild(exportBtn);
+      const link=mkLink('或装到桌面，一劳永逸');
+      link.addEventListener('click',async()=>{
+        if(android){ await androidInstall(); close(); }
+        else{
+          const existing=card.querySelector('.pwa-steps');
+          if(existing){ existing.remove(); return; }
+          act.parentNode.insertBefore(installStepsEl(ios),act);
+        }
+      });
+      const okMini=mkLink('知道了'); okMini.addEventListener('click',ignore);
+      const wrap=document.createElement('div'); wrap.className='pwa-link-row';
+      wrap.appendChild(link); wrap.appendChild(okMini);
+      act.parentNode.insertBefore(wrap,act.nextSibling);
     }
     document.body.appendChild(card);
   }catch(_){}
 }
+/* 启动：第 2 次启动才提示，先让用户体验；同时记录启动指纹 */
+function dataSafetyLaunch(){
+  try{
+    launchFingerprint=dataFingerprint();
+    const visits=(Number(localStorage.getItem(PWA_VISIT_KEY))||0)+1;
+    localStorage.setItem(PWA_VISIT_KEY,String(visits));
+    if(CAP.standalone) return;
+    if(visits<2) return;
+    showDataSafety('launch');
+  }catch(_){}
+}
+/* 回到前台：本次有新改动且没装时，提醒"用完"备份 */
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible') showDataSafety('resume');
+});
