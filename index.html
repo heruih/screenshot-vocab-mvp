@@ -173,7 +173,14 @@ body.side-open #sidebar{transform:none}
 .folder-badge{font-size:11px;color:var(--text2);background:var(--s3);border-radius:7px;padding:1px 7px}
 .ni-del{width:36px;height:36px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;color:var(--text3);opacity:.4;flex:none}
 .ni-del:hover{background:var(--hover-soft);color:var(--danger);opacity:1}
-@media (hover:none){.ni-del{opacity:.55}}
+.ni-pin{width:36px;height:36px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;color:var(--text3);opacity:.4;flex:none}
+.ni-pin .icon-sm{width:18px;height:18px}
+.ni-pin:hover{background:var(--hover-soft);color:var(--accent);opacity:1}
+.ni-pin.on{color:var(--accent);opacity:1}
+.ni-pinmark{display:inline-flex;vertical-align:-2px;width:14px;height:14px;margin-right:4px;color:var(--accent)}
+.ni-pinmark .icon-sm{width:14px;height:14px}
+.note-item.pinned .ni-title{color:var(--accent)}
+@media (hover:none){.ni-del{opacity:.55}.ni-pin{opacity:.55}.ni-pin.on{opacity:1}}
 .empty-state{
   display:flex;flex-direction:column;align-items:center;gap:12px;padding:70px 28px;color:var(--text3);
   font-size:14px;text-align:center;line-height:1.7;
@@ -1361,6 +1368,16 @@ body.mode-flash .global-search,body.mode-speak .global-search{display:none}
 .a-guide-hero b{font-size:14px;color:var(--text)}
 .a-guide-hero small{font-size:11.5px;color:var(--text2);line-height:1.3}
 .a-guide-hero:active{filter:brightness(.97)}
+.coach-bubble{position:fixed;left:12px;right:12px;bottom:calc(72px + env(safe-area-inset-bottom));z-index:1300;background:var(--s1);border:1px solid var(--s4);border-radius:16px;padding:14px 15px 13px;box-shadow:0 10px 34px rgba(0,0,0,.28);animation:coachIn .25s ease}
+@keyframes coachIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.coach-bubble-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.coach-bubble-head b{font-size:15px}
+.coach-x{width:30px;height:30px;border-radius:8px;border:none;background:var(--s3);color:var(--text2);font-size:17px;line-height:1}
+.coach-bubble p{margin:7px 0 12px;font-size:13.5px;line-height:1.55;color:var(--text2)}
+.coach-actions{display:flex;gap:10px}
+.coach-ok{flex:1;min-height:42px;border:none;border-radius:11px;background:var(--accent);color:#fff;font-size:14px;font-weight:600}
+.coach-off{min-height:42px;padding:0 16px;border:1px solid var(--s4);border-radius:11px;background:transparent;color:var(--text3);font-size:13px}
+.coach-ok:active,.coach-off:active{transform:scale(.97)}
 #confirmModal{z-index:1750}[hidden]{display:none!important}
 .a-word-status{font-size:12px;color:var(--text2);padding:0 4px 8px}.a-date-pack{padding:12px;border:1px solid var(--s4);border-radius:12px}
 @media(max-width:480px){.a-tools{gap:6px}.a-tools .btn{padding:8px 10px;font-size:13px}.a-callout{padding:14px}}
@@ -2268,12 +2285,12 @@ html[data-theme="study"] #noteBody .en-word::before{background:#c2d3ec}
 <div class="modal" id="aGuide" role="dialog" aria-modal="true" aria-label="使用小手册">
  <div class="modal-card a-guide-card"><div class="wm-head"><div><b>使用小手册</b><div class="a-note">每天做一小轮，慢慢把“看懂”变成“用得出”。</div></div><button class="modal-close" id="aGuideClose" aria-label="关闭使用小手册">×</button></div>
  <div class="wm-body a-guide-body">
-  <div class="a-guide-step"><b>1. 看与收集</b><span>看喜欢的全英视频，点右下角相机按钮，从相册选字幕截图。</span></div>
-  <div class="a-guide-step"><b>2. 自己整理</b><span>写清中文功能、原句和自己的句子；确认后再加入学习。</span></div>
-  <div class="a-guide-step"><b>3. 回想</b><span>每天先完成 20—30 个复习词。先自己说，再看答案。</span></div>
-  <div class="a-guide-step"><b>4. 开口</b><span>完成复习后，按每组约 5 个词进入批量情景对话；单词页仍可单独练。</span></div>
-  <div class="a-guide-step"><b>5. 请 ChatGPT 帮忙</b><span>复制练习任务到 ChatGPT，完成对话后把最终 JSON 粘回来。</span></div>
-  <div class="a-guide-tip">切换设备前等右上角显示“已同步”。离线文件请定期导出完整备份。</div>
+  <div class="a-guide-step"><b>1. 截图收集</b><span>看全英视频或日常遇到好表达，点相机按钮选字幕截图，可一次选多张，AI 自动识别文字。</span></div>
+  <div class="a-guide-step"><b>2. 自己整理</b><span>选中要学的表达，写清中文功能、原句和自己的句子，归到一篇笔记后再加入学习。</span></div>
+  <div class="a-guide-step"><b>3. 回想复习</b><span>每天先完成待复习的词，先自己说、再看答案；主页面左右滑就能切换。</span></div>
+  <div class="a-guide-step"><b>4. 开口练</b><span>复习后按每组约 5 个词进入情景对话，单词页也能单独练发音和例句。</span></div>
+  <div class="a-guide-step"><b>5. 装到主屏幕 · 用完导出</b><span>装到主屏幕像 App 一样用、数据更稳；每次用完导出一份备份，清缓存或换设备才不会丢。</span></div>
+  <div class="a-guide-tip">浏览器里的数据清缓存会消失，只有“装到主屏幕”的独立 App 能豁免；记得定期导出完整备份。</div>
  </div></div>
 </div>
 <div class="modal" id="aBridge" role="dialog" aria-modal="true" aria-label="ChatGPT 任务">
@@ -2878,7 +2895,11 @@ function folderName(){
 }
 function notesForFolder(){
   const notes=ui.folder==='all'?state.notes.slice():state.notes.filter(n=>n.folderId===ui.folder);
-  return notes.sort((a,b)=>b.updatedAt-a.updatedAt);
+  return notes.sort((a,b)=>{
+    const pa=a.pinAt||0,pb=b.pinAt||0;
+    if(pa!==pb)return pb-pa;                 /* 置顶的在前，多个置顶按置顶时间排 */
+    return b.updatedAt-a.updatedAt;
+  });
 }
 
 function renderNoteList(){
@@ -2897,12 +2918,14 @@ function renderNoteList(){
   }
   box.innerHTML=notes.map(n=>{
     const fb=ui.folder==='all'?(state.folders.find(f=>f.id===n.folderId)?.name||''):'';
-    return '<div class="note-item'+(ui.note===n.id?' active':'')+'" data-note="'+n.id+'">'+
+    const pinSvg='<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+    return '<div class="note-item'+(ui.note===n.id?' active':'')+(n.pinAt?' pinned':'')+'" data-note="'+n.id+'">'+
       '<div class="ni-main">'+
-        '<div class="ni-title">'+esc(n.title||'无标题')+'</div>'+
+        '<div class="ni-title">'+(n.pinAt?'<span class="ni-pinmark" aria-hidden="true">'+pinSvg+'</span>':'')+esc(n.title||'无标题')+'</div>'+
         '<div class="ni-snippet">'+esc(snippet(n.content))+'</div>'+
         '<div class="ni-meta">'+(fb?'<span class="folder-badge">'+esc(fb)+'</span>':'')+'<span>'+fmtDate(n.updatedAt)+'</span></div>'+
       '</div>'+
+      '<button class="ni-pin'+(n.pinAt?' on':'')+'" data-npin="'+n.id+'" aria-label="'+(n.pinAt?'取消置顶':'置顶')+'笔记 '+esc(n.title||'')+'">'+pinSvg+'</button>'+
       '<button class="ni-del" data-ndel="'+n.id+'" aria-label="删除笔记 '+esc(n.title||'')+'"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/></svg></button>'+
     '</div>';
   }).join('');
@@ -4103,6 +4126,16 @@ function deleteNote(id){
     refs.forEach(r=>{ r.w.notes=r.links; });
     save();
   });
+}
+/* 置顶/取消置顶：只加或删一个可选 pinAt 字段，旧笔记没有它默认不置顶、不影响现有数据 */
+function toggleNotePin(id){
+  const n=state.notes.find(x=>x.id===id);
+  if(!n)return;
+  if(n.pinAt){ delete n.pinAt; }
+  else{ n.pinAt=Date.now(); }
+  save();
+  render();
+  try{ if(navigator.vibrate) navigator.vibrate(8); }catch(_){}
 }
 /* 删文件夹（会连带笔记）：保留确认框，删完同样可撤销 */
 function deleteFolder(id){
@@ -7483,6 +7516,75 @@ function bindSideSwipe(){
     if(dx<-60){ ui.sideOpen=false; render(); }
   },{passive:true});
 }
+/* ============ 主页面跟手左右滑 ============ */
+const PAGE_SWIPE_MODES=['today','list','words','flash'];
+function pageSwipeBlocked(target){
+  if(ui.sideOpen)return true;
+  if(PAGE_SWIPE_MODES.indexOf(ui.mode)<0)return true;
+  /* 任何浮层打开时不抢手势 */
+  if(document.querySelector('.modal.show,.ai-page.show,#shotViewer.show,#qdSheet.show,#writeModal.show,.bottom-sheet.show,#noteOrganize.show,#dictPage.show,#followPage.show'))return true;
+  /* 起点落在可横向滑动的元素（图片轮播/横滚条），让它自己处理 */
+  if(target.closest&&target.closest('[data-no-swipe],.hscroll,.carousel,.wm-shots,.shot-strip,.img-swipe'))return true;
+  return false;
+}
+/* 切到指定主页面：字段重置与底部 tab 点击保持一致 */
+function applyPageMode(k){
+  try{ persistEditor(); }catch(_){}
+  if(k==='today'){ui.mode='today';ui.note=null;ui.tag=null;}
+  else if(k==='list'){ui.mode='list';ui.folder='all';ui.note=null;ui.tag=null;}
+  else if(k==='words'){ui.mode='words';ui.note=null;ui.selMode=false;ui.sel=[];ui.wordFilter='all';ui.wordTag='';}
+  else if(k==='flash'){ui.mode='flash';ui.note=null;ui.flash=null;}
+  ui.sideOpen=false;
+  render();
+}
+function bindPageSwipe(){
+  const pane=$('#noteListPane');
+  if(!pane)return;
+  let x0=0,y0=0,dx=0,locked=0,on=false;
+  pane.addEventListener('touchstart',e=>{
+    on=false;locked=0;dx=0;
+    if(pageSwipeBlocked(e.target))return;
+    const t=e.touches[0];x0=t.clientX;y0=t.clientY;on=true;
+  },{passive:true});
+  pane.addEventListener('touchmove',e=>{
+    if(!on)return;
+    const t=e.touches[0];
+    const ddx=t.clientX-x0,ddy=t.clientY-y0;
+    if(!locked){
+      if(Math.abs(ddx)<8&&Math.abs(ddy)<8)return;
+      if(Math.abs(ddy)>Math.abs(ddx)){on=false;return;}   /* 纵向滚动，放行不拦截 */
+      locked=1;pane.style.transition='none';
+    }
+    const idx=PAGE_SWIPE_MODES.indexOf(ui.mode);
+    let x=ddx;
+    /* 到头（第一个不能再往右、最后一个不能再往左）加阻尼 */
+    if((x>0&&idx<=0)||(x<0&&idx>=PAGE_SWIPE_MODES.length-1))x=x*0.3;
+    dx=x;
+    pane.style.transform='translateX('+x+'px)';
+    pane.style.opacity=String(Math.max(.78,1-Math.abs(x)/(window.innerWidth*1.4)));
+  },{passive:true});
+  pane.addEventListener('touchend',()=>{
+    if(!on||!locked){on=false;return;}
+    on=false;
+    const w=window.innerWidth,idx=PAGE_SWIPE_MODES.indexOf(ui.mode),goNext=dx<0;
+    let target=idx;
+    if(Math.abs(dx)>w*0.22){
+      if(goNext&&idx<PAGE_SWIPE_MODES.length-1)target=idx+1;
+      else if(!goNext&&idx>0)target=idx-1;
+    }
+    pane.style.transition='transform .22s ease,opacity .22s ease';
+    if(target===idx){
+      pane.style.transform='';pane.style.opacity='';
+      setTimeout(()=>{pane.style.transition='';pane.style.transform='';pane.style.opacity='';},240);
+    }else{
+      pane.style.transform='translateX('+(goNext?-w:w)+'px)';
+      setTimeout(()=>{
+        pane.style.transition='none';pane.style.transform='';pane.style.opacity='';
+        applyPageMode(PAGE_SWIPE_MODES[target]);
+      },200);
+    }
+  },{passive:true});
+}
 /* ============ 备份提醒 ============ */
 let backupWarned=false;
 function backupReminder(){
@@ -7694,6 +7796,8 @@ function bindEvents(){
     if(wf){ ui.wordFilter=wf.dataset.wfilter; if(ui.wordFilterOpen)wfCloseSheet();render(); return; }
     const ndel=e.target.closest('[data-ndel]');
     if(ndel){ e.stopPropagation(); deleteNote(ndel.dataset.ndel); return; }
+    const npin=e.target.closest('[data-npin]');
+    if(npin){ e.stopPropagation(); toggleNotePin(npin.dataset.npin); return; }
     const wlink=e.target.closest('[data-wlink]');
     if(wlink){ e.stopPropagation(); jumpToNote(wlink.dataset.wlink); return; }
     const chip=e.target.closest('[data-chip]');
@@ -9342,10 +9446,25 @@ function storageBreakdown(){
   }
   return out.sort((a,b)=>b.bytes-a.bytes);
 }
-/* 当前配额快照 */
+/* 当前配额快照（仅 localStorage 的保守口径，拿不到 estimate 时兜底用） */
 function storageQuote(){
   const used=storageUsedBytes();
   return {used,quota:LS_QUOTA,free:Math.max(0,LS_QUOTA-used),ratio:used/LS_QUOTA};
+}
+/* 总存储视角：navigator.storage.estimate 覆盖 localStorage + IndexedDB + Cache 的真实占用与配额 */
+let _estCache=null,_estPending=false;
+async function storageEstimate(){
+  try{
+    if(navigator.storage&&typeof navigator.storage.estimate==='function'){
+      const est=await navigator.storage.estimate();
+      if(est&&est.quota){
+        _estCache={usage:est.usage||0,quota:est.quota||0};
+        return _estCache;
+      }
+    }
+  }catch(_){}
+  _estCache=null;
+  return null;
 }
 /* 把内部 key 名翻译成大白话标签，不认识的保留原名 */
 function storageKeyLabel(k){
@@ -9363,28 +9482,58 @@ function storageKeyLabel(k){
   };
   return map[k]||k;
 }
-/* 渲染设置弹窗里的存储占用：进度条 + 文案 + 预警 + 明细 */
+/* 渲染设置弹窗里的存储占用：先同步画，再异步刷新真实总存储 */
 function storageRender(){
+  storageRenderStatic();
+  storageRefreshAsync();
+}
+/* 纯同步：进度条 + 文案 + 预警 + 明细（用当前缓存的 estimate，没有就退回 LS 口径） */
+function storageRenderStatic(){
   const fill=$('#stStoreFill'),text=$('#stStoreText'),warn=$('#stStoreWarn'),br=$('#stStoreBreak');
   if(!fill)return;
-  const q=storageQuote();
-  const pct=Math.min(100,Math.round(q.ratio*100));
+  let used,quota;
+  if(_estCache){used=_estCache.usage;quota=_estCache.quota;}
+  else{const q=storageQuote();used=q.used;quota=q.quota;}
+  const free=Math.max(0,quota-used),ratio=quota?used/quota:0;
+  const pct=Math.min(100,Math.round(ratio*100));
   fill.style.width=pct+'%';
-  fill.classList.toggle('hot',q.ratio>=LS_WARN_RATIO);
-  text.textContent='已用 '+fmtBytes(q.used)+' / 约 '+fmtBytes(q.quota)+'（'+pct+'%）· 剩余 '+fmtBytes(q.free);
-  if(q.ratio>=LS_WARN_RATIO){
+  fill.classList.toggle('hot',ratio>=LS_WARN_RATIO);
+  text.textContent='已用 '+fmtBytes(used)+' / 约 '+fmtBytes(quota)+'（'+pct+'%）· 剩余 '+fmtBytes(free);
+  if(ratio>=LS_WARN_RATIO){
     warn.hidden=false;
     warn.textContent='占用已超过 80%，建议先导出完整备份，再清理不需要的截图或配图缓存。';
   }else{warn.hidden=true;}
   const rows=storageBreakdown().slice(0,6);
   br.innerHTML=rows.map(r=>'<div class="sb-row"><span class="sb-label">'+esc(storageKeyLabel(r.key))+'</span><span class="sb-bytes">'+fmtBytes(r.bytes)+'</span></div>').join('');
+  renderIdbRow(_imgBlobCache);
+}
+/* 截图库行（同步）+ 已固定配图行（字节拿到后才显示） */
+let _imgBlobCache=null;
+function renderIdbRow(imgBytes){
   const idbEl=$('#stStoreIdb');
-  if(idbEl){
-    const idbOn=shotUseIdb||inboxUseIdb;
-    const shotsN=(shotReady?shotsTotal(shotCache):0)+(inboxReady&&inboxCache?inboxCache.length:0);
-    if(idbOn) idbEl.innerHTML='<div class="sb-row"><span class="sb-label">截图库（大容量）· '+shotsN+' 张（含收件箱）</span><span class="sb-bytes">'+fmtBytes(idbUsedBytes())+'</span></div>';
-    else idbEl.innerHTML='<div class="sb-row"><span class="sb-label">截图库未启用，仍占本地存储</span><span class="sb-bytes">'+fmtBytes(idbUsedBytes())+'</span></div>';
+  if(!idbEl)return;
+  const idbOn=shotUseIdb||inboxUseIdb;
+  const shotsN=(shotReady?shotsTotal(shotCache):0)+(inboxReady&&inboxCache?inboxCache.length:0);
+  let h=idbOn
+    ?'<div class="sb-row"><span class="sb-label">截图库（大容量）· '+shotsN+' 张（含收件箱）</span><span class="sb-bytes">'+fmtBytes(idbUsedBytes())+'</span></div>'
+    :'<div class="sb-row"><span class="sb-label">截图库未启用，仍占本地存储</span><span class="sb-bytes">'+fmtBytes(idbUsedBytes())+'</span></div>';
+  if(typeof imgBytes==='number'){
+    h+='<div class="sb-row"><span class="sb-label">单词配图（已固定到本机）</span><span class="sb-bytes">'+fmtBytes(imgBytes)+'</span></div>';
   }
+  idbEl.innerHTML=h;
+}
+/* 异步拿真实总存储和配图字节，设置面板仍开着就重画，不递归触发新请求 */
+function storageRefreshAsync(){
+  if(_estPending)return;
+  _estPending=true;
+  (async()=>{
+    try{
+      await storageEstimate();
+      try{_imgBlobCache=await imgBlobBytes();}catch(_){}
+      const modal=$('#settingsModal');
+      if(modal&&modal.classList.contains('show'))storageRenderStatic();
+    }finally{_estPending=false;}
+  })();
 }
 function aRead(key,fallback){try{return JSON.parse(localStorage.getItem(key))||fallback;}catch(_){return fallback;}}
 function aFlush(){if(!aStore(A_KEY,JSON.stringify(aData)))throw new Error('学习信息没有保存成功');}
@@ -10250,10 +10399,58 @@ scheduleSync=function(){};
 syncOnBoot=function(){};
 exportData=aDownloadBackup;
 importData=aImportFile;
+/* ============ 首次使用渐进气泡（独立 key，可永久关闭） ============ */
+const COACH_KEY='english-notes-coach-v1';
+const COACH_TIPS={
+  today:{title:'今日任务',text:'这里是今天要复习的内容，先把待复习的过一遍，再学新的。'},
+  list:{title:'笔记',text:'点右上角 ＋ 新建笔记；相机按钮可以一次选多张截图，AI 自动识别。'},
+  words:{title:'表达库',text:'点任意单词看例句和配图，喇叭图标可以练发音。'},
+  flash:{title:'复习',text:'先自己开口说，再看答案；记不住的会安排以后再见。'}
+};
+function coachState(){
+  try{const o=JSON.parse(localStorage.getItem(COACH_KEY)||'{}');if(o&&typeof o==='object')return Object.assign({seen:{},off:false},o);}catch(_){}
+  return {seen:{},off:false};
+}
+function coachSave(s){try{localStorage.setItem(COACH_KEY,JSON.stringify(s));}catch(_){}}
+let _coachEl=null,_coachTimer=0;
+function coachClose(){
+  if(_coachEl){_coachEl.remove();_coachEl=null;}
+  if(_coachTimer){clearTimeout(_coachTimer);_coachTimer=0;}
+}
+function coachDismiss(mode){
+  const s=coachState();s.seen[mode]=true;coachSave(s);coachClose();
+}
+function coachShow(mode){
+  const tip=COACH_TIPS[mode];if(!tip)return;
+  coachClose();
+  const el=document.createElement('div');
+  el.className='coach-bubble';
+  el.innerHTML='<div class="coach-bubble-head"><b>'+esc(tip.title)+'</b><button class="coach-x" aria-label="关闭提示">×</button></div>'+
+    '<p>'+esc(tip.text)+'</p>'+
+    '<div class="coach-actions"><button class="coach-ok">知道了</button><button class="coach-off">不再提示</button></div>';
+  document.body.appendChild(el);_coachEl=el;
+  el.querySelector('.coach-x').onclick=()=>coachDismiss(mode);
+  el.querySelector('.coach-ok').onclick=()=>coachDismiss(mode);
+  el.querySelector('.coach-off').onclick=()=>{const s=coachState();s.off=true;coachSave(s);coachClose();};
+}
+function coachMaybe(){
+  const s=coachState();
+  if(s.off)return;
+  const mode=ui.mode;
+  if(!COACH_TIPS[mode]||s.seen[mode])return;
+  if(_coachTimer)clearTimeout(_coachTimer);
+  _coachTimer=setTimeout(()=>{
+    const cur=coachState();
+    if(!cur.off&&!cur.seen[mode]&&ui.mode===mode&&!document.querySelector('.modal.show,.ai-page.show'))coachShow(mode);
+  },450);
+}
 function aInit(){
   aData=aRead(A_KEY,{words:{},attempts:[]});if(!aData.words||typeof aData.words!=='object')aData.words={};if(!Array.isArray(aData.attempts))aData.attempts=[];
   const guideButton=document.createElement('button');guideButton.id='aGuideOpen';guideButton.type='button';guideButton.className='a-guide-hero';guideButton.innerHTML='<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg><span class="agh-copy"><b>使用小手册</b><small>5 步上手，不知道点哪就看它</small></span>';guideButton.onclick=()=>$('#aGuide').classList.add('show');const sideNav=$('#sideNav');if(sideNav&&!$('#aGuideOpen'))sideNav.insertBefore(guideButton,sideNav.firstChild);
   $('#aGuideClose').onclick=()=>$('#aGuide').classList.remove('show');$('#aGuide').addEventListener('click',e=>{if(e.target.id==='aGuide')$('#aGuide').classList.remove('show');});
+  /* 每次渲染后检查当前页面是否有待显示的首次气泡 */
+  const _coachRender=render;
+  render=function(){_coachRender();try{coachMaybe();}catch(_){}};
   /* 手机端表达库筛选抽屉：触发、遮罩、关闭 */
   $('#wordFilterTrigger').onclick=wfOpenSheet;
   $('#wordFilterClose').onclick=wfCloseSheet;
@@ -10470,6 +10667,7 @@ applyTheme();
 if(!localStorage.getItem(LS_KEY)) save();
 try{bindEvents();}catch(e){console.error('界面事件绑定失败',e);}
 try{bindSideSwipe();}catch(e){console.error('侧滑绑定失败',e);}
+try{bindPageSwipe();}catch(e){console.error('页面左右滑绑定失败',e);}
 try{render();}catch(e){console.error('页面渲染失败',e);const box=document.querySelector('#noteList');if(box)box.innerHTML='<div class="empty-state"><b>页面初始化没有完成</b><br>请刷新页面；如果仍为空，请从旧文件导出完整备份后导入。</div>';}
 Promise.all([shotsInit(),inboxInit()]).catch(()=>{}).then(()=>{
   try{ if(['words','flash','list'].includes(ui.mode)) render(); }catch(_){}
