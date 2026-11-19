@@ -20,7 +20,14 @@ const modules = [
   '07_sync_settings.js',
   '08_writing.js',
   '09_screenshot_data.js',
-  '10_screenshot_import.js',
+  '10a_inbox.js',
+  '10b_ocr.js',
+  '10c_ai_quota.js',
+  '10d_drawer.js',
+  '10e_dialogue.js',
+  '10f_learning.js',
+  '10g_cloud.js',
+  '10h_seed.js',
   '11_boot.js',
 ];
 const script = (await Promise.all(modules.map((file) => read(path.join('js', file))))).join('');
