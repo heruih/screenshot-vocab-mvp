@@ -123,6 +123,8 @@
 | 2026-11-18 | 端到端卡死根因：产品内识别停在"正在识别"，主线程未阻塞（setTimeout 正常），逐步打点定位到 ImageRaw.open 内 `image.decode()` 永不返回（onload 成功、图片完整但 decode 不 resolve）；改为 onload/onerror Promise 等待后修复 | 单图+3 次全新页面+单图挂载全过；chips 词序修复 | 通过 | 批量链路验证 |
 | 2026-11-18 | 批量多选完整链路验证：3 张→新建归属笔记→逐张识别写收件箱（3/3，约1张/秒）→收件箱识别文本核对正确→手动输入新词确认挂词，IDB 验证截图挂到正确词、收件箱移除该项 | 浏览器自动化端到端（多文件用 fetch→File→DataTransfer 构造，CDP setInputFiles 不可用） | 通过 | 发布真机验收 |
 | 2026-11-18 | 发布完整产品 MVP：新建独立公开仓 heruih/screenshot-vocab-mvp（index.html + ocr-assets，约40MB），启用 Pages；7 个资源 HTTP200，线上真实识别冒烟通过（首加载含 CDN 11.9s、缓存后 4.9s，桌面端） | gh Pages 构建 built；线上识别结果准确 | 桌面端通过，手机真机待验 | Simon 手机走完整流程 |
+| 2026-11-19 | 真机反馈四问题，方案 A（每条独立存储+一次性可回滚迁移）：09 新增 idbGetAll/idbDelete/idbHasKey；10 重写收件箱，inboxInit 迁移旧单 key 'all'（核对覆盖才删、失败保留重试），inboxPutItem/inboxRemoveItem 单条 O(1) 读写，消除旧 O(n²) 整体重写；新增 inboxFilterNoteId，渲染按 at 降序、总收件箱分组/单笔记不分组，ocrInboxShowNote + updateNoteInboxBar；编辑器顶部加 #noteInboxBar（正常流不遮挡）；单图 #ocrImgWrap img 加 max-height:30vh+object-fit:contain；备份恢复改逐条写入 | node --check 通过；构建单 HTML 570788 字节 | 本地验证全过 | 19 张性能实测 |
+| 2026-11-19 | 19 张批量性能实测：fetch→File→DataTransfer 构造，归属已有笔记；稳定约 1 张/秒（识别主导，写入不再是瓶颈），总耗时约 19–30s（旧版约 60s）；IDB 21 条独立记录全有效、旧 'all' 已删；总收件箱 21 项最新 19 在前、最早 02 在后 | 本地端到端全过 | 已发布 a89f833 并 Pages built，线上含全部新功能 | Simon 手机真机验收 |
 
 ## 规矩
 

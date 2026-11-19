@@ -2,21 +2,33 @@
 let ocrSel=[];
 let ocrDataUrl='';
 let ocrWords=[];
+/* 收件箱笔记过滤：null=总收件箱看全部；否则只看这一篇笔记 */
+let inboxFilterNoteId=null;
 const SHOT_INBOX_KEY='en-shot-inbox-v1';
 function inboxReadLocal(){try{const v=JSON.parse(localStorage.getItem(SHOT_INBOX_KEY)||'[]');return Array.isArray(v)?v:[];}catch(_){return [];}}
 let inboxCache=null,inboxReady=false,inboxUseIdb=false;
+const INBOX_LEGACY_KEY='all';
 async function inboxInit(){
   if(inboxReady)return;
   try{
     await idbOpen();
     inboxUseIdb=true;
-    let data=await idbGet(IDB_STORE_INBOX,'all');
-    if(!Array.isArray(data)){
-      const legacy=inboxReadLocal();
-      data=legacy;
-      if(legacy.length)await idbSet(IDB_STORE_INBOX,'all',data);
+    /* 一次性迁移：旧的单 key 'all' 数组 → 每条按 id 独立存储（幂等、可回滚） */
+    const legacy=await idbGet(IDB_STORE_INBOX,INBOX_LEGACY_KEY);
+    if(Array.isArray(legacy)&&legacy.length){
+      for(const item of legacy){
+        if(!(await idbHasKey(IDB_STORE_INBOX,item.id))){
+          await idbSet(IDB_STORE_INBOX,item.id,item);
+        }
+      }
+      /* 核对独立条目已覆盖旧数组全部 id，才删旧 key；否则保留，下次重试 */
+      const migrated=await idbGetAll(IDB_STORE_INBOX);
+      const ids=new Set(migrated.map(x=>x.id));
+      if(legacy.every(x=>ids.has(x.id))&&migrated.length>=legacy.length){
+        await idbDelete(IDB_STORE_INBOX,INBOX_LEGACY_KEY);
+      }
     }
-    inboxCache=data;
+    inboxCache=await idbGetAll(IDB_STORE_INBOX);
     /* IDB 已接管，清掉 LS 旧收件箱副本 */
     try{ localStorage.removeItem(SHOT_INBOX_KEY); }catch(_){ }
   }catch(e){
@@ -29,13 +41,26 @@ function ocrInboxRead(){
   if(inboxReady)return inboxCache;
   return inboxReadLocal();
 }
-function ocrInboxFlush(list){
+/* 单条写入：IDB 只写这一条（O(1)，不再重写全部）；LS 回退整体写 */
+function inboxPutItem(item){
   if(inboxUseIdb){
-    inboxCache=list;
-    idbSet(IDB_STORE_INBOX,'all',list).catch(()=>{ try{ aStore(SHOT_INBOX_KEY,JSON.stringify(list)); }catch(_){ } });
-    return true;
+    const idx=inboxCache.findIndex(x=>x.id===item.id);
+    if(idx>=0)inboxCache[idx]=item; else inboxCache.push(item);
+    return idbSet(IDB_STORE_INBOX,item.id,item)
+      .catch(()=>{ try{ aStore(SHOT_INBOX_KEY,JSON.stringify(inboxCache)); }catch(_){ } });
   }
-  return aStore(SHOT_INBOX_KEY,JSON.stringify(list));
+  const idx=inboxCache.findIndex(x=>x.id===item.id);
+  if(idx<0)inboxCache.push(item);
+  return Promise.resolve(aStore(SHOT_INBOX_KEY,JSON.stringify(inboxCache)));
+}
+/* 单条删除：IDB 只删这一条；LS 回退整体写 */
+function inboxRemoveItem(id){
+  inboxCache=inboxCache.filter(x=>x.id!==id);
+  if(inboxUseIdb){
+    return idbDelete(IDB_STORE_INBOX,id)
+      .catch(()=>{ try{ aStore(SHOT_INBOX_KEY,JSON.stringify(inboxCache)); }catch(_){ } });
+  }
+  return Promise.resolve(aStore(SHOT_INBOX_KEY,JSON.stringify(inboxCache)));
 }
 function ocrNorm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');}
 function ocrCandidates(text){
@@ -55,14 +80,26 @@ function ocrCandidates(text){
 }
 function ocrInboxRender(){
   const box=$('#ocrBatchList');if(!box)return;
-  const list=ocrInboxRead();
-  if(!list.length){box.innerHTML='<div class="ocr-tip">收件箱为空。一次从相册多选截图后，这里会按识别结果给出候选词。</div>';return;}
+  const all=ocrInboxRead();
+  /* 先按笔记过滤，再按时间倒序（最新导入的排第一） */
+  const list=all.filter(x=>!inboxFilterNoteId||x.noteId===inboxFilterNoteId)
+    .slice().sort((a,b)=>(b.at||0)-(a.at||0));
+  if(!list.length){
+    box.innerHTML='<div class="ocr-tip">'+(inboxFilterNoteId?'这篇笔记没有待处理截图。':'收件箱为空。一次从相册多选截图后，这里会按识别结果给出候选词。')+'</div>';
+    return;
+  }
   const itemHtml=item=>{
     const cands=(item.candidates||[]);
     const chipsHtml=cands.length?cands.map(c=>'<button type="button" class="cand-chip" data-cand="'+esc(c.id)+'">'+esc(c.term)+'</button>').join(''):'<span class="cand-empty">没有候选词，在下面手动输入</span>';
     return '<div class="ocr-inbox-item" data-inbox-id="'+esc(item.id)+'"><img src="'+item.dataUrl+'" alt="待匹配截图"><div class="ocr-inbox-main"><textarea class="ocr-inbox-text" data-inbox-text rows="2" placeholder="识别文本，可手动修改">'+esc(item.text||'')+'</textarea><div class="cand-chips">'+chipsHtml+'</div><input data-inbox-term placeholder="手动输入新词，多个用逗号分隔"><div class="ocr-inbox-actions"><button class="mini-btn" data-inbox-confirm>确认匹配</button><button class="mini-btn danger" data-inbox-delete>删除</button></div></div></div>';
   };
-  /* 按笔记（大标题）分组；noteId 为空或笔记已删的归到「未分到笔记」 */
+  if(inboxFilterNoteId){
+    /* 单笔记收件箱：不分组，直接按时间倒序列出 */
+    const n=state.notes.find(x=>x.id===inboxFilterNoteId);
+    box.innerHTML='<div class="inbox-group"><div class="inbox-group-title">'+esc(n?(n.title||'无标题'):'笔记')+'（'+list.length+'）</div>'+list.map(itemHtml).join('')+'</div>';
+    return;
+  }
+  /* 总收件箱：按笔记分组，组内已按时间倒序；noteId 为空或笔记已删的归到「未分到笔记」 */
   const groups=[],gmap={};
   list.forEach(item=>{
     const n=item.noteId?state.notes.find(x=>x.id===item.noteId):null;
@@ -73,8 +110,30 @@ function ocrInboxRender(){
   box.innerHTML=groups.map(g=>'<div class="inbox-group"><div class="inbox-group-title">'+esc(g.name)+'（'+g.items.length+'）</div>'+g.items.map(itemHtml).join('')+'</div>').join('');
 }
 function ocrInboxShow(){
+  inboxFilterNoteId=null;
   $('#ocrSheet').classList.add('show');$('#ocrImgWrap').classList.add('hidden');$('#ocrSelected').classList.add('hidden');$('#ocrBatch').classList.remove('hidden');
   const st=$('#ocrStatus');if(st)st.textContent='批量收件箱：确认候选词后，截图会挂到对应词条。';ocrInboxRender();
+}
+/* 打开某篇笔记自己的收件箱（只看这篇笔记的待处理截图） */
+function ocrInboxShowNote(noteId){
+  inboxFilterNoteId=noteId||null;
+  $('#ocrSheet').classList.add('show');$('#ocrImgWrap').classList.add('hidden');$('#ocrSelected').classList.add('hidden');$('#ocrBatch').classList.remove('hidden');
+  const st=$('#ocrStatus');if(st)st.textContent='这篇笔记的待处理截图：确认后挂到对应词条。';ocrInboxRender();
+}
+/* 更新笔记编辑器顶部的"待处理 N 张"入口（正常流，不遮挡正文） */
+function updateNoteInboxBar(){
+  const bar=$('#noteInboxBar');
+  if(!bar)return;
+  if(ui.mode!=='edit'||!ui.note){ bar.classList.add('hidden'); return; }
+  const n=ocrInboxRead().filter(x=>x.noteId===ui.note).length;
+  const numEl=$('#noteInboxN'); if(numEl)numEl.textContent=String(n);
+  bar.classList.toggle('hidden',n===0);
+  if(!bar.__bound){
+    const open=()=>ocrInboxShowNote(ui.note);
+    bar.addEventListener('click',open);
+    bar.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } });
+    bar.__bound=true;
+  }
 }
 /* 导入多文件前选择归属文件夹：返回 folderId；用户取消则 resolve(null) */
 function pickNoteForImport(){
@@ -120,7 +179,7 @@ function ocrAttachShot(w,dataUrl){
   if(list.length>=SHOT_MAX_PER_WORD||shotsTotal(all)>=SHOT_MAX_TOTAL)return false;
   list.push({id:uid(),dataUrl,at:Date.now()});all[k]=list;return shotsFlush(all);
 }
-function ocrInboxConfirm(id){
+async function ocrInboxConfirm(id){
   const list=ocrInboxRead(),item=list.find(x=>x.id===id);if(!item)return;
   const row=Array.from(document.querySelectorAll('[data-inbox-id]')).find(el=>el.dataset.inboxId===id);
   if(!row)return;
@@ -146,12 +205,12 @@ function ocrInboxConfirm(id){
     else failed.push(t.w.term);
   });
   if(!ok){toast('这些词都没挂上（可能已满 4 张），截图保留在收件箱','warn');return;}
-  const next=list.filter(x=>x.id!==id);if(!ocrInboxFlush(next)){toast('收件箱更新失败，当前项保留','warn');return;}
+  await inboxRemoveItem(id);
   createdIds.forEach(cid=>aPut(cid,{stage:'pending'}));save();if(ui.mode==='words')renderWordsPane();render();ocrInboxRender();
   let msg='已挂到 '+ok+' 个词';if(failed.length)msg+='，「'+failed.join('、')+'」已满跳过';
   toast(msg,'ok');
 }
-function ocrInboxDelete(id){const next=ocrInboxRead().filter(x=>x.id!==id);ocrInboxFlush(next);ocrInboxRender();toast('已删除这张截图','ok');}
+async function ocrInboxDelete(id){await inboxRemoveItem(id);ocrInboxRender();toast('已删除这张截图','ok');}
 async function ocrImportBatch(files,noteId){
   const targetNote=state.notes.find(n=>n.id===noteId);
   const folderId=targetNote?targetNote.folderId:'';
@@ -200,19 +259,20 @@ async function ocrImportBatch(files,noteId){
       ocrInboxRender();
       return;
     }
-    list.push({id:uid(),dataUrl,text,candidates,noteId:noteId||'',folderId:folderId||'',at:Date.now(),status:'pending'});
-    /* 处理一张存一张：写入失败就回退这一条并停止，已保存的都保留 */
-    if(ocrInboxFlush(list)){
+    const item={id:uid(),dataUrl,text,candidates,noteId:noteId||'',folderId:folderId||'',at:Date.now(),status:'pending'};
+    /* 处理一张只写这一条（O(1)，不再整体重写）；失败回退这一条并停止 */
+    try{
+      await inboxPutItem(item);
       saved++;
       estAvg=estAvg?Math.round((estAvg+itemBytes)/2):itemBytes;
       const canMore=inboxUseIdb
-        ? Math.max(0,SHOT_MAX_TOTAL-shotsTotal(shotsAll())-list.length)
+        ? Math.max(0,SHOT_MAX_TOTAL-shotsTotal(shotsAll())-inboxCache.length)
         : (estAvg?Math.floor(storageQuote().free/estAvg):0);
       if(st)st.textContent='已保存 '+(i+1)+' / '+files.length+' 张 · 预计还能存约 '+canMore+' 张（可随时关闭，已存的不会丢）';
-    }else{
-      list.pop();ocrInboxFlush(list);
-      if(st)st.textContent='存储已满：已保存 '+saved+' 张，剩余 '+(files.length-i-1)+' 张未导入。请先整理或导出备份。';
-      toast('收件箱空间不足，先处理已存截图','warn');
+    }catch(writeErr){
+      await inboxRemoveItem(item.id);
+      if(st)st.textContent='存储失败：已保存 '+saved+' 张，剩余 '+(files.length-i-1)+' 张未导入。请先整理或导出备份。';
+      toast('收件箱写入失败，先处理已存截图','warn');
       ocrInboxRender();
       return;
     }
@@ -586,7 +646,9 @@ async function syncImportedBlobs(prepared){
     }
     if(typeof prepared.plan[SHOT_INBOX_KEY]==='string'){
       const inbox=JSON.parse(prepared.plan[SHOT_INBOX_KEY]);
-      if(inboxUseIdb){ inboxCache=inbox; await idbSet(IDB_STORE_INBOX,'all',inbox); }
+      if(inboxUseIdb){
+        for(const item of inbox){ await inboxPutItem(item); }
+      }
     }
   }catch(e){ console.error('导入截图同步失败',e); }
 }

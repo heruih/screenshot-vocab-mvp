@@ -217,6 +217,7 @@ function renderEditor(){
   }
   updatePlaceholders();
   syncEdHint();
+  if(typeof updateNoteInboxBar==='function')updateNoteInboxBar();
 }
 function noteLinkedWords(noteId){
   return state.words.filter(w=>Array.isArray(w.notes)&&w.notes.some(x=>x&&x.noteId===noteId));

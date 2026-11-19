@@ -36,6 +36,30 @@ function idbSet(store,key,val){
     rq.onerror=()=>reject(rq.error);
   }));
 }
+/* 读取某个 store 的全部记录（返回数组，元素为记录值本身） */
+function idbGetAll(store){
+  return idbOpen().then(db=>new Promise((resolve,reject)=>{
+    const rq=db.transaction(store,'readonly').objectStore(store).getAll();
+    rq.onsuccess=()=>resolve(Array.isArray(rq.result)?rq.result:[]);
+    rq.onerror=()=>reject(rq.error);
+  }));
+}
+/* 删除某个 store 里的指定 key */
+function idbDelete(store,key){
+  return idbOpen().then(db=>new Promise((resolve,reject)=>{
+    const rq=db.transaction(store,'readwrite').objectStore(store).delete(key);
+    rq.onsuccess=()=>resolve(true);
+    rq.onerror=()=>reject(rq.error);
+  }));
+}
+/* 判断某个 key 是否存在（迁移时用，避免误删旧数据） */
+function idbHasKey(store,key){
+  return idbOpen().then(db=>new Promise((resolve,reject)=>{
+    const rq=db.transaction(store,'readonly').objectStore(store).getKey(key);
+    rq.onsuccess=()=>resolve(rq.result!==undefined);
+    rq.onerror=()=>reject(rq.error);
+  }));
+}
 const SHOTS_KEY='english-notes-shots-v1';
 const SHOT_MAX_PER_WORD=4;
 /* 总上限放宽：IDB 容量足够大，不再用 80 的硬限制，保留一个大值做兜底 */
