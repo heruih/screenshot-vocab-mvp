@@ -32,6 +32,7 @@ body{
   --bar-bg:rgba(10,10,12,.96);--toast-bg:rgba(28,28,30,.94);
   --shadow-sm:0 4px 16px rgba(0,0,0,.55);--shadow-lg:0 12px 34px rgba(0,0,0,.45);
   --font-display:"Cormorant Garamond","Iowan Old Style",Georgia,serif;
+  --font-body:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",sans-serif;
   --radius-card:16px;--radius-control:12px;
   --fs-body:17px;
 }
@@ -225,7 +226,7 @@ body.mode-edit #editorPane{display:flex}
 body.mode-edit #noteListPane{display:none}
 @media (min-width:768px){body.mode-edit #noteListPane{display:flex}}
 .editor-header{
-  display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--sep);min-height:56px;
+  display:flex;align-items:center;gap:4px;padding:calc(env(safe-area-inset-top,0px) + 6px) 10px 6px;border-bottom:1px solid var(--sep);min-height:56px;
 }
 #edBreadcrumb{flex:1;min-width:0;font-size:13px;color:var(--text3);padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .note-organize-btn{flex:none;min-height:40px;padding:0 12px;border:1px solid var(--sep);border-radius:10px;background:var(--s2);color:var(--accent-fg);font-size:13px;font-weight:600}
@@ -236,7 +237,7 @@ body.mode-edit #noteListPane{display:none}
 .note-editor-context{font-size:12px;color:var(--text3)}
 #noteTitle{font-family:var(--font-display);letter-spacing:.01em;font-size:clamp(26px,3.2vw,34px);font-weight:700;line-height:1.25;padding:6px 0 6px;outline:none;min-height:1.2em;word-break:break-word}
 .note-body-label{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--text3);padding:18px 0 7px;border-bottom:1px solid var(--sep);text-transform:uppercase}
-#noteBody{font-size:var(--fs-body);line-height:1.75;padding-top:16px;outline:none;min-height:55vh;word-break:break-word;color:var(--text-body)}
+#noteBody{font-family:var(--font-body);font-size:var(--fs-body);line-height:1.75;padding-top:16px;outline:none;min-height:55vh;word-break:break-word;color:var(--text-body)}
 /* 每 10 行（每按一次回车算一行）多留一小档，长文读起来有节奏 */
 #noteBody>*:nth-child(10n+1):not(:first-child){margin-top:18px}
 /* 正文大标题：左边一块小箭头，点它收起下面这一段 */
@@ -268,15 +269,11 @@ body.mode-edit #noteListPane{display:none}
 .note-organize-actions{display:flex;gap:8px;margin-top:16px}.note-organize-actions .btn{flex:1;min-height:44px}
 .ce.empty::before{content:attr(data-ph);color:var(--ph);pointer-events:none}
 .en-word{
-  position:relative;color:var(--accent);background:var(--accent-soft);
-  font-weight:600;cursor:pointer;border:none;border-radius:6px;
-  padding:1px 5px 1px 4px;margin:0 1px;
-  border-bottom:1px solid color-mix(in srgb,var(--accent) 38%,transparent);
+  position:relative;color:var(--word-color,var(--accent));background:none;
+  font-weight:600;cursor:pointer;border:none;border-radius:4px;
+  padding:0 1px;margin:0;
 }
-.en-word::before{
-  content:'';display:inline-block;width:5px;height:5px;border-radius:50%;
-  background:var(--accent);margin:0 4px 2px 0;vertical-align:middle;
-}
+.en-word::before{content:none}
 .en-word:active{filter:brightness(.95)}
 @media (max-width:767px){
   body.mode-edit #editorWrap{padding:18px 16px 120px}
@@ -623,7 +620,9 @@ body.side-open #scrim{display:block}
 .btn:disabled{opacity:.4;cursor:default}
 
 /* ============ 闪卡复习 ============ */
-.flash-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:22px 20px;gap:16px;min-height:0}
+.flash-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow-y:auto;padding:22px 20px;gap:16px;min-height:0}
+.flash-wrap>.flash-progress{margin-top:auto}
+.flash-wrap>:last-child{margin-bottom:auto}
 .flash-progress{font-size:13px;color:var(--text3)}
 .flash-scene{perspective:1200px;width:min(92%,560px);height:min(50vh,360px)}
 .flash-card{
@@ -989,6 +988,7 @@ body.side-open #scrim{display:block}
   .grade-btn{min-height:50px;font-size:14px}
   body.mode-flash #tabbar{display:none}
   body.mode-flash .flash-wrap{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+  body.mode-flash .coach-bubble{display:none}
   #followBody{padding:26px 20px 150px}
   #followSentence{font-size:20px}
 }
@@ -1416,13 +1416,40 @@ html[data-theme="study"] .a-batch-entry{
 }
 html[data-theme="study"] .a-batch-entry b{color:var(--text)}
 html[data-theme="study"] .a-batch-entry small{color:var(--text2)}
-/* 编辑器正文是深底：单词用明亮浅蓝，保证对比清晰（浅纸底的复习卡不受影响，仍用 accent） */
-html[data-theme="study"] #noteBody .en-word{
-  color:#c2d3ec;
-  background:rgba(128,160,205,.22);
-  border-bottom-color:rgba(158,186,222,.5);
+/* ============ 正文词条配色（独立偏好，纯色无边框；capsule 为复古胶囊） ============ */
+/* 深底主题（midnight/study）：明亮色；浅底主题（paper/lavender）：深色 */
+html[data-word-color="sky"]{--word-color:#7db4ff}
+html[data-word-color="mint"]{--word-color:#7fd6a8}
+html[data-word-color="amber"]{--word-color:#f0b27a}
+html[data-word-color="lilac"]{--word-color:#c3aee8}
+html[data-word-color="pearl"]{--word-color:#f2f0ea}
+html[data-theme="paper"][data-word-color="sky"],html[data-theme="lavender"][data-word-color="sky"]{--word-color:#2f6fc0}
+html[data-theme="paper"][data-word-color="mint"],html[data-theme="lavender"][data-word-color="mint"]{--word-color:#1f8a5b}
+html[data-theme="paper"][data-word-color="amber"],html[data-theme="lavender"][data-word-color="amber"]{--word-color:#b06a1e}
+html[data-theme="paper"][data-word-color="lilac"],html[data-theme="lavender"][data-word-color="lilac"]{--word-color:#7a5bb0}
+html[data-theme="paper"][data-word-color="pearl"],html[data-theme="lavender"][data-word-color="pearl"]{--word-color:#2b2830}
+/* 复古胶囊：恢复背景、边框、圆点 */
+html[data-word-color="capsule"] #noteBody .en-word{
+  color:var(--accent);background:var(--accent-soft);
+  border-radius:6px;padding:1px 5px 1px 4px;margin:0 1px;
+  border-bottom:1px solid color-mix(in srgb,var(--accent) 38%,transparent);
 }
-html[data-theme="study"] #noteBody .en-word::before{background:#c2d3ec}
+html[data-word-color="capsule"] #noteBody .en-word::before{
+  content:'';display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:var(--accent);margin:0 4px 2px 0;vertical-align:middle;
+}
+html[data-theme="midnight"][data-word-color="capsule"] #noteBody .en-word,
+html[data-theme="study"][data-word-color="capsule"] #noteBody .en-word{
+  color:#c2d3ec;background:rgba(128,160,205,.22);border-bottom-color:rgba(158,186,222,.5);
+}
+html[data-theme="midnight"][data-word-color="capsule"] #noteBody .en-word::before,
+html[data-theme="study"][data-word-color="capsule"] #noteBody .en-word::before{background:#c2d3ec}
+
+/* ============ 正文字体（独立偏好，系统字体栈、离线零加载） ============ */
+html[data-font="system"]{--font-body:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",sans-serif}
+html[data-font="serif"]{--font-body:Georgia,"Iowan Old Style","Times New Roman","Songti SC",serif}
+html[data-font="rounded"]{--font-body:ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN","Microsoft YaHei",-apple-system,sans-serif}
+html[data-font="mono"]{--font-body:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
 
 /* ============ 手机端表达库：筛选收进底部抽屉（桌面端布局保持不变） ============ */
 .word-filter-trigger{display:none}
@@ -1656,6 +1683,12 @@ html[data-theme="study"] #noteBody .en-word::before{background:#c2d3ec}
       <button class="icon-btn" id="btnBack" title="返回列表" aria-label="返回列表">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
+      <button class="icon-btn" id="btnHistUndo" title="撤销" aria-label="撤销">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
+      </button>
+      <button class="icon-btn" id="btnClipPaste" title="粘贴" aria-label="粘贴">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+      </button>
       <span id="edBreadcrumb"></span>
       <button class="note-organize-btn" id="btnNoteOrganize" type="button" title="整理这篇笔记">整理</button>
       <button class="kb-btn" id="btnKb" title="收起键盘" aria-label="收起键盘">
@@ -1876,6 +1909,8 @@ html[data-theme="study"] #noteBody .en-word::before{background:#c2d3ec}
       <div class="wm-section hidden" id="wmMoveRow">
         <div class="wm-label">在正文里</div>
         <button class="btn" id="wmMove">移动到某个大标题下</button>
+        <button class="btn" id="wmCopyClip">复制到其它笔记</button>
+        <button class="btn" id="wmCutClip">剪切到其它笔记</button>
       </div>
       <div class="wm-actions">
         <button class="btn" id="wmRegen">换一批例句</button>
@@ -2034,6 +2069,26 @@ html[data-theme="study"] #noteBody .en-word::before{background:#c2d3ec}
           </div>
         </div>
       </div>
+      <div class="st-field">
+        <label>正文词条配色</label>
+        <div class="seg seg-wide" id="stWordColor">
+          <button data-wc-val="sky">晴空蓝</button>
+          <button data-wc-val="mint">薄荷绿</button>
+          <button data-wc-val="amber">暖杏橙</button>
+          <button data-wc-val="lilac">丁香紫</button>
+          <button data-wc-val="pearl">珍珠白</button>
+          <button data-wc-val="capsule">复古胶囊</button>
+        </div>
+      </div>
+      <div class="st-field">
+        <label>正文字体</label>
+        <div class="seg seg-wide" id="stFont">
+          <button data-font-val="system">系统默认</button>
+          <button data-font-val="serif">优雅衬线</button>
+          <button data-font-val="rounded">圆润无衬线</button>
+          <button data-font-val="mono">等宽打字机</button>
+        </div>
+      </div>
         </div>
       </section>
       <section class="st-group" id="stgData">
@@ -2162,6 +2217,8 @@ html[data-theme="study"] #noteBody .en-word::before{background:#c2d3ec}
 <div class="modal" id="mvMenu">
   <div class="modal-card mv-menu-card">
     <div class="mv-menu-t" id="mvMenuTitle"></div>
+    <button class="mv-item" data-act="copysec">复制整节</button>
+    <button class="mv-item" data-act="cutsec">剪切整节</button>
     <button class="mv-item" data-act="lift">拿起整节</button>
     <button class="mv-item" data-act="up">上移一节</button>
     <button class="mv-item" data-act="down">下移一节</button>
@@ -2555,6 +2612,32 @@ const SOURCE_LABEL={ai:'AI 生成',dict:'词典',manual:'手动',demo:'示例',s
 
 /* ============ 数据模型与持久化 ============ */
 const LS_KEY='english-notes-app-v1';
+/* 外观偏好独立 key：不进主数据，可随时回退，不影响已有内容 */
+const WORD_COLOR_KEY='english-notes-wordcolor-v1';
+const FONT_CHOICE_KEY='english-notes-font-v1';
+const WORD_COLORS=['sky','mint','amber','lilac','pearl','capsule'];
+const FONT_CHOICES=['system','serif','rounded','mono'];
+function lookPref(key,list,fallback){
+  let v=null;
+  try{ v=localStorage.getItem(key); }catch(_){ v=null; }
+  return list.indexOf(v)>=0?v:fallback;
+}
+function getWordColor(){ return lookPref(WORD_COLOR_KEY,WORD_COLORS,'sky'); }
+function getFontChoice(){ return lookPref(FONT_CHOICE_KEY,FONT_CHOICES,'system'); }
+function setWordColor(v){
+  if(WORD_COLORS.indexOf(v)<0)return;
+  try{ localStorage.setItem(WORD_COLOR_KEY,v); }catch(_){ }
+  applyLookPrefs();
+}
+function setFontChoice(v){
+  if(FONT_CHOICES.indexOf(v)<0)return;
+  try{ localStorage.setItem(FONT_CHOICE_KEY,v); }catch(_){ }
+  applyLookPrefs();
+}
+function applyLookPrefs(){
+  document.documentElement.setAttribute('data-word-color',getWordColor());
+  document.documentElement.setAttribute('data-font',getFontChoice());
+}
 let state=null;
 let ui={sideOpen:false,mode:'today',folder:'all',note:null,tag:null,lastNote:null,selectedRange:null,empowerText:'',wordFilter:'all',prevMode:'list',search:'',wordSort:'time',wordTag:'',selMode:false,sel:[],logTerm:'',tagEdit:false,tagNewOpen:false};
 
@@ -3092,6 +3175,7 @@ function filteredWords(){
   if(ui.wordFilter==='pending') list=list.filter(aPending);
   if(ui.wordDate) list=list.filter(w=>aDate(w.createdAt)===ui.wordDate);
   if(ui.wordTag) list=list.filter(w=>(w.tags||[]).includes(ui.wordTag));
+  if(ui.wordNote) list=list.filter(w=>(w.notes||[]).some(l=>l.noteId===ui.wordNote));
   const sort=ui.wordSort||'time';
   list.sort((a,b)=>{
     if(sort==='alpha') return a.term.toLowerCase().localeCompare(b.term.toLowerCase());
@@ -3119,6 +3203,7 @@ function renderWordsPane(){
   const chip=(k,label,n)=>'<button class="tag-chip'+(ui.wordFilter===k?' active':'')+'" data-wfilter="'+k+'">'+label+(n!=null?' <span class="tag-n">'+n+'</span>':'')+'</button>';
   const chips=chip('all','全部',nAll)+chip('due','待复习',nDue)+chip('today','今日新增',todayNewWords().length)+chip('todo','未掌握',nTodo)+chip('done','已掌握',nDone)+chip('noex','缺例句',nNoEx);
   const tagOpts=['<option value="">全部标签</option>'].concat(allTags().map(([t,n])=>'<option value="'+esc(t)+'"'+(ui.wordTag===t?' selected':'')+'># '+esc(t)+' ('+n+')</option>')).join('');
+  const noteOpts=['<option value="">全部笔记</option>'].concat(state.notes.map(n=>'<option value="'+esc(n.id)+'"'+(ui.wordNote===n.id?' selected':'')+'>'+esc(n.title||'无标题')+'</option>')).join('');
   const sortOpts=[['time','最近更新'],['created','最近添加'],['alpha','字母顺序'],['due','到期时间']]
     .map(([v,l])=>'<option value="'+v+'"'+(ui.wordSort===v?' selected':'')+'>'+l+'</option>').join('');
   let words=filteredWords();
@@ -3137,6 +3222,7 @@ function renderWordsPane(){
     '<div class="wb-bar">'+
       '<select class="wb-sel" id="wbSort">'+sortOpts+'</select>'+
       '<select class="wb-sel" id="wbTag">'+tagOpts+'</select>'+
+      '<select class="wb-sel" id="wbNote">'+noteOpts+'</select>'+
       '<span class="wb-spacer"></span>'+
       '<span class="wb-count">'+words.length+' 个</span>'+
       '<button class="mini-btn" id="wbSelMode">'+(ui.selMode?'退出多选':'多选')+'</button>'+
@@ -3540,7 +3626,49 @@ function updatePlaceholders(){
   bodyEl.classList.toggle('empty',!bodyEl.textContent.trim());
 }
 let saveTimer=null;
+/* ============ 编辑历史栈（内存，限 20 步，覆盖输入/移动/粘贴/跨笔记操作） ============ */
+const HIST_MAX=20;
+let histStack=[];
+let histLastInput=0;
+function histSnapshot(){
+  return {title:titleEl.innerText.trim()||'无标题', content:bodyCleanHTML()};
+}
+/* 压入一个「可回到的过去状态」；与栈顶相同不重复压，超长度丢最旧 */
+function histPush(){
+  const snap=histSnapshot();
+  const top=histStack[histStack.length-1];
+  if(top&&top.title===snap.title&&top.content===snap.content)return;
+  histStack.push(snap);
+  if(histStack.length>HIST_MAX)histStack.shift();
+  histSyncUndoBtn();
+}
+/* 离散操作（移动/粘贴/剪切/折叠）前调用；连续输入由 onEditorInput 按时间节流 */
+function histArmInput(){
+  const now=Date.now();
+  if(now-histLastInput>1200)histPush();
+  histLastInput=now;
+}
+function histSyncUndoBtn(){
+  const b=$('#btnHistUndo');
+  if(!b)return;
+  b.classList.toggle('disabled',!histStack.length);
+  b.disabled=!histStack.length;
+}
+function histUndo(){
+  if(!histStack.length){toast('没有可撤销的操作');return;}
+  const snap=histStack.pop();
+  titleEl.innerText=snap.title;
+  bodyEl.innerHTML=snap.content;
+  try{ lockWords(bodyEl); }catch(_){ }
+  try{ mvDecorate(); }catch(_){ }
+  try{ applyFolds(); }catch(_){ }
+  try{ persistEditor(); }catch(_){ }
+  histSyncUndoBtn();
+  try{ if(navigator.vibrate)navigator.vibrate(8); }catch(_){}
+  toast('已撤销');
+}
 function onEditorInput(){
+  try{ histArmInput(); }catch(_){ }
   try{ healWords(); }catch(_){ }
   try{ autoHeading(); }catch(_){ }
   try{ hideEdHint(true); }catch(_){ }
@@ -3892,6 +4020,7 @@ function mvDoneBar(label,revert){
 }
 /* 把拿起的词放进去：target 是大标题（放在这一节末尾），传 null 就是文末 */
 function mvDropWord(target){
+  histPush();
   const node=mvState.node;
   if(!node||!bodyEl.contains(node)) return mvFail('原词不见了');
   const div=document.createElement('div');
@@ -3929,6 +4058,7 @@ function mvDropWord(target){
   return true;
 }
 function mvDropSection(target){
+  histPush();
   const g=mvState.nodes;
   if(!g||!g.length) return mvFail();
   if(!target) return mvFail('整节只能放到某个大标题下面');
@@ -3958,6 +4088,7 @@ function mvDropSection(target){
 /* 「⋯」里的上移 / 下移一节 */
 function mvMoveSection(h,dir){
   if(!h||!bodyEl.contains(h)) return false;
+  histPush();
   const g=secGroup(h);
   if(dir<0){
     const prev=h.previousElementSibling;
@@ -3998,7 +4129,10 @@ function mvFindSpan(term,wid){
 function openNote(id){
   persistEditor();
   ui.note=id; ui.mode='edit'; ui.tag=null; ui.sideOpen=false;
+  histStack=[];
   render();
+  try{ histSyncUndoBtn(); }catch(_){ }
+  try{ clipSyncBtn(); }catch(_){ }
   const n=state.notes.find(x=>x.id===id);
   restoreCaret(n&&n.sel);
   revealCaret();
@@ -4017,7 +4151,10 @@ function newNote(){
   const n={id:uid(),folderId,title:'无标题',content:'',createdAt:Date.now(),updatedAt:Date.now()};
   state.notes.push(n); save();
   ui.note=n.id; ui.mode='edit'; ui.tag=null; ui.sideOpen=false;
+  histStack=[];
   render();
+  try{ histSyncUndoBtn(); }catch(_){ }
+  try{ clipSyncBtn(); }catch(_){ }
   titleEl.focus();
 }
 function createFolder(name){
@@ -4220,6 +4357,144 @@ function handleWordTap(ev){
   }
   if(!w){ toast('未找到该单词的记录','warn'); return; }
   openWordModal(w.term,null,null,w);
+}
+
+/* ============ 跨笔记剪贴板：整节 / 词条 复制·剪切·粘贴（独立 key） ============ */
+const CLIPBOARD_KEY='english-notes-clipboard-v1';
+/* 给词加一条笔记关联（去重）；移除一条笔记关联 */
+function linkWordToNote(word,noteId,noteTitle){
+  if(!word||!noteId)return;
+  word.notes=Array.isArray(word.notes)?word.notes:[];
+  if(word.notes.some(l=>l.noteId===noteId))return;
+  word.notes.push({noteId:noteId,noteTitle:noteTitle||'无标题'});
+}
+function unlinkWordFromNote(word,noteId){
+  if(!word||!Array.isArray(word.notes))return;
+  word.notes=word.notes.filter(l=>l.noteId!==noteId);
+}
+function clipGet(){
+  try{ return JSON.parse(localStorage.getItem(CLIPBOARD_KEY))||null; }catch(_){ return null; }
+}
+function clipSet(obj){
+  try{ localStorage.setItem(CLIPBOARD_KEY,JSON.stringify(obj)); }catch(_){ }
+  clipSyncBtn();
+}
+function clipClear(){
+  try{ localStorage.removeItem(CLIPBOARD_KEY); }catch(_){ }
+  clipSyncBtn();
+}
+/* 克隆一段 DOM 并清掉临时装饰/属性，得到可保存、可粘贴的干净 HTML */
+function clipClean(nodes){
+  const tmp=document.createElement('div');
+  nodes.forEach(n=>tmp.appendChild(n.cloneNode(true)));
+  tmp.querySelectorAll('.mf,.mv-drop').forEach(e=>e.remove());
+  tmp.querySelectorAll('.en-word').forEach(e=>{
+    e.removeAttribute('contenteditable');e.removeAttribute('spellcheck');
+  });
+  return tmp.innerHTML;
+}
+/* 复制 / 剪切整节 */
+function clipCopySection(h,cut){
+  if(!h||!bodyEl.contains(h))return;
+  const g=secGroup(h);
+  histPush();
+  clipSet({kind:'section',mode:cut?'cut':'copy',html:clipClean(g),at:Date.now()});
+  if(cut){
+    const srcId=ui.note;
+    g.forEach(el=>{
+      el.querySelectorAll('.en-word').forEach(sp=>{
+        const wm=findWordOfSpan(sp);
+        if(wm)unlinkWordFromNote(wm,srcId);
+      });
+    });
+    g.forEach(el=>el.remove());
+    foldClear(); applyFolds(); mvDecorate(); persistEditor();
+  }
+  toast(cut?'已剪切整节，到其它笔记点粘贴':'已复制整节，到其它笔记点粘贴');
+}
+/* 复制 / 剪切单个词条（.en-word 可能是词组，即“一段单词”） */
+function clipCopyWord(span,cut){
+  if(!span||!bodyEl.contains(span)){ toast('词条不在正文里','warn');return; }
+  histPush();
+  clipSet({kind:'block',mode:cut?'cut':'copy',html:'<div>'+clipClean([span])+'</div>',at:Date.now()});
+  if(cut){
+    const srcId=ui.note, wm=findWordOfSpan(span);
+    if(wm)unlinkWordFromNote(wm,srcId);
+    const block=span.parentElement;
+    span.remove();
+    if(block&&block!==bodyEl&&!(block.textContent.trim()||block.querySelector('.en-word')))block.remove();
+    applyFolds(); mvDecorate(); persistEditor();
+  }
+  toast(cut?'已剪切词条，到其它笔记点粘贴':'已复制词条，到其它笔记点粘贴');
+}
+function findWordOfSpan(span){
+  const wid=span.getAttribute('data-wid');
+  let w=wid?state.words.find(x=>x.id===wid):null;
+  if(!w){ const t=span.textContent.trim(); w=state.words.find(x=>x.term.toLowerCase()===t.toLowerCase()); }
+  return w||null;
+}
+/* 把剪贴板 HTML 解析成元素数组（浏览器自动建 DOM） */
+function clipParse(html){
+  const tmp=document.createElement('div');
+  tmp.innerHTML=html||'';
+  return Array.prototype.slice.call(tmp.children);
+}
+/* 粘贴到目标节（targetHead=null 表示文末）；复制可多次、剪切粘一次后清空 */
+function clipPaste(targetHead){
+  const c=clipGet();
+  if(!c){ toast('剪贴板是空的','warn');return; }
+  histPush();
+  const els=clipParse(c.html);
+  if(!els.length){ toast('剪贴板内容无效','warn');return; }
+  const anchor=targetHead?sectionEnd(targetHead):null;
+  const noteId=ui.note;
+  const note=state.notes.find(x=>x.id===noteId);
+  const noteTitle=note?note.title:'无标题';
+  const frag=document.createDocumentFragment();
+  els.forEach(el=>frag.appendChild(el));
+  try{
+    if(anchor)anchor.parentNode.insertBefore(frag,anchor.nextSibling);
+    else bodyEl.appendChild(frag);
+  }catch(_){ toast('粘贴失败','warn');return; }
+  /* 粘贴进来的词条：关联到当前目标笔记 */
+  els.forEach(el=>{
+    el.querySelectorAll&&el.querySelectorAll('.en-word').forEach(sp=>{
+      const wm=findWordOfSpan(sp);
+      if(wm)linkWordToNote(wm,noteId,noteTitle);
+    });
+  });
+  lockWords(bodyEl); mvDecorate(); applyFolds(); persistEditor();
+  if(c.mode==='cut')clipClear();
+  try{ if(navigator.vibrate)navigator.vibrate(8); }catch(_){}
+  toast(c.mode==='cut'?'已粘贴，剪贴板已清空':'已粘贴，可继续粘贴到别处');
+}
+/* 点「粘贴」按钮：先选放到哪一节（高亮各节），也可直接放文末 */
+let clipChoosing=false;
+function clipStartChoose(){
+  if(!clipGet()){ toast('剪贴板是空的，先在笔记里复制或剪切','warn');return; }
+  clipChoosing=true;
+  headList().forEach(h=>h.classList.add('mv-pick'));
+  /* 各节投放区 */
+  headList().forEach((h,i)=>{
+    if(!h.querySelector('.mv-drop')){
+      const b=document.createElement('span');
+      b.className='mv-drop';b.setAttribute('contenteditable','false');b.setAttribute('data-clipdrop',String(i));
+      h.appendChild(b);
+    }
+  });
+  document.body.classList.add('mv-lift');
+  toast('点某一节放进去，或点「文末」');
+}
+function clipCancelChoose(){
+  clipChoosing=false;
+  mvClearTargets();
+}
+function clipSyncBtn(){
+  const b=$('#btnClipPaste');
+  if(!b)return;
+  const has=!!clipGet();
+  b.classList.toggle('disabled',!has);
+  b.disabled=!has;
 }
 
 
@@ -7205,6 +7480,8 @@ function syncSettingsUI(){
   const activeTheme=st.theme==='dark'?'midnight':(st.theme==='light'?'paper':(st.theme||'midnight'));
   $$('#stTheme [data-theme-val]').forEach(b=>b.classList.toggle('on',activeTheme===b.dataset.themeVal));
   $$('#stFs [data-fs-val]').forEach(b=>b.classList.toggle('on',(st.fs||'m')===b.dataset.fsVal));
+  $$('#stWordColor [data-wc-val]').forEach(b=>b.classList.toggle('on',getWordColor()===b.dataset.wcVal));
+  $$('#stFont [data-font-val]').forEach(b=>b.classList.toggle('on',getFontChoice()===b.dataset.fontVal));
   const n=$('#stBackupNote');
   if(n){
     n.textContent=backupNoteText();
@@ -7567,8 +7844,20 @@ function bindPageSwipe(){
     if(!on||!locked){on=false;return;}
     on=false;
     const w=window.innerWidth,idx=PAGE_SWIPE_MODES.indexOf(ui.mode),goNext=dx<0;
+    const passed=Math.abs(dx)>w*0.22;
+    /* 今日页左滑：直接打开「更多」抽屉，不经过笔记页 */
+    if(passed&&goNext&&idx===0){
+      pane.style.transition='transform .2s ease,opacity .2s ease';
+      pane.style.transform='translateX(-'+w+'px)';pane.style.opacity='.8';
+      setTimeout(()=>{
+        pane.style.transition='none';pane.style.transform='';pane.style.opacity='';
+        try{ persistEditor(); }catch(_){}
+        ui.sideOpen=true; render();
+      },190);
+      return;
+    }
     let target=idx;
-    if(Math.abs(dx)>w*0.22){
+    if(passed){
       if(goNext&&idx<PAGE_SWIPE_MODES.length-1)target=idx+1;
       else if(!goNext&&idx>0)target=idx-1;
     }
@@ -7582,6 +7871,80 @@ function bindPageSwipe(){
         pane.style.transition='none';pane.style.transform='';pane.style.opacity='';
         applyPageMode(PAGE_SWIPE_MODES[target]);
       },200);
+    }
+  },{passive:true});
+}
+/* ============ 底部 tabbar 横滑切换 ============ */
+function bindTabbarSwipe(){
+  const bar=$('#tabbar');
+  if(!bar)return;
+  let x0=0,y0=0,locked=0,on=false;
+  bar.addEventListener('touchstart',e=>{
+    on=true;locked=0;
+    if(ui.sideOpen||ui.mode==='edit'){on=false;return;}
+    x0=e.touches[0].clientX;y0=e.touches[0].clientY;
+  },{passive:true});
+  bar.addEventListener('touchmove',e=>{
+    if(!on||locked)return;
+    const t=e.touches[0],ddx=t.clientX-x0,ddy=t.clientY-y0;
+    if(Math.abs(ddx)<10&&Math.abs(ddy)<10)return;
+    if(Math.abs(ddy)>Math.abs(ddx)){on=false;return;}
+    locked=1;
+  },{passive:true});
+  bar.addEventListener('touchend',e=>{
+    if(!on||!locked){on=false;return;}
+    on=false;
+    const t=e.changedTouches[0],dx=t.clientX-x0;
+    if(Math.abs(dx)<40)return;
+    const goNext=dx<0;
+    const idx=PAGE_SWIPE_MODES.indexOf(ui.mode);
+    if(goNext){
+      if(idx>=0&&idx<PAGE_SWIPE_MODES.length-1)applyPageMode(PAGE_SWIPE_MODES[idx+1]);
+      else if(idx===PAGE_SWIPE_MODES.length-1){ try{persistEditor();}catch(_){} ui.sideOpen=true; render(); }
+    }else{
+      if(idx>0)applyPageMode(PAGE_SWIPE_MODES[idx-1]);
+    }
+  },{passive:true});
+}
+/* ============ 编辑器左滑退出（跟手） ============ */
+function bindEditorSwipe(){
+  const pane=$('#noteListPane');
+  if(!pane)return;
+  let x0=0,y0=0,dx=0,locked=0,on=false;
+  pane.addEventListener('touchstart',e=>{
+    on=false;locked=0;dx=0;
+    if(ui.mode!=='edit'||ui.sideOpen)return;
+    if(document.querySelector('.modal.show,.ai-page.show,#shotViewer.show'))return;
+    const tg=e.target;
+    if(tg.closest&&tg.closest('[data-no-swipe],.hscroll,.carousel,.wm-shots,.shot-strip,.img-swipe,.en-word,.nh'))return;
+    const t=e.touches[0];x0=t.clientX;y0=t.clientY;on=true;
+  },{passive:true});
+  pane.addEventListener('touchmove',e=>{
+    if(!on)return;
+    const t=e.touches[0],ddx=t.clientX-x0,ddy=t.clientY-y0;
+    if(!locked){
+      if(Math.abs(ddx)<8&&Math.abs(ddy)<8)return;
+      if(Math.abs(ddy)>Math.abs(ddx)){on=false;return;}
+      locked=1;pane.style.transition='none';
+    }
+    dx=Math.min(0,ddx);
+    pane.style.transform='translateX('+dx+'px)';
+    pane.style.opacity=String(Math.max(.78,1-Math.abs(dx)/(window.innerWidth*1.4)));
+  },{passive:true});
+  pane.addEventListener('touchend',()=>{
+    if(!on||!locked){on=false;return;}
+    on=false;
+    const w=window.innerWidth,go=dx<-w*0.22;
+    pane.style.transition='transform .22s ease,opacity .22s ease';
+    if(go){
+      pane.style.transform='translateX(-'+w+'px)';pane.style.opacity='.8';
+      setTimeout(()=>{
+        pane.style.transition='none';pane.style.transform='';pane.style.opacity='';
+        backToList();
+      },200);
+    }else{
+      pane.style.transform='';pane.style.opacity='';
+      setTimeout(()=>{pane.style.transition='';pane.style.transform='';pane.style.opacity='';},240);
     }
   },{passive:true});
 }
@@ -7658,6 +8021,12 @@ function bindEvents(){
   }));
   $$('#stFs [data-fs-val]').forEach(b=>b.addEventListener('click',()=>{
     state.settings.fs=b.dataset.fsVal; save(); applyTheme(); syncSettingsUI();
+  }));
+  $$('#stWordColor [data-wc-val]').forEach(b=>b.addEventListener('click',()=>{
+    setWordColor(b.dataset.wcVal); syncSettingsUI();
+  }));
+  $$('#stFont [data-font-val]').forEach(b=>b.addEventListener('click',()=>{
+    setFontChoice(b.dataset.fontVal); syncSettingsUI();
   }));
   $('#stAnki').addEventListener('click',exportAnki);
   /* 云同步 */
@@ -7854,10 +8223,13 @@ function bindEvents(){
     const t=e.target;
     if(t.id==='wbSort'){ ui.wordSort=t.value; if(ui.wordFilterOpen)wfCloseSheet();renderPane(); return; }
     if(t.id==='wbTag'){ ui.wordTag=t.value; if(ui.wordFilterOpen)wfCloseSheet();renderPane(); return; }
+    if(t.id==='wbNote'){ ui.wordNote=t.value; if(ui.wordFilterOpen)wfCloseSheet();renderPane(); return; }
   });
 
   /* 编辑器 */
   $('#btnBack').addEventListener('click',backToList);
+  $('#btnHistUndo').addEventListener('click',histUndo);
+  $('#btnClipPaste').addEventListener('click',clipStartChoose);
   $('#btnDelNote').addEventListener('click',()=>{ if(ui.note) deleteNote(ui.note); });
   $('#btnNoteOrganize').addEventListener('click',openNoteOrganize);
   $('#noteOrganizeClose').addEventListener('click',closeNoteOrganize);
@@ -7918,6 +8290,13 @@ function bindEvents(){
     const drop=e.target.closest&&e.target.closest('.mv-drop');
     if(drop&&bodyEl.contains(drop)){
       e.preventDefault(); e.stopPropagation();
+      /* 剪贴板选目标节 */
+      if(clipChoosing&&drop.hasAttribute('data-clipdrop')){
+        const h=drop.parentElement;
+        clipChoosing=false;
+        clipPaste(h);
+        return;
+      }
       const h=drop.parentElement, hi=headList().indexOf(h);
       if(mvState.kind==='word') mvDropWord(h||null);
       else if(mvState.kind==='section') mvDropSection(h);
@@ -7997,6 +8376,20 @@ function bindEvents(){
     if(!sp){ toast('先在正文里打开带这个词的笔记','warn'); return; }
     mvLiftWord(sp);
   });
+  const wmCopyBtn=$('#wmCopyClip');
+  if(wmCopyBtn) wmCopyBtn.addEventListener('click',()=>{
+    const sp=mvFindSpan(wmState.term,wmState.existing&&wmState.existing.id);
+    if(!sp){ toast('先在正文里打开带这个词的笔记','warn'); return; }
+    try{ closeWordModal(); }catch(_){ }
+    clipCopyWord(sp,false);
+  });
+  const wmCutBtn=$('#wmCutClip');
+  if(wmCutBtn) wmCutBtn.addEventListener('click',()=>{
+    const sp=mvFindSpan(wmState.term,wmState.existing&&wmState.existing.id);
+    if(!sp){ toast('先在正文里打开带这个词的笔记','warn'); return; }
+    try{ closeWordModal(); }catch(_){ }
+    clipCopyWord(sp,true);
+  });
   $('#mvCancel').addEventListener('click',()=>{ mvReset(); toast('已取消，原样没动'); });
   $('#mvPrev').addEventListener('click',()=>mvJump(-1));
   $('#mvNext').addEventListener('click',()=>mvJump(1));
@@ -8013,7 +8406,9 @@ function bindEvents(){
     const act=it.getAttribute('data-act'), h=mvMenuHead;
     closeMvMenu();
     if(!h) return;
-    if(act==='lift') mvLiftSection(h);
+    if(act==='copysec') clipCopySection(h,false);
+    else if(act==='cutsec') clipCopySection(h,true);
+    else if(act==='lift') mvLiftSection(h);
     else if(act==='up') mvMoveSection(h,-1);
     else if(act==='down') mvMoveSection(h,1);
   });
@@ -9603,7 +9998,7 @@ function aImageStatsFromStorage(storage){
   try{all=JSON.parse(storage&&storage[WM_IMG_KEY]||'{}')||{};}catch(_){ }
   return aImageCacheStats(all,words);
 }
-function aBackupKeys(){const out={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('english-notes-'))out[k]=localStorage.getItem(k);}return out;}
+function aBackupKeys(){const out={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('english-notes-')&&k!==CLIPBOARD_KEY)out[k]=localStorage.getItem(k);}return out;}
 /* 落地配图备份 key：存 {单词小写: dataURL}，独立 key，不与旧缓存冲突 */
 const WM_IMG_BLOB_KEY='english-notes-wmimg-blob-v1';
 /* 把 images store 的 Blob 全部转 dataURL，组装成备份对象 */
@@ -10661,6 +11056,7 @@ try{aiDialogueHistoryMigrate();}catch(e){}
 try{ shotsInit(); }catch(e){}
 try{ inboxInit(); }catch(e){}
 applyTheme();
+try{ applyLookPrefs(); }catch(e){ console.error('外观偏好应用失败',e); }
 // Preserve existing image cache on upgrade.
 /* 老标亮（标了词就到处亮）搬迁成「只亮当时那一处」 */
 // Preserve existing highlights on upgrade.
@@ -10668,6 +11064,8 @@ if(!localStorage.getItem(LS_KEY)) save();
 try{bindEvents();}catch(e){console.error('界面事件绑定失败',e);}
 try{bindSideSwipe();}catch(e){console.error('侧滑绑定失败',e);}
 try{bindPageSwipe();}catch(e){console.error('页面左右滑绑定失败',e);}
+try{bindTabbarSwipe();}catch(e){console.error('底部横滑绑定失败',e);}
+try{bindEditorSwipe();}catch(e){console.error('编辑器左滑绑定失败',e);}
 try{render();}catch(e){console.error('页面渲染失败',e);const box=document.querySelector('#noteList');if(box)box.innerHTML='<div class="empty-state"><b>页面初始化没有完成</b><br>请刷新页面；如果仍为空，请从旧文件导出完整备份后导入。</div>';}
 Promise.all([shotsInit(),inboxInit()]).catch(()=>{}).then(()=>{
   try{ if(['words','flash','list'].includes(ui.mode)) render(); }catch(_){}
