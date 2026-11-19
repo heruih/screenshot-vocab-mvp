@@ -370,6 +370,18 @@ body.mv-bar,body.undo-bar{--lift:52px}
   body.mode-edit #tabbar,body.side-open #tabbar{display:none}
   #noteList{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
   #mvBar,#undoBar{bottom:calc(62px + env(safe-area-inset-bottom,0px))}
+  /* 云同步状态条：移到 tabbar 上方，不再挡右上角加号；编辑/侧栏时 tabbar 隐藏则贴底 */
+  .cloud-status{
+    position:fixed;left:0;right:0;z-index:94;bottom:calc(54px + env(safe-area-inset-bottom,0px));
+    font-size:12px;max-width:100vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    padding:8px 14px;border-radius:0;border-top:1px solid var(--sep);
+    background:var(--bar-bg);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  }
+  body.mode-edit .cloud-status,body.side-open .cloud-status{bottom:env(safe-area-inset-bottom,0px)}
+}
+/* 桌面端无 tabbar，状态条贴底（仅 ≥768px，不覆盖移动端定位） */
+@media (min-width:768px){
+  .cloud-status{position:fixed;left:0;right:0;bottom:0;z-index:94;font-size:12px;max-width:100vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:8px 14px;border-radius:0;border-top:1px solid var(--sep);background:var(--bar-bg)}
 }
 
 /* ============ 编辑器里的首次提示 ============ */

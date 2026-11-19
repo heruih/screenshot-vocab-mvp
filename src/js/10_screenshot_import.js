@@ -1525,8 +1525,8 @@ const bCommitImport=aCommitImport;
 aCommitImport=function(prepared){bCommitImport(prepared);bQueue();};
 function bInit(){
   bBase=aRead(B_BASE,{});
-  $('#settingsModal .st-help').innerHTML='<b>保存：</b>表达、笔记、截图、写作和学习记录会保存到本应用私有云端；离线编辑先存本机，联网后合并。首页右上角可查看状态或重试。<br><b>跨设备：</b>打开同一个链接，使用同一 ChatGPT 账号登录。接口密钥只保存在当前设备，云端不保存。<br><b>原音：</b>可上传短音频／视频片段，循环播放并录音对照；每段最多 12 MB。<br><b>备份：</b>仍可导出完整备份，原始备份请保留。';
-  const status=document.createElement('button');status.id='bCloudStatus';status.className='btn';status.style.cssText='position:fixed;top:10px;right:12px;z-index:95;font-size:12px;max-width:65vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:8px';status.textContent=bStatus;status.onclick=()=>bSync();document.body.append(status);
+  $('#settingsModal .st-help').innerHTML='<b>保存：</b>表达、笔记、截图、写作和学习记录会保存到本应用私有云端；离线编辑先存本机，联网后合并。底部状态条可查看同步状态或点按重试。<br><b>跨设备：</b>打开同一个链接，使用同一 ChatGPT 账号登录。接口密钥只保存在当前设备，云端不保存。<br><b>原音：</b>可上传短音频／视频片段，循环播放并录音对照；每段最多 12 MB。<br><b>备份：</b>仍可导出完整备份，原始备份请保留。';
+  const status=document.createElement('button');status.id='bCloudStatus';status.className='btn cloud-status';status.textContent=bStatus;status.onclick=()=>bSync();document.body.append(status);
   $('#bAudioClose').onclick=()=>{if(bRecorder){toast('请先停止并保存录音');return;}bRecordingRequest=null;$('#bAudioWord').disabled=false;$('#bOriginalAudio').pause();$('#bOwnAudio').pause();$('#bAudio').classList.remove('show');};$('#bAudioWord').onchange=bLoadAudio;$('#bAudioUpload').onchange=e=>{bUploadAudio(e.target.files[0],'original');e.target.value='';};$('#bOwnUpload').onchange=e=>{bUploadAudio(e.target.files[0],'own');e.target.value='';};$('#bRecord').onclick=bToggleRecord;
   $('#bSpeed').onchange=e=>$('#bOriginalAudio').playbackRate=Number(e.target.value);
   $('#bOriginalAudio').ontimeupdate=()=>{const a=$('#bOriginalAudio'),start=Number($('#bStart').value)||0,end=Number($('#bEnd').value);if(end>start&&a.currentTime>=end)a.currentTime=start;};
