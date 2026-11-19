@@ -10191,6 +10191,10 @@ function wfSummary(){
   const sLabel={created:'最近添加',alpha:'字母顺序',due:'到期时间'};
   const parts=[fLabel[ui.wordFilter]||'全部'];
   if(ui.wordTag)parts.push('#'+ui.wordTag);
+  if(ui.wordNote){
+    const nt=state.notes.find(n=>n.id===ui.wordNote);
+    parts.push(nt?(nt.title||'无标题'):'全部笔记');
+  }
   if(ui.wordDate)parts.push(ui.wordDate);
   if(ui.wordSort&&ui.wordSort!=='time')parts.push(sLabel[ui.wordSort]||ui.wordSort);
   return parts.join(' · ');
