@@ -133,6 +133,8 @@
 
 | 2026-11-19 | 真机反馈五问题，第二轮改造。①统一数据保护卡片：融合安装引导与用完导出，一个卡片+统一 key（en-data-safety-v1），两次忽略安装后自动主推导出、安装降为小字链接，仅移动且有新改动才提示；②Service Worker：新增 sw.js（核心6资源预缓存、ocr-assets 运行时缓存、SWR 导航、版本化+清旧），PWA 秒开离线可用；③保存状态：常驻整条横幅改小胶囊，1.5 秒自动隐藏、出错才常驻；④顶部 pane-header/side-header 补 safe-area-inset-top，修复 standalone 被状态栏遮挡；⑤构建复制 sw 并注册 | 两产品构建（591501/591695）；浏览器验证 SW activated+controlled+缓存6项、卡片两布局按钮与展开指引、胶囊自动隐藏、五 tab 回归 0 错误 | 已发布 8faf951，线上 200 | 真机复验 |
 
+| 2026-11-19 | 规模化承载两痛点（均实测确认是存储设计问题、非内存），方案一。配图：IDB 升级 v2 新增 images 库，外链图加载成功后压缩到 320 长边 JPEG（约 8–10KB）落地，按单词绑定、同词跨笔记同一张，wmIllusLoad/aImageOpen 入口优先读本地 Blob，不再每次重新生成；存量配图启动 6s 后 requestIdleCallback 串行后台迁移（每条间隔 150ms 让主线程）；去掉 120 条硬截断依赖。截图：删除写死 2000，新增 shotCapacity 用 navigator.storage.estimate 真实剩余空间×80%÷120KB 动态算可存张数，estimate 不可用兜底 5 万；ocrAttachShot/ocrMount 改 async，批量循环接动态配额。备份：Blob 转 dataURL 独立 key 往返、导入不进 LS 直接转 Blob 存 IDB、本机已有不覆盖；修复 aImageCacheStats confirmedWords 不自增 | 6 文件 node --check 通过；两产品构建（600125/600319）；浏览器实测 0 错误、动态配额电脑端可存超百万张、配图落地全链路（fetch→压缩 10KB→IDB→objectURL→删除）、五 tab 正常 | 已发布 289e0b2 并推送，源码提交 bba591f | Simon 真机复验：配图固定+备份往返+超 2000 张可继续导入 |
+
 ## 规矩
 
 - **失败也记**，而且记真实的："跑 5 个词坏了 1 个"比"基本可用"有用一百倍。
