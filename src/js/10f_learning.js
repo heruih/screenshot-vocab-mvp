@@ -282,8 +282,13 @@ function aRefreshSettings(){
   const route=$('#aRoute');if(route)route.value=aRoute();
   aiProviderRefreshFields();
   ['stBase','stKey','stModel'].forEach(id=>{const el=$('#'+id);if(el&&el.closest('.st-field'))el.closest('.st-field').hidden=aRoute()!=='api';});
-  $$('#stgAi .st-presets').forEach(el=>el.hidden=true);
   const el=$('#stgSumAi');if(el)el.textContent=aRoute()==='chatgpt'?'ChatGPT 往返':aiProviderCfg().label;
+  const cgSw=$('#chatgptRouteSwitch'),cgTxt=$('#chatgptRouteText');
+  if(cgSw){
+    const isChat=aRoute()==='chatgpt';
+    if(document.activeElement!==cgSw)cgSw.checked=isChat;
+    if(cgTxt)cgTxt.textContent=isChat?'开启：复制任务到 ChatGPT 再粘回':'关闭：用 API 自动';
+  }
   aiImageRefreshFields();
   ttsRefreshSettings();
 }
@@ -395,8 +400,13 @@ function aInit(){
     aImageOpen(term,true);
   });
   $('#aIllustrate').onclick=async()=>{try{const memo=await aiCall([{role:'user',content:'为英语表达 '+wmState.term+' 设计一个简单记忆画面。只输出 JSON：{"emoji":"一个emoji","scene":"一句中文画面提示"}'}]);if(!memo.scene)throw new Error('缺少画面描述');wmMemoPaint(memo,wmState.term);}catch(e){toast(e.message,'warn');}};
-  const aiBody=$('#stgAi .st-g-body');const route=document.createElement('div');route.className='st-field';route.innerHTML='<label for="aRoute">AI 使用方式</label><select id="aRoute"><option value="api">API 自动（DeepSeek 默认）</option><option value="chatgpt">ChatGPT 往返（Plus 额度）</option></select><label for="aProvider" style="margin-top:10px">API 提供商</label><select id="aProvider"><option value="deepseek">DeepSeek（默认）</option><option value="openai">OpenAI GPT（备用）</option></select><p class="a-note">DeepSeek 默认使用 deepseek-flash。GPT 需要自己的 OpenAI API Key。ChatGPT Plus 只在复制往返模式里使用。</p>';
+  const aiBody=$('#stgAi .st-g-body');const route=document.createElement('div');route.className='st-field';route.id='aLegacyRoute';route.innerHTML='<label for="aRoute">AI 使用方式</label><select id="aRoute"><option value="api">API 自动（DeepSeek 默认）</option><option value="chatgpt">ChatGPT 往返（Plus 额度）</option></select><label for="aProvider" style="margin-top:10px">API 提供商</label><select id="aProvider"><option value="deepseek">DeepSeek（默认）</option><option value="openai">OpenAI GPT（备用）</option></select><p class="a-note">DeepSeek 默认使用 deepseek-flash。GPT 需要自己的 OpenAI API Key。ChatGPT Plus 只在复制往返模式里使用。</p>';
   aiBody.prepend(route);$('#aRoute').onchange=()=>{aStore(A_PREF_KEY,$('#aRoute').value);aRefreshSettings();};
+  const cgSwitch=$('#chatgptRouteSwitch');
+  if(cgSwitch)cgSwitch.addEventListener('change',()=>{
+    aStore(A_PREF_KEY,cgSwitch.checked?'chatgpt':'api');
+    aRefreshSettings();
+  });
   const lookBody=$('#stgLook .st-g-body');if(lookBody&&!$('#stDialogueThreshold')){const pref=document.createElement('div');pref.className='st-field';pref.id='stDialogueThreshold';pref.innerHTML='<label for="stDialogueThresholdSelect">复习后 AI 对话频率</label><div class="st-inline"><select id="stDialogueThresholdSelect"><option value="3">每 3 个词询问</option><option value="5">每 5 个词询问</option><option value="10">每 10 个词询问</option><option value="custom">自定义</option></select><input id="stDialogueThresholdCustom" type="number" min="3" max="10" step="1" placeholder="3—10" style="max-width:92px"></div><p class="a-note">达到数量后由你选择继续复习，或用刚刚的词练 AI 对话。</p>';lookBody.append(pref);const select=$('#stDialogueThresholdSelect'),custom=$('#stDialogueThresholdCustom'),sync=()=>{const n=dialogueThreshold(),preset=[3,5,10].includes(n)?String(n):'custom';select.value=preset;custom.value=preset==='custom'?String(n):'';custom.hidden=preset!=='custom';};select.onchange=()=>{if(select.value!=='custom'){saveDialogueThreshold(select.value);sync();toast('已设置为每 '+dialogueThreshold()+' 个词询问');}else{custom.hidden=false;custom.focus();}};custom.onchange=()=>{saveDialogueThreshold(custom.value);sync();toast('已设置为每 '+dialogueThreshold()+' 个词询问');};sync();}
   $('#aProvider').onchange=()=>{aiProviderSaveFields();aiProviderSave({name:$('#aProvider').value});aRefreshSettings();};
   ['stBase','stKey','stModel'].forEach(id=>$('#'+id).addEventListener('input',aiProviderSaveFields));
@@ -408,7 +418,6 @@ function aInit(){
   ['stTtsKey','stTtsSpeaker','stTtsRelay','stTtsRate','stTtsPitch'].forEach(id=>$('#'+id).addEventListener('input',()=>{const el=$('#'+id);volcTtsSave({apiKey:$('#stTtsKey').value.trim(),speaker:$('#stTtsSpeaker').value.trim(),relayUrl:$('#stTtsRelay').value.trim(),speechRate:Number($('#stTtsRate').value)||0,pitchRate:Number($('#stTtsPitch').value)||0});ttsRefreshSettings();}));
   $('#stTtsTest').addEventListener('click',ttsTest);
   const dataButton=document.createElement('button');dataButton.className='btn';dataButton.textContent='完整备份／安全迁移';dataButton.onclick=aOpenBackup;$('#settingsModal .st-body').prepend(dataButton);
-  $$('#stgAi .st-presets').forEach(el=>el.style.display='none');
   const syncBody=$('#stgSync .st-g-body');if(syncBody){const note=document.createElement('p');note.className='a-note';note.textContent='A 版默认暂停旧同步的自动上传与启动合并，以保留本机内容。完整备份覆盖截图、写作和学习记录；旧同步码仅搬运部分主数据，不是完整备份。';syncBody.prepend(note);}
   $('#stgSync').hidden=true;/* 2026-11-08 恢复：单词配图入口重新显示，Pixabay 实测可达（不需要节点） */
   const legacyNotes=$$('#settingsModal .st-note');legacyNotes.forEach(el=>{el.textContent='A 版默认使用 ChatGPT 往返；自动模式仅使用 OpenAI 官方 API，单独计费。原有同步配置保留，但新版不自动上传或合并。跨设备请使用完整备份。';});

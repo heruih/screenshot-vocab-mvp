@@ -404,23 +404,61 @@
       <section class="st-group open" id="stgAi">
         <button class="st-g-head" data-stg="stgAi" type="button"><span class="st-g-t">AI 接口</span><span class="st-g-s" id="stgSumAi">未配置</span><b class="st-chev">›</b></button>
         <div class="st-g-body">
-      <div class="st-presets">
-        <span class="st-presets-label">快速选择：</span>
-        <button class="mini-btn" data-prov="deepseek">DeepSeek</button>
-        <button class="mini-btn" data-prov="openai">OpenAI</button>
-        <button class="mini-btn" data-prov="zhipu">智谱 GLM</button>
+      <!-- 新手引导卡：首次展开，可收起 -->
+      <div class="api-guide-card" id="apiGuideCard">
+        <div class="api-guide-head">
+          <b>第一次配置？3 分钟看懂</b>
+          <button class="api-guide-toggle" id="apiGuideToggle" type="button">收起</button>
+        </div>
+        <div class="api-guide-body" id="apiGuideBody">
+          <div class="ag-block">
+            <p class="ag-q">1. API Key 是什么？要花钱吗？</p>
+            <p class="ag-a">它像给 AI 交话费的一串密码，只存在你自己手机里，我们看不到也不碰。AI 按用量扣一点点钱，日常学习很省；豆包还送免费额度，到量自动停，不会乱扣费。</p>
+          </div>
+          <div class="ag-block">
+            <p class="ag-q">2. 三个服务商选哪个？</p>
+            <ul class="ag-list">
+              <li><b>豆包</b>：新用户有免费额度，到量自动停，适合先试手。</li>
+              <li><b>DeepSeek</b>：便宜稳定，充 10 块日常能用很久。</li>
+              <li><b>ChatGPT</b>：官方不支持国内，注册要海外手机号和支付，新手基本搞不定，不推荐。</li>
+            </ul>
+          </div>
+          <div class="ag-block">
+            <p class="ag-q">3. 怎么拿到 Key？（三步）</p>
+            <ol class="ag-steps">
+              <li><b>选服务商</b>：点下面对应卡片，接口地址会自动填好。</li>
+              <li><b>去官网注册</b>：点对应官网链接，手机号注册、按提示登录（豆包需简单实名）。</li>
+              <li><b>复制 Key 粘回来</b>：在官网「API Key / API Keys」页面创建并复制，粘贴到下方输入框，保存即可。</li>
+            </ol>
+            <div class="ag-links" id="agLinks">
+              <a href="https://platform.deepseek.com/" target="_blank" rel="noopener">DeepSeek 开放平台</a>
+              <a href="https://console.volcengine.com/ark" target="_blank" rel="noopener">火山方舟（豆包）</a>
+              <a href="https://pixabay.com/api/docs/" target="_blank" rel="noopener">Pixabay 配图</a>
+            </div>
+          </div>
+          <div class="ag-block">
+            <p class="ag-q">4. 常见问题</p>
+            <ul class="ag-list ag-faq">
+              <li><b>填错会扣钱吗？</b>不会，Key 填错只是连不上，会提示错误，不会产生费用。</li>
+              <li><b>Key 安全吗？</b>只保存在本机，不会上传；别把它截图发到公开场合。</li>
+              <li><b>配图 Key 是什么？</b>Pixabay 免费图片密钥，选填，不填不影响学单词。</li>
+              <li><b>官网打不开？</b>换个网络或稍后再试，可以先跳过，不影响其它功能。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <!-- 服务商卡片 -->
+      <div class="st-field">
+        <label>选择 AI 服务商</label>
+        <div class="prov-cards" id="stProvider">
+          <button type="button" class="prov-card" data-prov="deepseek"><span class="prov-name">DeepSeek</span><span class="prov-desc">便宜稳定</span></button>
+          <button type="button" class="prov-card" data-prov="doubao"><span class="prov-name">豆包</span><span class="prov-desc">免费额度 · 到量自动停</span></button>
+          <button type="button" class="prov-card" data-prov="chatgpt"><span class="prov-name">ChatGPT</span><span class="prov-desc">国内用不了</span></button>
+        </div>
       </div>
       <div class="st-field">
-        <label for="stBase">接口地址（Base URL）</label>
-        <input id="stBase" placeholder="https://api.openai.com/v1" autocomplete="off">
-      </div>
-      <div class="st-field">
-        <label for="stKey">API Key</label>
-        <input id="stKey" type="password" placeholder="sk-…" autocomplete="off">
-      </div>
-      <div class="st-field">
-        <label for="stModel">模型名称</label>
-        <input id="stModel" placeholder="gpt-4o-mini / deepseek-flash / glm-4-flash" autocomplete="off">
+        <label for="stKey">API Key（粘贴那串密钥）</label>
+        <input id="stKey" type="password" placeholder="选好上面的服务商，再粘贴 Key" autocomplete="off">
       </div>
       <div class="st-field">
         <label for="stTone">AI 对话语气</label>
@@ -431,18 +469,35 @@
           <option value="strict">严格考官（直击要害）</option>
         </select>
       </div>
-        </div>
-      </section>
-      <section class="st-group" id="stgImg">
-        <button class="st-g-head" data-stg="stgImg" type="button"><span class="st-g-t">单词配图</span><span class="st-g-s" id="stgSumImg">未配置</span><b class="st-chev">›</b></button>
-        <div class="st-g-body">
       <div class="st-field">
-        <label for="stPixabay">单词配图 · Pixabay Key（免费，推荐）</label>
-        <input id="stPixabay" type="password" placeholder="pixabay.com/api/docs 登录后可见；填了显示真实照片" autocomplete="off">
+        <label for="stPixabay">配图 Pixabay Key（选填，免费）</label>
+        <input id="stPixabay" type="password" placeholder="填了显示真实照片；不填也能用" autocomplete="off">
       </div>
-      <div class="st-field">
-        <label for="stPexels">单词配图 · Pexels Key（他们暂停发新 Key 了）</label>
-        <input id="stPexels" type="password" placeholder="已有旧 Key 才填；新的申请不了" autocomplete="off">
+      <!-- 高级设置折叠 -->
+      <div class="adv-wrap">
+        <button class="adv-toggle" id="advToggle" type="button"><span>高级设置（接口地址 / 模型 / 其它图片源）</span><b class="adv-chev">›</b></button>
+        <div class="adv-body" id="advBody">
+          <div class="st-field">
+            <label for="stBase">接口地址（Base URL）</label>
+            <input id="stBase" placeholder="选服务商自动填，一般不用改" autocomplete="off">
+          </div>
+          <div class="st-field">
+            <label for="stModel">模型名称</label>
+            <input id="stModel" placeholder="选服务商自动填" autocomplete="off">
+          </div>
+          <div class="st-field">
+            <label for="stPexels">Pexels Key（旧 Key 才填）</label>
+            <input id="stPexels" type="password" placeholder="新用户申请不了，可忽略" autocomplete="off">
+          </div>
+          <div class="st-field" id="chatgptRouteField">
+            <label>ChatGPT 往返模式（只有 ChatGPT Plus 时才用）</label>
+            <label class="route-switch">
+              <input type="checkbox" id="chatgptRouteSwitch">
+              <span class="rs-slider"></span>
+              <span class="rs-text" id="chatgptRouteText">关闭：用 API 自动</span>
+            </label>
+          </div>
+        </div>
       </div>
         </div>
       </section>

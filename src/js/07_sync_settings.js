@@ -323,8 +323,9 @@ function backupNoteText(){
 function stGroupSummary(){
   const st=state.settings||{};
   const set=(id,txt)=>{ const el=$('#'+id); if(el) el.textContent=txt; };
-  set('stgSumAi',st.apiKey?('已配置 · '+(st.model||'默认模型')):'未配置 Key');
-  set('stgSumImg',st.pixabayKey?'已有 Pixabay Key':(st.pexelsKey?'已有 Pexels Key':'未配置 · 用记忆卡代替'));
+  let aiSum=st.apiKey?('已配置 · '+(st.model||'默认模型')):'未配置 Key';
+  if(st.pixabayKey) aiSum+=' · 已配图';
+  set('stgSumAi',aiSum);
   const themeLabel={study:'暖纸书房',midnight:'午夜编辑',paper:'温暖纸张',lavender:'柔雾薰衣草',dark:'午夜编辑',light:'温暖纸张'};
   set('stgSumLook',(themeLabel[st.theme]||'暖纸书房')+' · 字号'+(st.fs==='l'?'大':(st.fs==='s'?'小':'中')));
   try{
@@ -425,6 +426,40 @@ function grabSyncFields(){
   take('stDavPass','pass',true);
   return cfg;
 }
+const AI_PROVIDER_PRESETS={
+  deepseek:{baseUrl:'https://api.deepseek.com',model:'deepseek-flash'},
+  doubao:{baseUrl:'https://ark.cn-beijing.volces.com/api/v3',model:'doubao-seed-2-1-pro-260915'},
+  chatgpt:{baseUrl:'https://api.openai.com/v1',model:'gpt-4o-mini'}
+};
+/* 根据当前接口地址反推服务商（老用户/自定义配置也能正确高亮） */
+function detectProvider(){
+  const base=String(($('#stBase')&&$('#stBase').value)||(state.settings&&state.settings.baseUrl)||'').toLowerCase();
+  if(base.indexOf('ark.cn-beijing')>=0) return 'doubao';
+  if(base.indexOf('openai')>=0) return 'chatgpt';
+  if(base.indexOf('deepseek')>=0) return 'deepseek';
+  return '';
+}
+function syncProviderCards(){
+  const cur=detectProvider();
+  $$('#settingsModal [data-prov]').forEach(b=>b.classList.toggle('on',b.dataset.prov===cur));
+}
+/* 新手引导卡：首次展开，收起后记住不再主动弹；保留重新打开入口 */
+function initApiGuide(){
+  const card=$('#apiGuideCard'), tg=$('#apiGuideToggle');
+  if(!card||!tg) return;
+  const seen=localStorage.getItem(API_GUIDE_KEY)==='1';
+  card.classList.toggle('collapsed',seen);
+  tg.textContent=seen?'配置帮助':'收起';
+  tg.onclick=()=>{
+    const collapsed=card.classList.toggle('collapsed');
+    if(collapsed){
+      localStorage.setItem(API_GUIDE_KEY,'1');
+      tg.textContent='配置帮助';
+    }else{
+      tg.textContent='收起';
+    }
+  };
+}
 function openSettings(){
   $('#stBase').value=state.settings.baseUrl||'';
   $('#stKey').value=state.settings.apiKey||'';
@@ -434,6 +469,8 @@ function openSettings(){
   $('#stTone').value=state.settings.tone||'friend';
   $$('#settingsModal .st-group').forEach(g=>g.classList.toggle('open',g.id==='stgAi'));
   syncSettingsUI();
+  try{ syncProviderCards(); }catch(_){}
+  try{ initApiGuide(); }catch(_){}
   try{storageRender();}catch(_){}
   $('#settingsModal').classList.add('show');
 }
@@ -544,6 +581,7 @@ function clearSettings(){
     state.settings={baseUrl:'',apiKey:'',model:'',tone:'friend',theme:state.settings.theme||'midnight',fs:state.settings.fs||'m'}; save();
     try{localStorage.removeItem('en-ai-image-v1');}catch(_){ }
     $('#stBase').value=''; $('#stKey').value=''; $('#stModel').value=''; $('#stTone').value='friend';
+    try{ syncProviderCards(); }catch(_){}
     $('#settingsModal').classList.remove('show');
     toast('已清除配置');
   }});
@@ -869,18 +907,19 @@ function bindEvents(){
     e.target.value='';
     if(f) importData(f);
   });
-  const PROVIDERS={
-    deepseek:{baseUrl:'https://api.deepseek.com',model:'deepseek-flash'},
-    openai:{baseUrl:'https://api.openai.com/v1',model:'gpt-4o-mini'},
-    zhipu:{baseUrl:'https://open.bigmodel.cn/api/paas/v4',model:'glm-4-flash'}
-  };
   $$('#settingsModal [data-prov]').forEach(b=>b.addEventListener('click',()=>{
-    const p=PROVIDERS[b.dataset.prov];
+    const p=AI_PROVIDER_PRESETS[b.dataset.prov];
     if(!p) return;
     $('#stBase').value=p.baseUrl;
     $('#stModel').value=p.model;
-    toast('已填入 '+b.textContent+' 配置，只需粘贴 API Key','warn');
+    syncProviderCards();
+    toast('已选 '+b.querySelector('.prov-name').textContent+'，只需粘贴 API Key','warn');
   }));
+  /* 高级设置折叠 */
+  const advT=$('#advToggle');
+  if(advT) advT.addEventListener('click',()=>{
+    advT.closest('.adv-wrap').classList.toggle('open');
+  });
   $('#stClear').addEventListener('click',clearSettings);
   $$('#stTheme [data-theme-val]').forEach(b=>b.addEventListener('click',()=>{
     state.settings.theme=b.dataset.themeVal; save(); applyTheme(); syncSettingsUI();
