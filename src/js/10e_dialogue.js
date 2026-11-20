@@ -166,6 +166,7 @@ renderToday=function(){
       '<button class="home-quick-item" data-hq="recall" type="button"><span class="hq-t">场景回想</span><span class="hq-d">看场景说英文 · 先回忆</span></button>'+
       '<button class="home-quick-item" data-hq="note" type="button"><span class="hq-t">加入笔记</span><span class="hq-d">写英文 · 选中 empower</span></button>'+
       '<button class="home-quick-item" data-hq="flash" type="button"><span class="hq-t">英文闪卡</span><span class="hq-d">到期回想练习</span></button>'+
+      '<button class="home-quick-item" data-hq="write" type="button"><span class="hq-t">写作练习</span><span class="hq-d">选词出题 · AI 批改</span></button>'+
       '<button class="home-quick-item primary" data-hq="ai" type="button"><span class="hq-t">AI 对话</span><span class="hq-d">基于刚复习的词开口</span></button>'+
     '</div>'+
     inboxEntry+
@@ -181,6 +182,7 @@ renderToday=function(){
     if(g==='recall')aStartRecall();
     else if(g==='note')newNote();
     else if(g==='flash'){ui.mode='flash';ui.flash=null;render();}
+    else if(g==='write')openWriteModal();
     else if(g==='ai')todayAiDialogue();
   });
   $('#aInboxEntry').onclick=ocrInboxShow;

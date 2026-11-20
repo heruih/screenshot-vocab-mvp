@@ -19,3 +19,7 @@ _engine/models/
 # 独立 GitHub Pages 发布仓库（自带 .git，单独维护）
 ocr-demo-site/
 publish-mvp-site/
+
+# 研究阶段的原始大数据（可重新获取，不入库）
+_research/ecdict.csv
+_research/cet-syllabus-2016.pdf

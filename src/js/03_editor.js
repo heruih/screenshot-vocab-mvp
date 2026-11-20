@@ -274,7 +274,7 @@ const HIST_MAX=20;
 let histStack=[];
 let histLastInput=0;
 function histSnapshot(){
-  return {title:titleEl.innerText.trim()||'无标题', content:bodyCleanHTML()};
+  return {noteId:ui.note, title:titleEl.innerText.trim()||'无标题', content:bodyCleanHTML()};
 }
 /* 压入一个「可回到的过去状态」；与栈顶相同不重复压，超长度丢最旧 */
 function histPush(){
@@ -300,6 +300,10 @@ function histSyncUndoBtn(){
 function histUndo(){
   if(!histStack.length){toast('没有可撤销的操作');return;}
   const snap=histStack.pop();
+  /* 快照属于另一篇笔记：先切过去（openNote 已不再清空历史），再恢复那篇的状态 */
+  if(snap.noteId&&snap.noteId!==ui.note){
+    try{ openNote(snap.noteId); }catch(_){ }
+  }
   titleEl.innerText=snap.title;
   bodyEl.innerHTML=snap.content;
   try{ lockWords(bodyEl); }catch(_){ }

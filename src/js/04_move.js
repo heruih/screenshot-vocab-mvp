@@ -255,7 +255,6 @@ function mvFindSpan(term,wid){
 function openNote(id){
   persistEditor();
   ui.note=id; ui.mode='edit'; ui.tag=null; ui.sideOpen=false;
-  histStack=[];
   render();
   try{ histSyncUndoBtn(); }catch(_){ }
   try{ clipSyncBtn(); }catch(_){ }
@@ -265,6 +264,7 @@ function openNote(id){
 }
 function backToList(){
   persistEditor();
+  try{ bFlushSaveHint(); }catch(_){ }
   ui.mode='list'; ui.sideOpen=false;
   render();
 }
@@ -277,7 +277,6 @@ function newNote(){
   const n={id:uid(),folderId,title:'无标题',content:'',createdAt:Date.now(),updatedAt:Date.now()};
   state.notes.push(n); save();
   ui.note=n.id; ui.mode='edit'; ui.tag=null; ui.sideOpen=false;
-  histStack=[];
   render();
   try{ histSyncUndoBtn(); }catch(_){ }
   try{ clipSyncBtn(); }catch(_){ }
@@ -621,6 +620,36 @@ function clipSyncBtn(){
   const has=!!clipGet();
   b.classList.toggle('disabled',!has);
   b.disabled=!has;
+}
+/* ============ 系统剪切拦截：选区含词条时引导用应用内按钮，纯文字不拦 ============ */
+function selectionHasWord(){
+  try{
+    const sel=window.getSelection();
+    if(!sel||sel.rangeCount===0||sel.isCollapsed)return false;
+    const range=sel.getRangeAt(0);
+    const ca=range.commonAncestorContainer;
+    if(ca&&ca.nodeType===1&&ca.classList&&ca.classList.contains('en-word'))return true;
+    const frag=range.cloneContents();
+    return !!(frag.querySelector&&frag.querySelector('.en-word'));
+  }catch(_){ return false; }
+}
+function bindSystemClipGuard(){
+  document.addEventListener('cut',e=>{
+    if(ui.mode!=='edit')return;
+    if(selectionHasWord()){
+      e.preventDefault();
+      toast('词条请用应用内的复制 / 剪切按钮，系统剪切会丢绑定','warn');
+    }
+  });
+  document.addEventListener('paste',e=>{
+    if(ui.mode!=='edit')return;
+    let html='';
+    try{ html=e.clipboardData.getData('text/html')||''; }catch(_){}
+    if(html&&html.indexOf('en-word')>=0){
+      e.preventDefault();
+      toast('词条请点顶部「粘贴」按钮，系统粘贴会丢绑定','warn');
+    }
+  });
 }
 
 

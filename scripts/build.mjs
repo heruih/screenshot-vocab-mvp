@@ -38,6 +38,8 @@ const modules = [
   '10f_learning.js',
   '10g_cloud.js',
   '10h_seed.js',
+  '12_feedback.js',
+  '13_drag.js',
   '11_boot.js',
 ];
 const script = (await Promise.all(modules.map((file) => read(path.join('js', file))))).join('');
@@ -104,6 +106,20 @@ if (publishPages) {
     await fs.copyFile(path.join(source, 'pwa', f), path.join(iconsOut, f));
   }
   console.log('pwa manifest + icons ready');
+
+  // 引导截图：复制 guide-assets 到产物，随 App 一起发布（缺图不影响构建）
+  const guideSrc = path.join(source, 'guide-assets');
+  const guideOut = path.join(output, 'guide-assets');
+  try {
+    await fs.mkdir(guideOut, { recursive: true });
+    const guideFiles = await fs.readdir(guideSrc);
+    for (const f of guideFiles) {
+      await fs.copyFile(path.join(guideSrc, f), path.join(guideOut, f));
+    }
+    console.log(`guide assets ready (${guideFiles.length} files)`);
+  } catch (err) {
+    console.log('guide assets skipped:', err.code || err.message);
+  }
 
   // Service Worker：注入当前产品页面、manifest 与缓存版本，输出 sw.js（PWA 秒开/离线可用）
   const swTemplate = await fs.readFile(path.join(source, 'sw.js'), 'utf8');

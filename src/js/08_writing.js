@@ -194,6 +194,39 @@ function closeWriteModal(){
   writeState.seq++;
   try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){}
 }
+/* ============ 我的作文：历史写作回看 ============ */
+function writeFmtDate(ts){
+  try{
+    const d=new Date(ts),p=n=>String(n).padStart(2,'0');
+    return (d.getMonth()+1)+'月'+d.getDate()+'日 '+p(d.getHours())+':'+p(d.getMinutes());
+  }catch(_){ return ''; }
+}
+function openWriteHistory(){
+  const modal=$('#writeHistoryModal'),body=$('#writeHistoryBody');
+  const arr=writeLogAll();
+  if(!arr.length){
+    body.innerHTML='<div class="wh-empty">还没有写过作文。写完一篇并保存后，会出现在这里。</div>';
+  }else{
+    body.innerHTML=arr.map((r,i)=>
+      '<div class="wh-item" data-i="'+i+'" role="button" tabindex="0">'+
+        '<div class="wh-top"><b>'+esc(r.topic||'自由写作')+'</b><span class="wh-score">'+(r.score?r.score+' 分':'未评分')+'</span></div>'+
+        '<div class="wh-meta">'+writeFmtDate(r.createdAt)+(r.words&&r.words.length?' · 用到 '+r.words.length+' 个词':'')+'</div>'+
+        '<div class="wh-preview">'+esc(r.attempt||'')+'</div>'+
+        '<div class="wh-full hidden">'+esc(r.attempt||'').replace(/\n/g,'<br>')+'</div>'+
+      '</div>').join('');
+    body.querySelectorAll('.wh-item').forEach(it=>{
+      const toggle=()=>{
+        const full=it.querySelector('.wh-full'),prev=it.querySelector('.wh-preview');
+        const open=full.classList.toggle('hidden');
+        prev.classList.toggle('hidden',!open);
+      };
+      it.onclick=toggle;
+    });
+  }
+  modal.classList.add('show');
+  $('#writeHistoryClose').onclick=closeWriteHistory;
+}
+function closeWriteHistory(){ $('#writeHistoryModal').classList.remove('show'); }
 /* ============ 原句自动入库 ============ */
 function extractOrigSentence(range){
   try{

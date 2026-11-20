@@ -443,6 +443,98 @@ function syncProviderCards(){
   const cur=detectProvider();
   $$('#settingsModal [data-prov]').forEach(b=>b.classList.toggle('on',b.dataset.prov===cur));
 }
+/* ============ 新手分步引导：自绘 SVG 示意图，数据驱动（不怕官网改版） ============ */
+const GUIDE_STEPS={
+  deepseek:{label:'DeepSeek',url:'https://platform.deepseek.com/',warn:false,
+    note:'便宜稳定，充 10 块日常能用很久',
+    steps:[
+      {kind:'register',img:'deepseek-1.jpeg',text:'浏览器打开平台，用手机号注册并登录'},
+      {kind:'menu',img:'deepseek-2.jpeg',text:'登录后在左侧菜单找到并点「API Keys」'},
+      {kind:'create',text:'点「创建 API key」，名字随便填，再点创建'},
+      {kind:'copy',text:'立刻复制这串 Key（只显示这一次），粘回本 App 保存'}]},
+  doubao:{label:'豆包',url:'https://console.volcengine.com/ark',warn:false,
+    note:'新用户有免费额度、到量自动停，适合先试手',
+    steps:[
+      {kind:'register',text:'打开火山方舟，手机号注册，按提示做个人实名'},
+      {kind:'menu',text:'在方舟里开通你要用的豆包模型'},
+      {kind:'create',text:'左侧「API Key 管理」点「创建 API Key」'},
+      {kind:'copy',text:'复制创建好的 Key，粘回本 App 保存'}]},
+  chatgpt:{label:'ChatGPT',url:'https://platform.openai.com/',warn:true,
+    note:'国内用不了，需海外手机号和支付，新手不推荐',
+    steps:[
+      {kind:'warn',text:'官方不支持国内直接访问，注册要海外手机号'},
+      {kind:'register',text:'若条件具备，访问平台注册并登录账号'},
+      {kind:'recharge',text:'先充值余额，否则调用会被拒绝'},
+      {kind:'create',text:'创建 API Key 并复制，粘回本 App 保存'}]},
+  pixabay:{label:'Pixabay配图',url:'https://pixabay.com/api/docs/',warn:false,
+    note:'免费图片密钥，选填，不填也有记忆卡兜底',
+    steps:[
+      {kind:'register',img:'pixabay-1.jpeg',text:'打开 Pixabay，点右上角 Log in 注册一个免费账号'},
+      {kind:'verify',text:'去邮箱点确认链接，激活账号'},
+      {kind:'copy',img:'pixabay-3.jpeg',text:'在 API 文档页看到自己的 Key（绿色框），复制'},
+      {kind:'paste',text:'粘回本 App「发音与配图」里的 Pixabay 输入框'}]}
+};
+/* 每一步的浏览器线框示意图：描边风格，关键操作点用 accent 高亮 */
+function guideStepSVG(kind){
+  const A='var(--accent)',S3='var(--s3)',S4='var(--s4)',T3='var(--text3)';
+  const shell='<svg viewBox="0 0 240 150" class="ag-svg" aria-hidden="true">'+
+    '<rect x="6" y="10" width="228" height="132" rx="10" fill="var(--s1)" stroke="var(--sep)" stroke-width="1.5"/>'+
+    '<circle cx="21" cy="25" r="2.6" fill="'+S4+'"/><circle cx="31" cy="25" r="2.6" fill="'+S4+'"/><circle cx="41" cy="25" r="2.6" fill="'+S4+'"/>'+
+    '<rect x="58" y="18" width="166" height="14" rx="7" fill="'+S3+'"/>'+
+    '<line x1="6" y1="40" x2="234" y2="40" stroke="var(--sep)" stroke-width="1.2"/>';
+  let b='';
+  if(kind==='register'){
+    b='<rect x="24" y="52" width="120" height="12" rx="6" fill="'+S3+'"/><rect x="24" y="72" width="120" height="12" rx="6" fill="'+S3+'"/>'+
+      '<rect x="24" y="96" width="92" height="30" rx="8" fill="'+A+'"/><text x="70" y="115" text-anchor="middle" font-size="12" fill="#fff" font-weight="700">注册 / 登录</text>';
+  }else if(kind==='menu'){
+    b='<rect x="20" y="48" width="64" height="86" rx="8" fill="'+S3+'"/><line x1="30" y1="62" x2="74" y2="62" stroke="'+T3+'" stroke-width="3" stroke-linecap="round"/>'+
+      '<line x1="30" y1="76" x2="74" y2="76" stroke="'+T3+'" stroke-width="3" stroke-linecap="round"/><rect x="26" y="86" width="52" height="16" rx="5" fill="'+A+'"/>'+
+      '<line x1="100" y1="62" x2="216" y2="62" stroke="'+S4+'" stroke-width="3" stroke-linecap="round"/><line x1="100" y1="82" x2="200" y2="82" stroke="'+S4+'" stroke-width="3" stroke-linecap="round"/>'+
+      '<line x1="100" y1="102" x2="210" y2="102" stroke="'+S4+'" stroke-width="3" stroke-linecap="round"/>';
+  }else if(kind==='create'){
+    b='<rect x="158" y="48" width="62" height="22" rx="7" fill="'+A+'"/><text x="189" y="63" text-anchor="middle" font-size="11" fill="#fff" font-weight="700">创建</text>'+
+      '<rect x="60" y="86" width="120" height="46" rx="9" fill="'+S3+'" stroke="'+A+'" stroke-width="1.6"/><line x1="74" y1="104" x2="166" y2="104" stroke="'+S4+'" stroke-width="3" stroke-linecap="round"/>'+
+      '<line x1="74" y1="120" x2="140" y2="120" stroke="'+S4+'" stroke-width="3" stroke-linecap="round"/>';
+  }else if(kind==='copy'){
+    b='<rect x="24" y="60" width="150" height="26" rx="7" fill="'+S3+'" stroke="var(--sep)"/><line x1="34" y1="73" x2="160" y2="73" stroke="'+T3+'" stroke-width="3" stroke-linecap="round"/>'+
+      '<rect x="182" y="60" width="36" height="26" rx="7" fill="'+A+'"/><text x="200" y="77" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">复制</text>'+
+      '<circle cx="200" cy="108" r="13" fill="none" stroke="'+A+'" stroke-width="2"/><path d="M194 108l4 4 8-9" fill="none" stroke="'+A+'" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+  }else if(kind==='paste'){
+    b='<rect x="24" y="56" width="192" height="40" rx="8" fill="'+S3+'" stroke="'+A+'" stroke-width="1.6"/><line x1="38" y1="72" x2="120" y2="72" stroke="'+T3+'" stroke-width="3" stroke-linecap="round"/>'+
+      '<line x1="38" y1="86" x2="150" y2="86" stroke="'+S4+'" stroke-width="3" stroke-linecap="round"/><rect x="84" y="106" width="72" height="22" rx="7" fill="'+A+'"/>'+
+      '<text x="120" y="121" text-anchor="middle" font-size="11" fill="#fff" font-weight="700">粘贴并保存</text>';
+  }else if(kind==='verify'){
+    b='<rect x="86" y="52" width="68" height="46" rx="8" fill="'+S3+'" stroke="var(--sep)"/><path d="M86 58l34 22 34-22" fill="none" stroke="'+T3+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'+
+      '<rect x="64" y="108" width="112" height="20" rx="7" fill="'+A+'"/><text x="120" y="122" text-anchor="middle" font-size="10.5" fill="#fff" font-weight="700">点确认链接</text>';
+  }else if(kind==='recharge'){
+    b='<rect x="70" y="56" width="100" height="34" rx="8" fill="'+S3+'" stroke="var(--sep)"/><text x="120" y="78" text-anchor="middle" font-size="13" fill="'+T3+'" font-weight="700">¥</text>'+
+      '<rect x="84" y="104" width="72" height="24" rx="8" fill="'+A+'"/><text x="120" y="120" text-anchor="middle" font-size="11" fill="#fff" font-weight="700">充值</text>';
+  }else if(kind==='warn'){
+    b='<path d="M120 54l34 60h-68z" fill="none" stroke="'+A+'" stroke-width="2.4" stroke-linejoin="round"/><line x1="120" y1="76" x2="120" y2="96" stroke="'+A+'" stroke-width="3" stroke-linecap="round"/>'+
+      '<circle cx="120" cy="106" r="2.4" fill="'+A+'"/>';
+  }
+  return shell+b+'</svg>';
+}
+let guideActive='deepseek';
+function renderGuideTabs(){
+  const tabs=$('#agTabs');
+  tabs.innerHTML=Object.keys(GUIDE_STEPS).map(k=>
+    '<button type="button" class="ag-tab'+(k===guideActive?' on':'')+'" data-gtab="'+k+'" role="tab">'+GUIDE_STEPS[k].label+'</button>').join('');
+  tabs.querySelectorAll('.ag-tab').forEach(btn=>btn.addEventListener('click',()=>{
+    guideActive=btn.getAttribute('data-gtab');renderGuideTabs();renderGuidePanel();
+  }));
+}
+function renderGuidePanel(){
+  const g=GUIDE_STEPS[guideActive];
+  const head='<div class="agp-head'+(g.warn?' warn':'')+'"><span>'+g.note+'</span><a href="'+g.url+'" target="_blank" rel="noopener">打开官网 ›</a></div>';
+  const steps=g.steps.map((s,i)=>{
+    const fig=s.img
+      ? '<img class="agp-img" src="guide-assets/'+s.img+'" alt="步骤 '+ (i+1) +' 示意图" loading="lazy">'
+      : guideStepSVG(s.kind);
+    return '<div class="agp-step"><span class="agp-no">'+(i+1)+'</span><div class="agp-fig">'+fig+'</div><p class="agp-txt">'+s.text+'</p></div>';
+  }).join('');
+  $('#agPanels').innerHTML='<div class="ag-panel">'+head+steps+'</div>';
+}
 /* 新手引导卡：首次展开，收起后记住不再主动弹；保留重新打开入口 */
 function initApiGuide(){
   const card=$('#apiGuideCard'), tg=$('#apiGuideToggle');
@@ -459,6 +551,7 @@ function initApiGuide(){
       tg.textContent='收起';
     }
   };
+  try{ renderGuideTabs(); renderGuidePanel(); }catch(e){ console.error('分步引导渲染失败',e); }
 }
 function openSettings(){
   $('#stBase').value=state.settings.baseUrl||'';
@@ -725,7 +818,10 @@ function bindPageSwipe(){
   pane.addEventListener('touchstart',e=>{
     on=false;locked=0;dx=0;
     if(pageSwipeBlocked(e.target))return;
-    const t=e.touches[0];x0=t.clientX;y0=t.clientY;on=true;
+    const t=e.touches[0];
+    /* 左边缘起滑交给边缘抽屉手势，页面横滑不抢 */
+    if(t.clientX<=EDGE_ZONE)return;
+    x0=t.clientX;y0=t.clientY;on=true;
   },{passive:true});
   pane.addEventListener('touchmove',e=>{
     if(!on)return;
@@ -748,18 +844,7 @@ function bindPageSwipe(){
     if(!on||!locked){on=false;return;}
     on=false;
     const w=window.innerWidth,idx=PAGE_SWIPE_MODES.indexOf(ui.mode),goNext=dx<0;
-    const passed=Math.abs(dx)>w*0.22;
-    /* 今日页左滑：直接打开「更多」抽屉，不经过笔记页 */
-    if(passed&&goNext&&idx===0){
-      pane.style.transition='transform .2s ease,opacity .2s ease';
-      pane.style.transform='translateX(-'+w+'px)';pane.style.opacity='.8';
-      setTimeout(()=>{
-        pane.style.transition='none';pane.style.transform='';pane.style.opacity='';
-        try{ persistEditor(); }catch(_){}
-        ui.sideOpen=true; render();
-      },190);
-      return;
-    }
+    const passed=Math.abs(dx)>w*0.15;
     let target=idx;
     if(passed){
       if(goNext&&idx<PAGE_SWIPE_MODES.length-1)target=idx+1;
@@ -780,33 +865,54 @@ function bindPageSwipe(){
 }
 /* ============ 底部 tabbar 横滑切换 ============ */
 function bindTabbarSwipe(){
-  const bar=$('#tabbar');
+  const bar=$('#tabbar'),pane=$('#noteListPane');
   if(!bar)return;
-  let x0=0,y0=0,locked=0,on=false;
+  let x0=0,y0=0,dx=0,locked=0,on=false;
   bar.addEventListener('touchstart',e=>{
-    on=true;locked=0;
-    if(ui.sideOpen||ui.mode==='edit'){on=false;return;}
-    x0=e.touches[0].clientX;y0=e.touches[0].clientY;
+    on=false;locked=0;dx=0;
+    if(ui.sideOpen||ui.mode==='edit')return;
+    if(PAGE_SWIPE_MODES.indexOf(ui.mode)<0)return;
+    x0=e.touches[0].clientX;y0=e.touches[0].clientY;on=true;
   },{passive:true});
   bar.addEventListener('touchmove',e=>{
-    if(!on||locked)return;
+    if(!on)return;
     const t=e.touches[0],ddx=t.clientX-x0,ddy=t.clientY-y0;
-    if(Math.abs(ddx)<10&&Math.abs(ddy)<10)return;
-    if(Math.abs(ddy)>Math.abs(ddx)){on=false;return;}
-    locked=1;
-  },{passive:true});
-  bar.addEventListener('touchend',e=>{
-    if(!on||!locked){on=false;return;}
-    on=false;
-    const t=e.changedTouches[0],dx=t.clientX-x0;
-    if(Math.abs(dx)<40)return;
-    const goNext=dx<0;
+    if(!locked){
+      if(Math.abs(ddx)<8&&Math.abs(ddy)<8)return;
+      if(Math.abs(ddy)>Math.abs(ddx)){on=false;return;}
+      locked=1;if(pane)pane.style.transition='none';
+    }
     const idx=PAGE_SWIPE_MODES.indexOf(ui.mode);
-    if(goNext){
-      if(idx>=0&&idx<PAGE_SWIPE_MODES.length-1)applyPageMode(PAGE_SWIPE_MODES[idx+1]);
-      else if(idx===PAGE_SWIPE_MODES.length-1){ try{persistEditor();}catch(_){} ui.sideOpen=true; render(); }
+    let x=ddx;
+    if((x>0&&idx<=0)||(x<0&&idx>=PAGE_SWIPE_MODES.length-1))x=x*0.3;
+    dx=x;
+    if(pane){
+      pane.style.transform='translateX('+x+'px)';
+      pane.style.opacity=String(Math.max(.78,1-Math.abs(x)/(window.innerWidth*1.4)));
+    }
+  },{passive:true});
+  bar.addEventListener('touchend',()=>{
+    if(!on){on=false;return;}
+    on=false;
+    if(!locked||!pane){locked=0;return;}
+    locked=0;
+    const w=window.innerWidth,idx=PAGE_SWIPE_MODES.indexOf(ui.mode),goNext=dx<0;
+    const passed=Math.abs(dx)>=25;
+    let target=idx;
+    if(passed){
+      if(goNext&&idx<PAGE_SWIPE_MODES.length-1)target=idx+1;
+      else if(!goNext&&idx>0)target=idx-1;
+    }
+    pane.style.transition='transform .22s ease,opacity .22s ease';
+    if(target===idx){
+      pane.style.transform='';pane.style.opacity='';
+      setTimeout(()=>{pane.style.transition='';pane.style.transform='';pane.style.opacity='';},240);
     }else{
-      if(idx>0)applyPageMode(PAGE_SWIPE_MODES[idx-1]);
+      pane.style.transform='translateX('+(goNext?-w:w)+'px)';
+      setTimeout(()=>{
+        pane.style.transition='none';pane.style.transform='';pane.style.opacity='';
+        applyPageMode(PAGE_SWIPE_MODES[target]);
+      },200);
     }
   },{passive:true});
 }
@@ -852,6 +958,66 @@ function bindEditorSwipe(){
     }
   },{passive:true});
 }
+/* ============ 左边缘右滑：跟手拉出「更多」抽屉 ============ */
+const EDGE_ZONE=24;
+function edgeSwipeAllowed(target){
+  if(ui.sideOpen)return false;
+  if(PAGE_SWIPE_MODES.indexOf(ui.mode)<0)return false;
+  if(document.querySelector('.modal.show,.ai-page.show,#shotViewer.show,#qdSheet.show,#writeModal.show,.bottom-sheet.show,#noteOrganize.show,#dictPage.show,#followPage.show'))return false;
+  if(target.closest&&target.closest('[data-no-swipe],.hscroll,.carousel,.wm-shots,.shot-strip,.img-swipe'))return false;
+  return true;
+}
+function bindEdgeDrawerSwipe(){
+  const pane=$('#noteListPane'),bar=$('#sidebar'),scrim=$('#scrim');
+  if(!pane||!bar)return;
+  let x0=0,y0=0,dx=0,locked=0,on=false,dw=300;
+  pane.addEventListener('touchstart',e=>{
+    on=false;locked=0;dx=0;
+    const t=e.touches[0];
+    if(t.clientX>EDGE_ZONE)return;
+    if(!edgeSwipeAllowed(e.target))return;
+    x0=t.clientX;y0=t.clientY;dw=bar.offsetWidth||300;on=true;
+    bar.style.transition='none';
+  },{passive:true});
+  pane.addEventListener('touchmove',e=>{
+    if(!on)return;
+    const t=e.touches[0],ddx=t.clientX-x0,ddy=t.clientY-y0;
+    if(!locked){
+      if(Math.abs(ddx)<8&&Math.abs(ddy)<8)return;
+      if(Math.abs(ddy)>Math.abs(ddx)||ddx<=0){on=false;return;}
+      locked=1;
+      scrim.style.display='block';
+      scrim.style.transition='none';
+    }
+    dx=Math.max(0,Math.min(dw,ddx));
+    const p=dx/dw;
+    bar.style.transform='translateX('+(-dw+dx)+'px)';
+    scrim.style.opacity=String(p*0.5);
+  },{passive:true});
+  pane.addEventListener('touchend',()=>{
+    if(!on){on=false;return;}
+    on=false;
+    const open=locked&&dx>dw*0.35;
+    if(open){
+      try{persistEditor();}catch(_){}
+      ui.sideOpen=true;render();
+      bar.style.transition='';
+      requestAnimationFrame(()=>{
+        bar.style.transform='';
+        scrim.style.display='';scrim.style.opacity='';
+      });
+    }else{
+      bar.style.transition='transform .22s ease';
+      bar.style.transform='translateX(-102%)';
+      scrim.style.transition='opacity .22s ease';
+      scrim.style.opacity='0';
+      setTimeout(()=>{
+        bar.style.transition='';bar.style.transform='';
+        scrim.style.transition='';scrim.style.display='';scrim.style.opacity='';
+      },230);
+    }
+  },{passive:true});
+}
 /* ============ 备份提醒 ============ */
 let backupWarned=false;
 function backupReminder(){
@@ -865,7 +1031,39 @@ function backupReminder(){
 }
 
 /* ============ 事件绑定 ============ */
+/* ============ 编辑器外观下拉：配色 + 字体，实时切换，不离开页面 ============ */
+const LOOK_COLOR_LABEL={sky:'晴空蓝',mint:'薄荷绿',amber:'暖琥珀',lilac:'丁香紫',pearl:'珍珠白',capsule:'胶囊'};
+const LOOK_FONT_LABEL={system:'系统默认',serif:'衬线',rounded:'圆润',mono:'等宽'};
+function initLookPop(){
+  const pop=$('#lookPop'),btn=$('#btnLook'),colorBox=$('#lookColors'),fontBox=$('#lookFonts');
+  colorBox.innerHTML=WORD_COLORS.map(c=>
+    '<button type="button" class="look-color" data-c="'+c+'" aria-label="'+LOOK_COLOR_LABEL[c]+'"><span class="lc-dot lc-'+c+'"></span><small>'+LOOK_COLOR_LABEL[c]+'</small></button>').join('');
+  fontBox.innerHTML=FONT_CHOICES.map(f=>
+    '<button type="button" class="look-font" data-f="'+f+'">'+LOOK_FONT_LABEL[f]+'</button>').join('');
+  function syncLook(){
+    const cc=getWordColor(),ff=getFontChoice();
+    colorBox.querySelectorAll('.look-color').forEach(b=>b.classList.toggle('on',b.getAttribute('data-c')===cc));
+    fontBox.querySelectorAll('.look-font').forEach(b=>b.classList.toggle('on',b.getAttribute('data-f')===ff));
+  }
+  btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(pop.hidden){ syncLook();pop.hidden=false; }else pop.hidden=true;
+  });
+  pop.addEventListener('click',e=>e.stopPropagation());
+  colorBox.addEventListener('click',e=>{
+    const b=e.target.closest('.look-color');if(!b)return;
+    setWordColor(b.getAttribute('data-c'));syncLook();
+  });
+  fontBox.addEventListener('click',e=>{
+    const b=e.target.closest('.look-font');if(!b)return;
+    setFontChoice(b.getAttribute('data-f'));syncLook();
+  });
+  document.addEventListener('pointerdown',e=>{
+    if(!pop.hidden&&!pop.contains(e.target)&&e.target!==btn)pop.hidden=true;
+  });
+}
 function bindEvents(){
+  try{ initLookPop(); }catch(e){ console.error('外观面板初始化失败',e); }
   /* 侧边栏 */
   $('#btnNewFolder').addEventListener('click',()=>{
     showConfirm({title:'新建文件夹',msg:'',okText:'创建',danger:false,onOk:null});
@@ -986,6 +1184,8 @@ function bindEvents(){
     else if(k==='tags'){ ui.mode='tags'; }
     else if(k==='flash'){ ui.mode='flash'; ui.flash=null; }
     else if(k==='speak'){ ui.mode='speak'; }
+    else if(k==='write-history'){ ui.sideOpen=false; render(); try{openWriteHistory();}catch(_){} return; }
+    else if(k==='feedback'){ ui.sideOpen=false; render(); try{openFeedback();}catch(_){} return; }
     if(ui.mode!=='words'){ ui.selMode=false; ui.sel=[]; }
     ui.note=null; ui.tag=null; ui.sideOpen=false;
     render();
@@ -1223,27 +1423,8 @@ function bindEvents(){
     e.stopPropagation();
     toggleFold(h);
   });
-  /* 长按左边小方块 0.38 秒 → 拿起整节（点一下仍是收起） */
-  let lpTimer=0, lpFired=false, lpX=0, lpY=0;
-  bodyEl.addEventListener('pointerdown',e=>{
-    const h=e.target.closest&&e.target.closest('.nh');
-    if(!h||!bodyEl.contains(h)) return;
-    const r=h.getBoundingClientRect();
-    if(e.clientX-r.left>32) return;
-    lpX=e.clientX; lpY=e.clientY; lpFired=false;
-    clearTimeout(lpTimer);
-    lpTimer=setTimeout(()=>{
-      lpFired=true;
-      mvLiftSection(h);
-    },380);
-  },{passive:true});
-  bodyEl.addEventListener('pointermove',e=>{
-    if(!lpTimer) return;
-    if(Math.abs(e.clientX-lpX)>12||Math.abs(e.clientY-lpY)>12){ clearTimeout(lpTimer); lpTimer=0; }
-  },{passive:true});
-  ['pointerup','pointercancel'].forEach(ev=>{
-    bodyEl.addEventListener(ev,()=>{ clearTimeout(lpTimer); lpTimer=0; },{passive:true});
-  });
+  /* 整节长按入口已由 13_drag 的长按菜单接管；lpFired 仅保留给点击折叠判断 */
+  let lpFired=false;
   editorWrap.addEventListener('mousedown',e=>{ if(e.target.closest('.en-word')) e.preventDefault(); });
   editorWrap.addEventListener('click',handleWordTap);
   document.addEventListener('mousedown',e=>{ if(!e.target.closest('#empowerPill')) hidePill(); });

@@ -181,6 +181,13 @@ function wmMemoPaint(memo,term){
   if(em) em.textContent=memo.emoji||'';
   if(sc) sc.textContent=memo.scene;
   box.classList.remove('hidden');
+  /* 只有记忆卡（没配真实图库 Key）时，轻提示“配 Key 会更好”，点了跳设置 */
+  const kh=$('#wmMemoKeyHint');
+  if(kh){
+    const noKey=!(typeof photoKey==='function'&&photoKey());
+    kh.classList.toggle('hidden',!noKey);
+    kh.onclick=()=>{ try{ if(typeof closeWordModal==='function')closeWordModal(); openSettings(); }catch(_){} };
+  }
   if(term){ paintedTerm=wmImgKeyOf(term); paintedRec={term:term,memo:memo}; }
 }
 function wmIllusBroken(rec){
@@ -317,6 +324,25 @@ async function pixabaySearch(q,key){
     })).filter(x=>x.thumb);
   }finally{ clearTimeout(timer); }
 }
+/* Openverse：免 Key、免注册的开放授权真实照片（CORS 开放、可商用过滤）。
+   匿名限流约 200 次/天/IP，结果由上层缓存到本地，配过的不再请求。
+   缩略图走 Openverse 代理（稳定、无防盗链），大图用来源直链。 */
+async function openverseSearch(q){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),8000);
+  try{
+    const url='https://api.openverse.org/v1/images/?page_size=12&mature=false&license_type=commercial&q='+encodeURIComponent(q);
+    const res=await fetch(url,{signal:ctrl.signal});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    return (data.results||[]).map(r=>({
+      thumb:r.thumbnail||r.url||'',
+      big:r.url||r.thumbnail||'',
+      page:r.foreign_landing_url||'',
+      credit:(r.creator?('Photo by '+r.creator+' · '):'')+'Openverse / '+(r.license||'CC')
+    })).filter(x=>x.thumb);
+  }finally{ clearTimeout(timer); }
+}
 /* 用哪家图库：Pixabay 优先（Pexels 已暂停发新 Key） */
 function photoKey(){
   const st=state.settings||{};
@@ -432,6 +458,32 @@ async function wmIllusLoad(term){
       return;
     }
     if(searched) wmImgStore(t,Object.assign({},rec,{local:false,cands:[],idx:0,missAt:Date.now()}));
+  }
+  /* 3.5) 没有图库 Key（或图库没搜到）：用免 Key 的 Openverse 真实照片，零配置 */
+  if(my!==imgSeq)return;
+  if(!missHit){
+    wmIllusSkeleton();
+    let cands=[],ovOk=false;
+    try{ cands=await openverseSearch(t); ovOk=true; }catch(_){ ovOk=false; }
+    if(my!==imgSeq)return;
+    if(ovOk&&!cands.length){
+      /* 抽象词换可见画面关键词再试（imgKeywords 需 AI Key，无 Key 时返回空、跳过） */
+      const kws=await imgKeywords(t);
+      for(const k of kws){
+        if(my!==imgSeq)return;
+        try{ cands=await openverseSearch(k); ovOk=true; }catch(_){ ovOk=false; }
+        if(cands.length)break;
+      }
+    }
+    if(my!==imgSeq)return;
+    if(cands.length){
+      const rec2={local:false,cands:cands.slice(0,6),idx:0,prov:'openverse'};
+      wmImgStore(t,rec2);
+      wmIllusPaint({term:t,cands:rec2.cands,idx:0,src:'openverse'});
+      return;
+    }
+    /* 仅在请求成功但确实没图时记 miss（一周不重复）；网络/限流失败不记，下次还试 */
+    if(ovOk){ wmImgStore(t,Object.assign({},wmImgCached(t)||rec,{local:false,cands:[],idx:0,missAt:Date.now()})); }
   }
   /* 4) 拿不到照片：给一行画面提示（emoji + 一句话），不花钱、用现有模型 */
   if(my!==imgSeq) return;

@@ -213,12 +213,16 @@ async function aImageOpen(term,force){
     const note=$('#aImageSwipeNote');if(note)note.textContent='Pixabay 没有返回图片，可检查 Key 或网络';
     return;
   }
-  if(aRoute()!=='api'){
+  const imgCfg=(typeof aiImageConfig==='function')?aiImageConfig():{baseUrl:'',apiKey:''};
+  const hasImageApi=!!(imgCfg.baseUrl&&imgCfg.apiKey);
+  /* api 模式但没配独立图片接口：走免 Key 的 Openverse（legacy 内含），不直接判失败 */
+  if(aRoute()!=='api'||!hasImageApi){
     const legacy=window.aLegacyWmIllusLoad;
     if(legacy)await legacy(t);
     aImageBindSwipe();
     const shown=aImageRenderAi(t);if(shown)return;
-    const note=$('#aImageSwipeNote');if(note)note.textContent='可在设置中启用自动图片生成';
+    const note=$('#aImageSwipeNote');
+    if(note)note.textContent=(aRoute()!=='api')?'可在设置中启用自动图片生成':'没有可用图片接口，已用开放图库；可在设置配置 AI 图片接口';
     return;
   }
   if(aImageGenerating)return;
@@ -329,7 +333,8 @@ const COACH_TIPS={
   today:{title:'今日任务',text:'这里是今天要复习的内容，先把待复习的过一遍，再学新的。'},
   list:{title:'笔记',text:'点右上角 ＋ 新建笔记；相机按钮可以一次选多张截图，AI 自动识别。'},
   words:{title:'表达库',text:'点任意单词看例句和配图，喇叭图标可以练发音。'},
-  flash:{title:'复习',text:'先自己开口说，再看答案；记不住的会安排以后再见。'}
+  flash:{title:'复习',text:'先自己开口说，再看答案；记不住的会安排以后再见。'},
+  edit:{title:'顶部这两个按钮',text:'撤销键：改错了点它回退；粘贴键：用应用内复制 / 剪切的内容，点它选位置粘贴。没有可操作内容时，它们是灰色的，按不动。'}
 };
 function coachState(){
   try{const o=JSON.parse(localStorage.getItem(COACH_KEY)||'{}');if(o&&typeof o==='object')return Object.assign({seen:{},off:false},o);}catch(_){}
@@ -413,8 +418,11 @@ function aInit(){
   $('#stSave').addEventListener('click',aiProviderSaveFields,{capture:true});
   const image=document.createElement('div');image.className='st-field';image.id='stAiImage';image.hidden=true;image.innerHTML='<label>高级 AI 图片生成（可选）</label><input id="stImageBase" placeholder="支持图片生成的接口地址，例如 https://api.openai.com/v1" autocomplete="off"><input id="stImageKey" type="password" placeholder="图片接口 API Key" autocomplete="off"><input id="stImageModel" placeholder="图片模型，例如 gpt-image-1" autocomplete="off"><p class="a-note">当前默认使用 Pixabay。只有需要真正的 AI 生图时才配置这里，DeepSeek 文本接口不能直接生成图片。</p>';aiBody.append(image);aiImageRefreshFields();
   ['stImageBase','stImageKey','stImageModel'].forEach(id=>$('#'+id).addEventListener('input',aiImageSaveFields));
-  const tts=document.createElement('div');tts.className='st-field';tts.id='stVolcTts';tts.innerHTML='<label>豆包语音合成 2.0（单词和例句）</label><input id="stTtsKey" type="password" placeholder="直连时粘贴豆包 API Key，中转模式可留空" autocomplete="off"><input id="stTtsSpeaker" placeholder="音色 ID，例如 zh_female_vv_uranus_bigtts（Vivi 2.0）" autocomplete="off"><input id="stTtsRelay" placeholder="可选：服务端中转地址，例如 https://你的域名/tts" autocomplete="off"><div class="st-inline"><input id="stTtsRate" type="number" min="-50" max="100" step="1" value="0" placeholder="语速"><input id="stTtsPitch" type="number" min="-12" max="12" step="1" value="0" placeholder="音调"><button class="btn" id="stTtsTest" type="button">试听</button></div><div class="bk-note" id="stTtsStatus">还未配置</div><p class="a-note">填写中转地址后，网页只请求中转服务，豆包 API Key 保存在服务端。未填写中转地址时继续直连豆包。</p>';
-  aiBody.append(tts);ttsRefreshSettings();
+  const tts=document.createElement('div');tts.className='adv-wrap';tts.id='stVolcTts';tts.innerHTML='<button class="adv-toggle" id="stTtsFold" type="button"><span>豆包语音（可选 · 更自然的真人发音）</span><b class="adv-chev">›</b></button><div class="adv-body" id="stTtsBody"><p class="bk-note">不填：用手机自带的免费朗读，零配置、不花钱，但音色偏机械、不同手机效果不一样。填了：豆包真人发音更自然、可挑温柔女声，但要单独配 Key 和音色 ID，可能产生少量费用。</p><input id="stTtsKey" type="password" placeholder="直连时粘贴豆包 API Key，中转模式可留空" autocomplete="off"><input id="stTtsSpeaker" placeholder="音色 ID，例如 zh_female_vv_uranus_bigtts（Vivi 2.0）" autocomplete="off"><input id="stTtsRelay" placeholder="可选：服务端中转地址，例如 https://你的域名/tts" autocomplete="off"><div class="st-inline"><input id="stTtsRate" type="number" min="-50" max="100" step="1" value="0" placeholder="语速"><input id="stTtsPitch" type="number" min="-12" max="12" step="1" value="0" placeholder="音调"><button class="btn" id="stTtsTest" type="button">试听</button></div><div class="bk-note" id="stTtsStatus">还未配置</div><p class="a-note">填写中转地址后，网页只请求中转服务，豆包 API Key 保存在服务端。未填写中转地址时继续直连豆包。</p></div>';
+  const ttsMount=$('#stTtsMount');
+  if(ttsMount)ttsMount.appendChild(tts);else aiBody.append(tts);
+  $('#stTtsFold').addEventListener('click',()=>tts.classList.toggle('open'));
+  ttsRefreshSettings();
   ['stTtsKey','stTtsSpeaker','stTtsRelay','stTtsRate','stTtsPitch'].forEach(id=>$('#'+id).addEventListener('input',()=>{const el=$('#'+id);volcTtsSave({apiKey:$('#stTtsKey').value.trim(),speaker:$('#stTtsSpeaker').value.trim(),relayUrl:$('#stTtsRelay').value.trim(),speechRate:Number($('#stTtsRate').value)||0,pitchRate:Number($('#stTtsPitch').value)||0});ttsRefreshSettings();}));
   $('#stTtsTest').addEventListener('click',ttsTest);
   const dataButton=document.createElement('button');dataButton.className='btn';dataButton.textContent='完整备份／安全迁移';dataButton.onclick=aOpenBackup;$('#settingsModal .st-body').prepend(dataButton);

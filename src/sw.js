@@ -9,6 +9,7 @@ const CORE=[
   './icons/apple-touch-icon-180.png'
 ];
 const RUNTIME_RE=/ocr-assets\//;
+const GUIDE_RE=/guide-assets\//;
 
 self.addEventListener('install',e=>{
   e.waitUntil(
@@ -52,7 +53,7 @@ self.addEventListener('fetch',e=>{
     caches.match(req).then(cached=>{
       if(cached)return cached;
       return fetch(req).then(res=>{
-        if(res&&res.ok&&(RUNTIME_RE.test(url.pathname)||url.pathname.includes('/icons/'))){
+        if(res&&res.ok&&(RUNTIME_RE.test(url.pathname)||GUIDE_RE.test(url.pathname)||url.pathname.includes('/icons/'))){
           const copy=res.clone();
           caches.open(CACHE_NAME).then(c=>c.put(req,copy));
         }

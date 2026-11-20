@@ -36,6 +36,14 @@
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L4 21l1.2-3.7A8.4 8.4 0 1 1 21 11.5z"/><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01"/></svg>
         <span class="nav-copy"><b class="nav-name">口语记录</b><small class="nav-desc">练过的对话和口语都在这</small></span><span class="count" id="navSpeakCount"></span>
       </button>
+      <button class="nav-item" data-nav="write-history">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+        <span class="nav-copy"><b class="nav-name">我的作文</b><small class="nav-desc">回看历史写作与批改</small></span>
+      </button>
+      <button class="nav-item" data-nav="feedback">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9.5h8M8 13h5"/></svg>
+        <span class="nav-copy"><b class="nav-name">意见反馈</b><small class="nav-desc">不满意或建议，随时告诉我们</small></span>
+      </button>
       <div class="nav-divider">文件夹</div>
       <div id="folderList"></div>
     </nav>
@@ -86,6 +94,9 @@
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
       </button>
       <span id="edBreadcrumb"></span>
+      <button class="icon-btn" id="btnLook" title="外观（配色 / 字体）" aria-label="外观">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="9.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><path d="M12 21a3 3 0 0 1 0-6c2 0 3-1.5 3-3"/></svg>
+      </button>
       <button class="note-organize-btn" id="btnNoteOrganize" type="button" title="整理这篇笔记">整理</button>
       <button class="kb-btn" id="btnKb" title="收起键盘" aria-label="收起键盘">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="10" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 13h12"/><path d="M9 19l3 2 3-2"/></svg>
@@ -94,6 +105,17 @@
       <button class="icon-btn danger-color" id="btnDelNote" title="删除这篇笔记" aria-label="删除笔记">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/></svg>
       </button>
+    </div>
+    <!-- 外观下拉：配色 + 字体，实时生效，不离开编辑页 -->
+    <div id="lookPop" class="look-pop" role="dialog" aria-label="外观设置" hidden>
+      <div class="look-group">
+        <div class="look-label">配色</div>
+        <div class="look-colors" id="lookColors"></div>
+      </div>
+      <div class="look-group">
+        <div class="look-label">字体</div>
+        <div class="look-fonts" id="lookFonts"></div>
+      </div>
     </div>
     <div id="editorWrap">
       <div id="noteInboxBar" class="note-inbox-bar hidden" role="button" tabindex="0" aria-label="处理这篇笔记的待处理截图">
@@ -250,6 +272,7 @@
       <div class="wm-memo hidden" id="wmMemo">
         <div class="memo-emoji" id="wmMemoEmoji"></div>
         <div class="memo-scene" id="wmMemoScene"></div>
+        <button class="memo-keyhint hidden" id="wmMemoKeyHint" type="button">配个图库 Key 会更好：真实图片记得更牢，点这里看怎么配</button>
       </div>
       <div class="wm-illus hidden" id="wmIllus">
         <div class="illus-box">
@@ -388,6 +411,22 @@
   </div>
 </div>
 
+<!-- ============ 我的作文：历史写作回看 ============ -->
+<div id="writeHistoryModal">
+  <div class="modal-card ai-card">
+    <div class="wm-head">
+      <button class="modal-close" id="writeHistoryClose" aria-label="返回">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="wm-term-wrap"><div class="wm-term-box">
+        <div>我的作文</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">按时间倒序，点一条展开看完整作文</div>
+      </div></div>
+    </div>
+    <div class="wm-body" id="writeHistoryBody"></div>
+  </div>
+</div>
+
 <!-- ============ 设置弹窗 ============ -->
 <div class="modal" id="settingsModal">
   <div class="modal-card">
@@ -411,40 +450,18 @@
           <button class="api-guide-toggle" id="apiGuideToggle" type="button">收起</button>
         </div>
         <div class="api-guide-body" id="apiGuideBody">
-          <div class="ag-block">
-            <p class="ag-q">1. API Key 是什么？要花钱吗？</p>
-            <p class="ag-a">它像给 AI 交话费的一串密码，只存在你自己手机里，我们看不到也不碰。AI 按用量扣一点点钱，日常学习很省；豆包还送免费额度，到量自动停，不会乱扣费。</p>
-          </div>
-          <div class="ag-block">
-            <p class="ag-q">2. 三个服务商选哪个？</p>
-            <ul class="ag-list">
-              <li><b>豆包</b>：新用户有免费额度，到量自动停，适合先试手。</li>
-              <li><b>DeepSeek</b>：便宜稳定，充 10 块日常能用很久。</li>
-              <li><b>ChatGPT</b>：官方不支持国内，注册要海外手机号和支付，新手基本搞不定，不推荐。</li>
-            </ul>
-          </div>
-          <div class="ag-block">
-            <p class="ag-q">3. 怎么拿到 Key？（三步）</p>
-            <ol class="ag-steps">
-              <li><b>选服务商</b>：点下面对应卡片，接口地址会自动填好。</li>
-              <li><b>去官网注册</b>：点对应官网链接，手机号注册、按提示登录（豆包需简单实名）。</li>
-              <li><b>复制 Key 粘回来</b>：在官网「API Key / API Keys」页面创建并复制，粘贴到下方输入框，保存即可。</li>
-            </ol>
-            <div class="ag-links" id="agLinks">
-              <a href="https://platform.deepseek.com/" target="_blank" rel="noopener">DeepSeek 开放平台</a>
-              <a href="https://console.volcengine.com/ark" target="_blank" rel="noopener">火山方舟（豆包）</a>
-              <a href="https://pixabay.com/api/docs/" target="_blank" rel="noopener">Pixabay 配图</a>
-            </div>
-          </div>
-          <div class="ag-block">
-            <p class="ag-q">4. 常见问题</p>
+          <p class="ag-intro">API Key 像给 AI 交话费的一串密码，只存在你自己手机里，我们看不到也不碰；按用量扣一点点钱，豆包还送免费额度、到量自动停。先选你要用的服务商，照着图一步步来。</p>
+          <div class="ag-tabs" id="agTabs" role="tablist"></div>
+          <div class="ag-panels" id="agPanels"></div>
+          <details class="ag-faq-fold">
+            <summary>常见问题（点我展开）</summary>
             <ul class="ag-list ag-faq">
-              <li><b>填错会扣钱吗？</b>不会，Key 填错只是连不上，会提示错误，不会产生费用。</li>
-              <li><b>Key 安全吗？</b>只保存在本机，不会上传；别把它截图发到公开场合。</li>
-              <li><b>配图 Key 是什么？</b>Pixabay 免费图片密钥，选填，不填不影响学单词。</li>
-              <li><b>官网打不开？</b>换个网络或稍后再试，可以先跳过，不影响其它功能。</li>
+              <li><b>填错会扣钱吗？</b>不会，填错只是连不上、会提示错误，不产生费用。</li>
+              <li><b>官网打不开？</b>换个网络或稍后再试，可先跳过，不影响其它功能。</li>
+              <li><b>配图 Key 是什么？</b>Pixabay 免费图片密钥，选填，不填也有记忆卡兜底。</li>
             </ul>
-          </div>
+          </details>
+          <div class="ag-safety">Key 只保存在本机、不会上传；请勿截图发到公开场合或发给别人。</div>
         </div>
       </div>
       <!-- 服务商卡片 -->
@@ -468,10 +485,6 @@
           <option value="humor">轻松幽默（活泼有趣）</option>
           <option value="strict">严格考官（直击要害）</option>
         </select>
-      </div>
-      <div class="st-field">
-        <label for="stPixabay">配图 Pixabay Key（选填，免费）</label>
-        <input id="stPixabay" type="password" placeholder="填了显示真实照片；不填也能用" autocomplete="off">
       </div>
       <!-- 高级设置折叠 -->
       <div class="adv-wrap">
@@ -498,6 +511,28 @@
             </label>
           </div>
         </div>
+      </div>
+        </div>
+      </section>
+      <!-- ============ 发音与配图：与 AI 接口平级，推荐接，可跳过 ============ -->
+      <section class="st-group" id="stgMedia">
+        <button class="st-g-head" data-stg="stgMedia" type="button"><span class="st-g-t">发音与配图</span><span class="st-g-s" id="stgSumMedia">推荐接 · 可跳过</span><b class="st-chev">›</b></button>
+        <div class="st-g-body">
+      <div class="media-intro">这两项都不影响背单词的核心功能，不填也能用；填了发音更好听、配图更准。下面分别写清楚利弊，你按需接。</div>
+      <div class="media-card">
+        <div class="media-card-head"><b>配图 Pixabay</b><span class="media-badge">推荐接 · 免费</span></div>
+        <p class="media-pros">利：免费真实照片，帮你看图记词；申请简单、不花钱。</p>
+        <p class="media-cons">弊：要花几分钟注册拿 Key；不填也有 Openverse 免费图和记忆卡兜底。</p>
+        <div class="st-field">
+          <label for="stPixabay">Pixabay Key（选填）</label>
+          <input id="stPixabay" type="password" placeholder="填了显示真实照片；不填也能用" autocomplete="off">
+        </div>
+      </div>
+      <div class="media-card">
+        <div class="media-card-head"><b>豆包真人发音</b><span class="media-badge">推荐接 · 可选</span></div>
+        <p class="media-pros">利：真人女声更自然，可挑温柔音色，跟读体验好。</p>
+        <p class="media-cons">弊：要单独配 Key 和音色 ID，可能产生少量费用；不填用手机自带免费朗读，零配置但偏机械。</p>
+        <div id="stTtsMount"></div>
       </div>
         </div>
       </section>
@@ -722,6 +757,27 @@
   <input id="ocrFileInput" type="file" accept="image/*" multiple aria-label="从相册选择截图（可多选）">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
 </label>
+
+<!-- 意见反馈弹层：外壳沿用 App 风格，表单内容用 iframe 嵌入金数据 -->
+<div class="modal" id="feedbackModal" role="dialog" aria-modal="true" aria-label="意见反馈">
+  <div class="modal-card feedback-card">
+    <div class="wm-head">
+      <div>
+        <b>意见反馈</b>
+        <div class="a-note">哪里不好用、想加什么功能，写下来或截图告诉我们</div>
+      </div>
+      <button class="modal-close" id="feedbackClose" type="button" aria-label="关闭意见反馈">×</button>
+    </div>
+    <div class="feedback-body">
+      <iframe id="feedbackFrame" title="意见反馈表单" allow="camera" hidden></iframe>
+      <div id="feedbackEmpty" class="feedback-empty" hidden>
+        <div class="fe-emoji">📮</div>
+        <p id="feedbackEmptyText">反馈通道正在准备中，稍后再来试试</p>
+        <a class="btn" id="feedbackOpenOut" href="#" target="_blank" rel="noopener" hidden>在新页面打开反馈表单</a>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- OCR 识别单词面板：选图 → 图片上框出单词（像 iPhone 文字识别）→ 点选 → 自由编辑 → 挂载 -->
 <div class="modal" id="ocrSheet">

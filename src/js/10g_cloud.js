@@ -26,18 +26,34 @@ function bSnapshot(){
   out[LS_KEY]={words:state.words,notes:state.notes,folders:state.folders,aiLog:state.aiLog,grave:state.grave||[],tagList:state.tagList||[]};
   return JSON.parse(JSON.stringify(out));
 }
-let bStatusTimer=0;
-function bSetStatus(text){
+let bStatusTimer=0,bOkQuietUntil=0,bHasPendingSave=false;
+function bSetStatus(text,force){
   bStatus=text;
   const s=$('#bCloudStatus');
   if(!s)return;
-  s.textContent=text;
-  clearTimeout(bStatusTimer);
   const isErr=/未完成|失败|离线|错误|不可用|重试|请用/.test(text);
-  s.classList.add('show');
-  if(!isErr)bStatusTimer=setTimeout(()=>s.classList.remove('show'),1500);
+  clearTimeout(bStatusTimer);
+  if(!isErr){
+    // 成功态节流：连续编辑反复保存时不重复弹，force（退出/切换）时强制显示一次
+    const now=Date.now();
+    if(!force&&now<bOkQuietUntil)return;
+    bOkQuietUntil=now+4000;
+    s.textContent=text;
+    s.classList.add('show');
+    bStatusTimer=setTimeout(()=>s.classList.remove('show'),1500);
+  }else{
+    s.textContent=text;
+    s.classList.add('show');
+  }
 }
-function bQueue(){if(bApplying)return;clearTimeout(bTimer);bTimer=setTimeout(()=>bSync(),1600);bSetStatus('已存本机，等待云保存…');}
+function bQueue(){if(bApplying)return;bHasPendingSave=true;clearTimeout(bTimer);bTimer=setTimeout(()=>bSync(),1600);}
+// 退出笔记/切换页面时，若有尚未确认的保存，强制提示一次
+function bFlushSaveHint(){
+  if(!bHasPendingSave)return;
+  clearTimeout(bTimer);
+  bHasPendingSave=false;
+  bSetStatus('本机已保存',true);
+}
 const bStore=aStore;
 aStore=function(k,v){const ok=bStore(k,v);if(ok&&!bApplying&&k!==B_BASE)bQueue();return ok;};
 function bApply(doc){
