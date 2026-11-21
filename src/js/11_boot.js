@@ -6,6 +6,8 @@ try{aiDialogueHistoryMigrate();}catch(e){}
 /* 截图/收件箱迁移到 IndexedDB（异步加载，不阻塞首屏；未就绪时同步兜底读 localStorage） */
 try{ shotsInit(); }catch(e){}
 try{ inboxInit(); }catch(e){}
+/* TTS 音频缓存从 localStorage 搬到 IDB（异步、不阻塞首屏，失败保留 LS 兜底） */
+try{ ttsCacheMigrate(); }catch(e){}
 applyTheme();
 try{ applyLookPrefs(); }catch(e){ console.error('外观偏好应用失败',e); }
 // Preserve existing image cache on upgrade.
@@ -13,6 +15,7 @@ try{ applyLookPrefs(); }catch(e){ console.error('外观偏好应用失败',e); }
 // Preserve existing highlights on upgrade.
 if(!localStorage.getItem(LS_KEY)) save();
 try{bindEvents();}catch(e){console.error('界面事件绑定失败',e);}
+try{personaBind();}catch(e){console.error('学习身份绑定失败',e);}
 try{initFeedback();}catch(e){console.error('意见反馈初始化失败',e);}
 try{bindSideSwipe();}catch(e){console.error('侧滑绑定失败',e);}
 try{bindPageSwipe();}catch(e){console.error('页面左右滑绑定失败',e);}
@@ -26,6 +29,8 @@ Promise.all([shotsInit(),inboxInit()]).catch(()=>{}).then(()=>{
   try{ if(['words','flash','list'].includes(ui.mode)) render(); }catch(_){}
 });
 syncKbUI();
+/* 全新用户首屏后弹身份选择（老用户不弹） */
+try{ personaMaybeShow(); }catch(e){}
 setTimeout(backupReminder,1600);
 setTimeout(dataSafetyLaunch,2200);
 /* 首屏稳定后再启动存量配图落地，后台静默、不抢资源、不影响使用 */
@@ -40,7 +45,7 @@ document.addEventListener('visibilitychange',()=>{
 
 /* 注册 Service Worker：PWA 秒开与离线缓存，失败不影响主功能 */
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{ try{ navigator.serviceWorker.register('sw.js'); }catch(e){} });
+  window.addEventListener('load',()=>{ try{ if(navigator.serviceWorker && navigator.serviceWorker.register){ const p=navigator.serviceWorker.register('sw.js'); if(p&&p.catch)p.catch(()=>{}); } }catch(e){} });
 }
 
 

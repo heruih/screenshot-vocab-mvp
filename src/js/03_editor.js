@@ -65,7 +65,7 @@ function gradeCurrent(g){
   toast(tip);
 }
 function renderFlash(){
-  $('#paneTitle').textContent='今日复习';
+  $('#paneTitle').textContent=personaIsExam()?'错题重做':'今日复习';
   $('#btnNewNote').style.display='none';
   const box=$('#noteList');
   if(!state.words.length){
@@ -132,6 +132,8 @@ function renderFlash(){
       (srcN?'<div class="fb-src">来自笔记：'+esc(srcN.title||'')+'</div>':'')+
     '</div>';
   const dueMode=f.mode!=='free';
+  const causeMode=dueMode&&personaIsExam();   /* 考试派错题重做才显示错因标记 */
+  const selCauses=causeMode?errorCauseGet(w.id):[];
   const reviewGuide='<div class="review-guide"><div class="review-guide-copy"><span class="review-guide-kicker">今日复习</span><b>'+(dueMode?'到期复习':'自由复习')+'</b><small>先回想，再点卡片翻开</small></div><strong>'+f.graded+' / '+total+'</strong></div>';
   box.innerHTML='<div class="rv-wrap">'+stats+
     reviewGuide+
@@ -145,7 +147,14 @@ function renderFlash(){
         backFace+
       '</div></div>'+
       (dueMode?
-        (f.flipped?'<div class="grade-row">'+
+        (f.flipped?
+          (causeMode?'<div class="cause-row">'+
+            '<div class="cause-row-title">错在哪（可多选·可不填）</div>'+
+            '<div class="cause-chips">'+
+              ERROR_CAUSES.map(c=>'<button type="button" class="cause-chip'+(selCauses.indexOf(c.id)>=0?' active':'')+'" data-cause="'+c.id+'">'+c.label+'</button>').join('')+
+            '</div>'+
+          '</div>':'')+
+          '<div class="grade-row">'+
           '<button class="grade-btn again" data-grade="0">忘了<small>10 分钟后再练</small></button>'+
           '<button class="grade-btn hard" data-grade="1">有点难<small>缩短间隔</small></button>'+
           '<button class="grade-btn good" data-grade="2">记住了<small>拉长间隔</small></button>'+
@@ -189,6 +198,11 @@ function renderFlash(){
   $$('#flashCard .fb-ex-item .c').forEach(el=>el.addEventListener('click',e=>{
     e.stopPropagation();
     el.classList.toggle('hided');
+  }));
+  $$('.cause-chip').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();            /* 不触发卡片翻回 */
+    errorCauseToggle(w.id,b.dataset.cause);
+    renderFlash();
   }));
   $$('.grade-btn').forEach(b=>b.addEventListener('click',()=>gradeCurrent(Number(b.dataset.grade))));
   const pause=$('#reviewPause');if(pause)pause.addEventListener('click',()=>{if(typeof batchPauseRecent==='function')batchPauseRecent();});

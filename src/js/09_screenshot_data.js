@@ -1,11 +1,13 @@
 /* ============ 我的截图：单词关联截图（独立 key，不碰 words 数据） ============ */
 /* ---- IndexedDB 大对象存储：把截图/收件箱从 localStorage 5MB 挪到 IDB ---- */
 const IDB_NAME='english-notes-blob-v1';
-const IDB_VERSION=2;
+const IDB_VERSION=3;
 const IDB_STORE_SHOTS='shots';
 const IDB_STORE_INBOX='inbox';
 /* v2 新增：配图落地库，key=单词小写，value=压缩后的图片 Blob（独立库，不碰旧数据） */
 const IDB_STORE_IMAGES='images';
+/* v3 新增：TTS 音频缓存库，key=缓存键，value={data,at}，替代 localStorage 80 条上限 */
+const IDB_STORE_TTS='tts';
 let idbPromise=null;
 function idbOpen(){
   if(idbPromise)return idbPromise;
@@ -18,6 +20,7 @@ function idbOpen(){
       if(!db.objectStoreNames.contains(IDB_STORE_SHOTS))db.createObjectStore(IDB_STORE_SHOTS);
       if(!db.objectStoreNames.contains(IDB_STORE_INBOX))db.createObjectStore(IDB_STORE_INBOX);
       if(!db.objectStoreNames.contains(IDB_STORE_IMAGES))db.createObjectStore(IDB_STORE_IMAGES);
+      if(!db.objectStoreNames.contains(IDB_STORE_TTS))db.createObjectStore(IDB_STORE_TTS);
     };
     req.onsuccess=()=>resolve(req.result);
     req.onerror=()=>reject(req.error||new Error('idb-open-failed'));
@@ -256,5 +259,71 @@ function imgBlobBytes(){
     };
     tx.onerror=()=>resolve(0);
   }));
+}
+
+/* ============ TTS 音频缓存（IDB tts store 优先，localStorage 兜底） ============ */
+const TTS_CACHE_LS_KEY='en-tts-v1-cache';
+const TTS_CACHE_LIMIT=800;
+let ttsUseIdb=null;
+async function ttsCacheReady(){
+  if(ttsUseIdb!==null)return ttsUseIdb;
+  try{ await idbOpen(); ttsUseIdb=true; }catch(_){ ttsUseIdb=false; }
+  return ttsUseIdb;
+}
+/* 启动时一次性迁移：把 LS 旧缓存搬进 IDB，成功后清掉 LS 副本 */
+async function ttsCacheMigrate(){
+  try{
+    const raw=localStorage.getItem(TTS_CACHE_LS_KEY);
+    if(!raw)return;
+    const all=JSON.parse(raw);
+    if(all&&typeof all==='object'){
+      for(const k of Object.keys(all)){
+        if(all[k]&&all[k].data&&!(await idbHasKey(IDB_STORE_TTS,k))){
+          await idbSet(IDB_STORE_TTS,k,{data:all[k].data,at:all[k].at||Date.now()});
+        }
+      }
+      localStorage.removeItem(TTS_CACHE_LS_KEY);
+    }
+  }catch(_){}
+}
+async function ttsCacheGet(key){
+  if(await ttsCacheReady()){
+    try{ const rec=await idbGet(IDB_STORE_TTS,key); if(rec&&rec.data)return rec.data; }catch(_){}
+  }
+  try{ const all=JSON.parse(localStorage.getItem(TTS_CACHE_LS_KEY)||'{}'); return all[key]?all[key].data||'':''; }catch(_){ return ''; }
+}
+async function ttsCacheSet(key,data){
+  if(await ttsCacheReady()){
+    try{
+      await idbSet(IDB_STORE_TTS,key,{data,at:Date.now()});
+      ttsCachePrune();              /* 后台清理，不 await、不阻塞播放 */
+      return;
+    }catch(_){}
+  }
+  /* LS 兜底：保留 80 条 LRU 旧逻辑 */
+  try{
+    const all=JSON.parse(localStorage.getItem(TTS_CACHE_LS_KEY)||'{}');
+    all[key]={data,at:Date.now()};
+    const ks=Object.keys(all);
+    if(ks.length>80){ ks.sort((a,b)=>(all[b].at||0)-(all[a].at||0)); ks.slice(80).forEach(k=>delete all[k]); }
+    localStorage.setItem(TTS_CACHE_LS_KEY,JSON.stringify(all));
+  }catch(_){}
+}
+/* LRU 清理：超过上限就删最旧的，防止无限膨胀 */
+async function ttsCachePrune(){
+  try{
+    const db=await idbOpen();
+    const entries=await new Promise((resolve,reject)=>{
+      const arr=[];
+      const rq=db.transaction(IDB_STORE_TTS,'readonly').objectStore(IDB_STORE_TTS).openCursor();
+      rq.onsuccess=e=>{ const c=e.target.result; if(c){ arr.push({key:c.key,at:(c.value&&c.value.at)||0}); c.continue(); } else resolve(arr); };
+      rq.onerror=()=>reject(rq.error);
+    });
+    if(entries.length<=TTS_CACHE_LIMIT)return;
+    entries.sort((a,b)=>a.at-b.at);
+    const tx=db.transaction(IDB_STORE_TTS,'readwrite');
+    const st=tx.objectStore(IDB_STORE_TTS);
+    entries.slice(0,entries.length-TTS_CACHE_LIMIT).forEach(e=>st.delete(e.key));
+  }catch(_){}
 }
 

@@ -485,6 +485,24 @@ async function wmIllusLoad(term){
     /* 仅在请求成功但确实没图时记 miss（一周不重复）；网络/限流失败不记，下次还试 */
     if(ovOk){ wmImgStore(t,Object.assign({},wmImgCached(t)||rec,{local:false,cands:[],idx:0,missAt:Date.now()})); }
   }
+  /* 3.8) 云端混合配图 relay：真实图→AI 兜底，零 Key；渲染成功后 wmIllusPaint 自动落地 IDB */
+  if(my!==imgSeq)return;
+  if(!rec.relayFailAt||Date.now()-rec.relayFailAt>WM_IMG_FAIL){
+    wmIllusSkeleton();
+    try{
+      const r=await imgRelayFetch(t,w.definition||'');
+      if(my!==imgSeq)return;
+      if(r&&Array.isArray(r.candidates)&&r.candidates.length){
+        const rec2={local:false,cands:r.candidates.slice(0,6),idx:0,prov:r.source};
+        wmImgStore(t,rec2);
+        wmIllusPaint({term:t,cands:rec2.cands,idx:0,src:r.source});
+        return;
+      }
+    }catch(_){
+      /* relay 网络失败：记短失败，5 分钟后可再试，继续走 emoji 兜底 */
+      wmImgStore(t,Object.assign({},wmImgCached(t)||rec,{relayFailAt:Date.now()}));
+    }
+  }
   /* 4) 拿不到照片：给一行画面提示（emoji + 一句话），不花钱、用现有模型 */
   if(my!==imgSeq) return;
   const memo=await memoryHook(t);
@@ -934,7 +952,13 @@ function toneSystem(){ return (TONE_SYSTEM[state.settings.tone]||TONE_SYSTEM.fri
 async function aiCall(messages,opts){
   const st=aiApiConfig();
   const base=(st.baseUrl||'').replace(/\/+$/,'');
-  if(!st.apiKey) throw new Error('未配置 '+(st.label||'模型')+' API Key，请先在设置中填写');
+  if(!st.apiKey){
+    /* 免 Key 通道：没填 Key 就走云端中转，relay 不可用再给清晰提示 */
+    const content=await textRelayFetch(messages,opts);
+    const p=parseAI(content);
+    if(!p)throw new Error('返回内容无法解析，请重试');
+    return p;
+  }
   const canJson=st.name==='deepseek'||String(base).toLowerCase().indexOf('deepseek')>=0;
   const once=async(useJson)=>{
     const ctrl=new AbortController();
