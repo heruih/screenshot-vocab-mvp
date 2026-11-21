@@ -929,6 +929,15 @@ body.side-open #scrim{display:block}
 .grade-btn.hard{color:var(--warn);border-color:rgba(255,159,10,.35)}
 .grade-btn.good{background:var(--accent);border-color:transparent;color:#fff}
 .grade-btn.good small{color:rgba(255,255,255,.75)}
+.cause-row{width:min(94%,600px);margin-bottom:10px}
+.cause-row-title{font-size:12px;color:var(--text3);margin-bottom:7px;font-weight:600}
+.cause-chips{display:flex;gap:8px}
+.cause-chip{
+  flex:1;min-height:40px;border-radius:11px;border:1px solid var(--s5);background:var(--s3);
+  color:var(--text2);font-size:13.5px;font-weight:600;padding:0 6px;
+}
+.cause-chip:active{transform:scale(.97)}
+.cause-chip.active{background:var(--accent);border-color:transparent;color:#fff}
 .review-pause-choice{width:min(94%,600px);margin-top:10px;padding:10px 12px;border:1px solid var(--accent);border-radius:12px;background:var(--accent-soft);color:var(--accent-fg);font-size:12px;font-weight:700}.review-pause-choice>span{display:block;margin-bottom:8px}.review-pause-choice>div{display:flex;gap:8px}.review-pause-choice .btn{flex:1;min-height:40px}
 .flash-hint-row{font-size:12.5px;color:var(--text3);min-height:52px;display:flex;align-items:center}
 .review-exit-row{display:flex;justify-content:center;margin-top:10px}
@@ -1824,6 +1833,39 @@ body.drag-select #noteBody .en-word.sel-pick{
 .media-cons{color:var(--text3)}
 #stTtsMount .adv-wrap{margin-top:4px}
 #stTtsMount .bk-note{margin:6px 0}
+
+/* ============ 学习身份选择 ============ */
+.persona-card{padding:8px 14px calc(14px + env(safe-area-inset-bottom,0))}
+.persona-head{padding:14px 8px 16px}
+.persona-kicker{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.persona-title{font-size:24px;font-weight:800;margin:8px 0 6px;color:var(--text)}
+.persona-sub{font-size:14px;line-height:1.5;color:var(--text2);margin:0}
+.persona-opt{
+  width:100%;display:flex;align-items:center;gap:14px;
+  background:var(--s2);border:1px solid var(--line);border-radius:14px;
+  padding:14px 16px;margin-bottom:10px;text-align:left;color:var(--text);cursor:pointer;
+  transition:background .15s ease,transform .1s ease,border-color .15s ease;
+}
+.persona-opt:active{background:var(--hover);transform:scale(.98)}
+.persona-emoji{font-size:30px;line-height:1;flex:none}
+.persona-txt{flex:1;display:flex;flex-direction:column;gap:3px}
+.persona-txt b{font-size:16px;font-weight:700;color:var(--text)}
+.persona-txt small{font-size:13px;color:var(--text2);line-height:1.4}
+.persona-arrow{font-size:20px;color:var(--text3);flex:none}
+.persona-skip{width:100%;background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:10px 0 4px}
+.persona-skip:active{color:var(--text)}
+/* 设置里的身份切换 */
+.persona-pick-row{display:flex;gap:10px;margin-top:4px}
+.persona-pick{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;
+  background:var(--s2);border:1.5px solid var(--line);border-radius:12px;
+  padding:14px 8px;font-size:26px;color:var(--text);cursor:pointer;
+  transition:border-color .15s ease,background .15s ease,transform .1s ease;
+}
+.persona-pick span{font-size:13px;font-weight:600}
+.persona-pick.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-fg)}
+.persona-pick:active{transform:scale(.98)}
+.st-note{font-size:12.5px;line-height:1.55;color:var(--text2);margin:10px 2px 2px}
 </style>
 </head>
 <body>
@@ -2242,6 +2284,26 @@ body.drag-select #noteBody .en-word.sel-pick{
 </div>
 
 <!-- ============ 设置弹窗 ============ -->
+<div class="modal" id="personaModal" role="dialog" aria-modal="true" aria-label="选择你的学习方式">
+  <div class="modal-card persona-card">
+    <div class="persona-head">
+      <div class="persona-kicker">欢迎</div>
+      <h3 class="persona-title">你想怎么用？</h3>
+      <p class="persona-sub">选一个就行，功能完全一样，之后随时能改</p>
+    </div>
+    <button class="persona-opt" data-persona="free" type="button">
+      <span class="persona-emoji">🎬</span>
+      <span class="persona-txt"><b>自由学习</b><small>看剧、生活截图，随手记词</small></span>
+      <span class="persona-arrow">›</span>
+    </button>
+    <button class="persona-opt" data-persona="exam" type="button">
+      <span class="persona-emoji">📝</span>
+      <span class="persona-txt"><b>我在备考</b><small>整理真题、错题，集中攻克</small></span>
+      <span class="persona-arrow">›</span>
+    </button>
+    <button class="persona-skip" id="personaSkip" type="button">先随便看看</button>
+  </div>
+</div>
 <div class="modal" id="settingsModal">
   <div class="modal-card">
     <div class="wm-head">
@@ -2254,6 +2316,16 @@ body.drag-select #noteBody .en-word.sel-pick{
       </button>
     </div>
     <div class="wm-body st-body">
+      <section class="st-group" id="stgPersona">
+        <button class="st-g-head" data-stg="stgPersona" type="button"><span class="st-g-t">学习身份</span><span class="st-g-s" id="stgSumPersona">自由学习</span><b class="st-chev">›</b></button>
+        <div class="st-g-body">
+          <div class="persona-pick-row">
+            <button class="persona-pick" data-persona-pick="free" type="button">🎬<span>自由学习</span></button>
+            <button class="persona-pick" data-persona-pick="exam" type="button">📝<span>我在备考</span></button>
+          </div>
+          <div class="st-note">只影响默认入口和叫法，功能完全一样，随时切换。</div>
+        </div>
+      </section>
       <section class="st-group open" id="stgAi">
         <button class="st-g-head" data-stg="stgAi" type="button"><span class="st-g-t">AI 接口</span><span class="st-g-s" id="stgSumAi">未配置</span><b class="st-chev">›</b></button>
         <div class="st-g-body">
@@ -3088,8 +3160,6 @@ function volcTtsConfig(){try{const raw=JSON.parse(localStorage.getItem(VOLC_TTS_
 function volcTtsSave(patch){const next=Object.assign(volcTtsConfig(),patch||{});try{localStorage.setItem(VOLC_TTS_KEY,JSON.stringify(next));}catch(_){}return next;}
 function volcTtsReady(){const cfg=volcTtsConfig();return !!(String(cfg.speaker||'').trim()&&(String(cfg.apiKey||'').trim()||String(cfg.relayUrl||'').trim()));}
 function volcTtsCacheKey(text,lang){const cfg=volcTtsConfig();return [cfg.relayUrl||'direct',cfg.resourceId,cfg.speaker,cfg.speechRate,cfg.pitchRate,lang||'en-US',String(text||'').trim()].join('|');}
-function volcTtsReadCache(key){try{const all=JSON.parse(localStorage.getItem(VOLC_TTS_KEY+'-cache')||'{}');return all&&typeof all==='object'&&all[key]?all[key].data||'':'';}catch(_){return '';}}
-function volcTtsWriteCache(key,data){try{const all=JSON.parse(localStorage.getItem(VOLC_TTS_KEY+'-cache')||'{}');all[key]={data,at:Date.now()};const keys=Object.keys(all);if(keys.length>80){keys.sort((a,b)=>(all[b].at||0)-(all[a].at||0));keys.slice(80).forEach(k=>delete all[k]);}localStorage.setItem(VOLC_TTS_KEY+'-cache',JSON.stringify(all));}catch(_){} }
 async function volcTtsRequest(text){
   const cfg=volcTtsConfig(),relay=String(cfg.relayUrl||'').trim(),body={req_params:{text:String(text||''),speaker:String(cfg.speaker||''),audio_params:{format:'mp3',sample_rate:24000,speech_rate:Number(cfg.speechRate)||0,pitch_rate:Number(cfg.pitchRate)||0}}};
   const headers={'Content-Type':'application/json'};
@@ -3108,7 +3178,7 @@ async function volcTtsRequest(text){
   const raw=String(data&&data.data||'').trim();if(!raw)throw new Error('豆包语音没有返回音频');return raw.indexOf('data:')===0?raw:'data:audio/mpeg;base64,'+raw;
 }
 function volcTtsPlay(src,onend){const audio=new Audio(src);volcAudio=audio;let done=false;const finish=()=>{if(done)return;done=true;if(volcAudio===audio)volcAudio=null;if(cancelVolcSpeech===cancel)cancelVolcSpeech=null;onend&&onend();};const cancel=()=>{try{audio.pause();audio.currentTime=0;}catch(_){}if(cancelVolcSpeech===cancel)cancelVolcSpeech=null;};cancelVolcSpeech=cancel;audio.addEventListener('ended',finish,{once:true});audio.addEventListener('error',finish,{once:true});const p=audio.play();if(p&&p.catch)p.catch(finish);}
-async function playVolcAudio(text,lang,onend){stopSpeech();const key=volcTtsCacheKey(text,lang),seq=Date.now()+Math.random();volcTtsPlayPending=seq;try{let src=volcTtsReadCache(key);if(!src){src=await volcTtsRequest(text);volcTtsWriteCache(key,src);}if(volcTtsPlayPending!==seq)return false;volcTtsLastError='';volcTtsPlay(src,onend);return true;}catch(e){volcTtsLastError=(e&&e.message)||'豆包语音请求失败';if(volcTtsPlayPending===seq){const value=String(text||'').trim();if(lang==='en-US'&&!/\s/.test(value))playYoudaoAudio(value,lang,onend);else speakQueued(value,lang,onend);}return false;}}
+async function playVolcAudio(text,lang,onend){stopSpeech();const key=volcTtsCacheKey(text,lang),seq=Date.now()+Math.random();volcTtsPlayPending=seq;try{let src=await ttsCacheGet(key);if(!src){src=await volcTtsRequest(text);ttsCacheSet(key,src);}if(volcTtsPlayPending!==seq)return false;volcTtsLastError='';volcTtsPlay(src,onend);return true;}catch(e){volcTtsLastError=(e&&e.message)||'豆包语音请求失败';if(volcTtsPlayPending===seq){const value=String(text||'').trim();if(lang==='en-US'&&!/\s/.test(value))playYoudaoAudio(value,lang,onend);else speakQueued(value,lang,onend);}return false;}}
 let cancelDictionarySpeech=null;
 function stopSpeech(){
   speechSeq++;
@@ -3744,7 +3814,7 @@ function gradeCurrent(g){
   toast(tip);
 }
 function renderFlash(){
-  $('#paneTitle').textContent='今日复习';
+  $('#paneTitle').textContent=personaIsExam()?'错题重做':'今日复习';
   $('#btnNewNote').style.display='none';
   const box=$('#noteList');
   if(!state.words.length){
@@ -3811,6 +3881,8 @@ function renderFlash(){
       (srcN?'<div class="fb-src">来自笔记：'+esc(srcN.title||'')+'</div>':'')+
     '</div>';
   const dueMode=f.mode!=='free';
+  const causeMode=dueMode&&personaIsExam();   /* 考试派错题重做才显示错因标记 */
+  const selCauses=causeMode?errorCauseGet(w.id):[];
   const reviewGuide='<div class="review-guide"><div class="review-guide-copy"><span class="review-guide-kicker">今日复习</span><b>'+(dueMode?'到期复习':'自由复习')+'</b><small>先回想，再点卡片翻开</small></div><strong>'+f.graded+' / '+total+'</strong></div>';
   box.innerHTML='<div class="rv-wrap">'+stats+
     reviewGuide+
@@ -3824,7 +3896,14 @@ function renderFlash(){
         backFace+
       '</div></div>'+
       (dueMode?
-        (f.flipped?'<div class="grade-row">'+
+        (f.flipped?
+          (causeMode?'<div class="cause-row">'+
+            '<div class="cause-row-title">错在哪（可多选·可不填）</div>'+
+            '<div class="cause-chips">'+
+              ERROR_CAUSES.map(c=>'<button type="button" class="cause-chip'+(selCauses.indexOf(c.id)>=0?' active':'')+'" data-cause="'+c.id+'">'+c.label+'</button>').join('')+
+            '</div>'+
+          '</div>':'')+
+          '<div class="grade-row">'+
           '<button class="grade-btn again" data-grade="0">忘了<small>10 分钟后再练</small></button>'+
           '<button class="grade-btn hard" data-grade="1">有点难<small>缩短间隔</small></button>'+
           '<button class="grade-btn good" data-grade="2">记住了<small>拉长间隔</small></button>'+
@@ -3868,6 +3947,11 @@ function renderFlash(){
   $$('#flashCard .fb-ex-item .c').forEach(el=>el.addEventListener('click',e=>{
     e.stopPropagation();
     el.classList.toggle('hided');
+  }));
+  $$('.cause-chip').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();            /* 不触发卡片翻回 */
+    errorCauseToggle(w.id,b.dataset.cause);
+    renderFlash();
   }));
   $$('.grade-btn').forEach(b=>b.addEventListener('click',()=>gradeCurrent(Number(b.dataset.grade))));
   const pause=$('#reviewPause');if(pause)pause.addEventListener('click',()=>{if(typeof batchPauseRecent==='function')batchPauseRecent();});
@@ -6474,6 +6558,24 @@ async function wmIllusLoad(term){
     /* 仅在请求成功但确实没图时记 miss（一周不重复）；网络/限流失败不记，下次还试 */
     if(ovOk){ wmImgStore(t,Object.assign({},wmImgCached(t)||rec,{local:false,cands:[],idx:0,missAt:Date.now()})); }
   }
+  /* 3.8) 云端混合配图 relay：真实图→AI 兜底，零 Key；渲染成功后 wmIllusPaint 自动落地 IDB */
+  if(my!==imgSeq)return;
+  if(!rec.relayFailAt||Date.now()-rec.relayFailAt>WM_IMG_FAIL){
+    wmIllusSkeleton();
+    try{
+      const r=await imgRelayFetch(t,w.definition||'');
+      if(my!==imgSeq)return;
+      if(r&&Array.isArray(r.candidates)&&r.candidates.length){
+        const rec2={local:false,cands:r.candidates.slice(0,6),idx:0,prov:r.source};
+        wmImgStore(t,rec2);
+        wmIllusPaint({term:t,cands:rec2.cands,idx:0,src:r.source});
+        return;
+      }
+    }catch(_){
+      /* relay 网络失败：记短失败，5 分钟后可再试，继续走 emoji 兜底 */
+      wmImgStore(t,Object.assign({},wmImgCached(t)||rec,{relayFailAt:Date.now()}));
+    }
+  }
   /* 4) 拿不到照片：给一行画面提示（emoji + 一句话），不花钱、用现有模型 */
   if(my!==imgSeq) return;
   const memo=await memoryHook(t);
@@ -6923,7 +7025,13 @@ function toneSystem(){ return (TONE_SYSTEM[state.settings.tone]||TONE_SYSTEM.fri
 async function aiCall(messages,opts){
   const st=aiApiConfig();
   const base=(st.baseUrl||'').replace(/\/+$/,'');
-  if(!st.apiKey) throw new Error('未配置 '+(st.label||'模型')+' API Key，请先在设置中填写');
+  if(!st.apiKey){
+    /* 免 Key 通道：没填 Key 就走云端中转，relay 不可用再给清晰提示 */
+    const content=await textRelayFetch(messages,opts);
+    const p=parseAI(content);
+    if(!p)throw new Error('返回内容无法解析，请重试');
+    return p;
+  }
   const canJson=st.name==='deepseek'||String(base).toLowerCase().indexOf('deepseek')>=0;
   const once=async(useJson)=>{
     const ctrl=new AbortController();
@@ -8103,6 +8211,7 @@ function openSettings(){
   $('#stTone').value=state.settings.tone||'friend';
   $$('#settingsModal .st-group').forEach(g=>g.classList.toggle('open',g.id==='stgAi'));
   syncSettingsUI();
+  try{ personaSyncUI(); }catch(_){}
   try{ syncProviderCards(); }catch(_){}
   try{ initApiGuide(); }catch(_){}
   try{storageRender();}catch(_){}
@@ -9717,11 +9826,13 @@ function removeWmColl(i){
 /* ============ 我的截图：单词关联截图（独立 key，不碰 words 数据） ============ */
 /* ---- IndexedDB 大对象存储：把截图/收件箱从 localStorage 5MB 挪到 IDB ---- */
 const IDB_NAME='english-notes-blob-v1';
-const IDB_VERSION=2;
+const IDB_VERSION=3;
 const IDB_STORE_SHOTS='shots';
 const IDB_STORE_INBOX='inbox';
 /* v2 新增：配图落地库，key=单词小写，value=压缩后的图片 Blob（独立库，不碰旧数据） */
 const IDB_STORE_IMAGES='images';
+/* v3 新增：TTS 音频缓存库，key=缓存键，value={data,at}，替代 localStorage 80 条上限 */
+const IDB_STORE_TTS='tts';
 let idbPromise=null;
 function idbOpen(){
   if(idbPromise)return idbPromise;
@@ -9734,6 +9845,7 @@ function idbOpen(){
       if(!db.objectStoreNames.contains(IDB_STORE_SHOTS))db.createObjectStore(IDB_STORE_SHOTS);
       if(!db.objectStoreNames.contains(IDB_STORE_INBOX))db.createObjectStore(IDB_STORE_INBOX);
       if(!db.objectStoreNames.contains(IDB_STORE_IMAGES))db.createObjectStore(IDB_STORE_IMAGES);
+      if(!db.objectStoreNames.contains(IDB_STORE_TTS))db.createObjectStore(IDB_STORE_TTS);
     };
     req.onsuccess=()=>resolve(req.result);
     req.onerror=()=>reject(req.error||new Error('idb-open-failed'));
@@ -9972,6 +10084,72 @@ function imgBlobBytes(){
     };
     tx.onerror=()=>resolve(0);
   }));
+}
+
+/* ============ TTS 音频缓存（IDB tts store 优先，localStorage 兜底） ============ */
+const TTS_CACHE_LS_KEY='en-tts-v1-cache';
+const TTS_CACHE_LIMIT=800;
+let ttsUseIdb=null;
+async function ttsCacheReady(){
+  if(ttsUseIdb!==null)return ttsUseIdb;
+  try{ await idbOpen(); ttsUseIdb=true; }catch(_){ ttsUseIdb=false; }
+  return ttsUseIdb;
+}
+/* 启动时一次性迁移：把 LS 旧缓存搬进 IDB，成功后清掉 LS 副本 */
+async function ttsCacheMigrate(){
+  try{
+    const raw=localStorage.getItem(TTS_CACHE_LS_KEY);
+    if(!raw)return;
+    const all=JSON.parse(raw);
+    if(all&&typeof all==='object'){
+      for(const k of Object.keys(all)){
+        if(all[k]&&all[k].data&&!(await idbHasKey(IDB_STORE_TTS,k))){
+          await idbSet(IDB_STORE_TTS,k,{data:all[k].data,at:all[k].at||Date.now()});
+        }
+      }
+      localStorage.removeItem(TTS_CACHE_LS_KEY);
+    }
+  }catch(_){}
+}
+async function ttsCacheGet(key){
+  if(await ttsCacheReady()){
+    try{ const rec=await idbGet(IDB_STORE_TTS,key); if(rec&&rec.data)return rec.data; }catch(_){}
+  }
+  try{ const all=JSON.parse(localStorage.getItem(TTS_CACHE_LS_KEY)||'{}'); return all[key]?all[key].data||'':''; }catch(_){ return ''; }
+}
+async function ttsCacheSet(key,data){
+  if(await ttsCacheReady()){
+    try{
+      await idbSet(IDB_STORE_TTS,key,{data,at:Date.now()});
+      ttsCachePrune();              /* 后台清理，不 await、不阻塞播放 */
+      return;
+    }catch(_){}
+  }
+  /* LS 兜底：保留 80 条 LRU 旧逻辑 */
+  try{
+    const all=JSON.parse(localStorage.getItem(TTS_CACHE_LS_KEY)||'{}');
+    all[key]={data,at:Date.now()};
+    const ks=Object.keys(all);
+    if(ks.length>80){ ks.sort((a,b)=>(all[b].at||0)-(all[a].at||0)); ks.slice(80).forEach(k=>delete all[k]); }
+    localStorage.setItem(TTS_CACHE_LS_KEY,JSON.stringify(all));
+  }catch(_){}
+}
+/* LRU 清理：超过上限就删最旧的，防止无限膨胀 */
+async function ttsCachePrune(){
+  try{
+    const db=await idbOpen();
+    const entries=await new Promise((resolve,reject)=>{
+      const arr=[];
+      const rq=db.transaction(IDB_STORE_TTS,'readonly').objectStore(IDB_STORE_TTS).openCursor();
+      rq.onsuccess=e=>{ const c=e.target.result; if(c){ arr.push({key:c.key,at:(c.value&&c.value.at)||0}); c.continue(); } else resolve(arr); };
+      rq.onerror=()=>reject(rq.error);
+    });
+    if(entries.length<=TTS_CACHE_LIMIT)return;
+    entries.sort((a,b)=>a.at-b.at);
+    const tx=db.transaction(IDB_STORE_TTS,'readwrite');
+    const st=tx.objectStore(IDB_STORE_TTS);
+    entries.slice(0,entries.length-TTS_CACHE_LIMIT).forEach(e=>st.delete(e.key));
+  }catch(_){}
 }
 
 /* ============ 截图导入：PP-OCR 整句识别 → 可点单词/自由编辑 → 挂载 ============ */
@@ -11084,6 +11262,7 @@ function todayAiDialogue(){
 }
 renderToday=function(){
   $('#paneTitle').textContent='今日';$('#btnNewNote').style.display='none';
+  const examView=personaIsExam();
   const pending=state.words.filter(aPending),due=dueList(),weak=aWeakWords(),box=$('#noteList');
   const quote=todayDailyQuote(),encouragement=todayEncouragement(pending.length,due.length,weak.length);
   const batch=dialogueBatchState(),reviewed=batchReviewedWords(batch).length,batchEntry=(batchReady(batch)||batch.plan)?'<div class="a-batch-entry"><div><b>今日批量情景对话</b><small>已完成复习 '+reviewed+' 个表达 · 每组约 5 个</small></div><button class="btn primary" id="aBatchOpen">'+(batch.plan?'继续场景练习':'规划今日场景')+'</button></div>':'';
@@ -11091,13 +11270,13 @@ renderToday=function(){
   const organizeN=pending.length+inboxN;
   const todayHero=
     '<div class="today-hero">'+
-      '<div class="th-title">今日任务</div>'+
+      '<div class="th-title">'+(examView?'今日错题':'今日任务')+'</div>'+
       '<div class="th-nums">'+
-        '<div class="th-num"><b>'+due.length+'</b><span>待复习</span></div>'+
+        '<div class="th-num"><b>'+due.length+'</b><span>'+(examView?'待重做':'待复习')+'</span></div>'+
         '<div class="th-num'+(organizeN?' hot':'')+'"><b>'+organizeN+'</b><span>待整理</span></div>'+
       '</div>'+
       '<div class="th-actions">'+
-        '<button class="th-btn primary" type="button" id="thStart">开始今日复习</button>'+
+        '<button class="th-btn primary" type="button" id="thStart">'+(examView?'开始错题重做':'开始今日复习')+'</button>'+
         (organizeN?'<button class="th-btn" type="button" id="thOrganize">去整理</button>':'')+
       '</div>'+
     '</div>';
@@ -11108,13 +11287,13 @@ renderToday=function(){
     '<div class="home-quick">'+
       '<button class="home-quick-item" data-hq="recall" type="button"><span class="hq-t">场景回想</span><span class="hq-d">看场景说英文 · 先回忆</span></button>'+
       '<button class="home-quick-item" data-hq="note" type="button"><span class="hq-t">加入笔记</span><span class="hq-d">写英文 · 选中 empower</span></button>'+
-      '<button class="home-quick-item" data-hq="flash" type="button"><span class="hq-t">英文闪卡</span><span class="hq-d">到期回想练习</span></button>'+
+      '<button class="home-quick-item" data-hq="flash" type="button"><span class="hq-t">'+(examView?'错题本':'英文闪卡')+'</span><span class="hq-d">'+(examView?'没掌握的题再做一遍':'到期回想练习')+'</span></button>'+
       '<button class="home-quick-item" data-hq="write" type="button"><span class="hq-t">写作练习</span><span class="hq-d">选词出题 · AI 批改</span></button>'+
       '<button class="home-quick-item primary" data-hq="ai" type="button"><span class="hq-t">AI 对话</span><span class="hq-d">基于刚复习的词开口</span></button>'+
     '</div>'+
     inboxEntry+
-    '<div class="rv-stats"><div class="rv-stat"><div class="n">'+pending.length+'</div><div class="l">待整理</div></div><div class="rv-stat hot"><div class="n">'+due.length+'</div><div class="l">到期回想</div></div><div class="rv-stat"><div class="n">'+weak.length+'</div><div class="l">待再次输出</div></div></div>'+batchEntry+
-    '<div class="today-actions">'+todayCard('organize','整理表达','补上自己的理解与句子',pending.length)+todayCard('recall','场景回想','看场景说英文 · 每轮最多 10 个',due.length)+todayCard('flash','英文闪卡','保留原来的认识与回想练习',due.length)+'</div>'+
+    '<div class="rv-stats"><div class="rv-stat"><div class="n">'+pending.length+'</div><div class="l">待整理</div></div><div class="rv-stat hot"><div class="n">'+due.length+'</div><div class="l">'+(examView?'待重做':'到期回想')+'</div></div><div class="rv-stat"><div class="n">'+weak.length+'</div><div class="l">待再次输出</div></div></div>'+batchEntry+
+    '<div class="today-actions">'+todayCard('organize','整理表达','补上自己的理解与句子',pending.length)+todayCard('recall','场景回想','看场景说英文 · 每轮最多 10 个',due.length)+todayCard('flash',examView?'错题本':'英文闪卡',examView?'没掌握的题再做一遍':'保留原来的认识与回想练习',due.length)+'</div>'+
     '<div class="a-tools"><button class="btn" id="aTodayWords">按日期回看</button><button class="btn" id="aTodayWrite">每周写一段</button><button class="btn" id="aTodayFavorites">收藏对话</button><button class="btn" id="aTodayNew">手动添加</button><button class="btn" id="aTodayBackup">完整备份／迁移</button></div>'+
     '<p class="a-note">普通日参考：视频与模仿 20 分钟 → 整理 8 分钟 → 回想 5 分钟 → 输出 7 分钟。每周 2 次情景练习、1 次写作，可替换当天部分任务。无需清空全部队列。</p>'+
     '<p class="a-note">AI：'+(aRoute()==='chatgpt'?'ChatGPT 往返模式；套餐和模型由 ChatGPT 账号决定。':'OpenAI API 模式；独立计费。')+' 新地址不会自动读取手机旧地址的数据。</p>'+
@@ -11560,6 +11739,7 @@ function aInit(){
   $('#stSave').addEventListener('click',aiProviderSaveFields,{capture:true});
   const image=document.createElement('div');image.className='st-field';image.id='stAiImage';image.hidden=true;image.innerHTML='<label>高级 AI 图片生成（可选）</label><input id="stImageBase" placeholder="支持图片生成的接口地址，例如 https://api.openai.com/v1" autocomplete="off"><input id="stImageKey" type="password" placeholder="图片接口 API Key" autocomplete="off"><input id="stImageModel" placeholder="图片模型，例如 gpt-image-1" autocomplete="off"><p class="a-note">当前默认使用 Pixabay。只有需要真正的 AI 生图时才配置这里，DeepSeek 文本接口不能直接生成图片。</p>';aiBody.append(image);aiImageRefreshFields();
   ['stImageBase','stImageKey','stImageModel'].forEach(id=>$('#'+id).addEventListener('input',aiImageSaveFields));
+  const textRelay=document.createElement('div');textRelay.className='st-field';textRelay.id='stTextRelay';textRelay.innerHTML='<label>免 Key 中转地址（不填 Key 时自动用）</label><input id="stTextRelayUrl" placeholder="免 Key 中转地址" autocomplete="off"><p class="a-note">上面填了 API Key 就优先用你自己的 Key；没填 Key 时，AI 请求自动走这个中转，无需配置。地址可改、可清空回退。</p>';aiBody.append(textRelay);const relayEl=$('#stTextRelayUrl');if(relayEl){relayEl.value=textRelayConfig().relayUrl;relayEl.addEventListener('input',()=>{textRelaySave({relayUrl:relayEl.value.trim()});});}
   const tts=document.createElement('div');tts.className='adv-wrap';tts.id='stVolcTts';tts.innerHTML='<button class="adv-toggle" id="stTtsFold" type="button"><span>豆包语音（可选 · 更自然的真人发音）</span><b class="adv-chev">›</b></button><div class="adv-body" id="stTtsBody"><p class="bk-note">不填：用手机自带的免费朗读，零配置、不花钱，但音色偏机械、不同手机效果不一样。填了：豆包真人发音更自然、可挑温柔女声，但要单独配 Key 和音色 ID，可能产生少量费用。</p><input id="stTtsKey" type="password" placeholder="直连时粘贴豆包 API Key，中转模式可留空" autocomplete="off"><input id="stTtsSpeaker" placeholder="音色 ID，例如 zh_female_vv_uranus_bigtts（Vivi 2.0）" autocomplete="off"><input id="stTtsRelay" placeholder="可选：服务端中转地址，例如 https://你的域名/tts" autocomplete="off"><div class="st-inline"><input id="stTtsRate" type="number" min="-50" max="100" step="1" value="0" placeholder="语速"><input id="stTtsPitch" type="number" min="-12" max="12" step="1" value="0" placeholder="音调"><button class="btn" id="stTtsTest" type="button">试听</button></div><div class="bk-note" id="stTtsStatus">还未配置</div><p class="a-note">填写中转地址后，网页只请求中转服务，豆包 API Key 保存在服务端。未填写中转地址时继续直连豆包。</p></div>';
   const ttsMount=$('#stTtsMount');
   if(ttsMount)ttsMount.appendChild(tts);else aiBody.append(tts);
@@ -11570,7 +11750,7 @@ function aInit(){
   const dataButton=document.createElement('button');dataButton.className='btn';dataButton.textContent='完整备份／安全迁移';dataButton.onclick=aOpenBackup;$('#settingsModal .st-body').prepend(dataButton);
   const syncBody=$('#stgSync .st-g-body');if(syncBody){const note=document.createElement('p');note.className='a-note';note.textContent='A 版默认暂停旧同步的自动上传与启动合并，以保留本机内容。完整备份覆盖截图、写作和学习记录；旧同步码仅搬运部分主数据，不是完整备份。';syncBody.prepend(note);}
   $('#stgSync').hidden=true;/* 2026-11-08 恢复：单词配图入口重新显示，Pixabay 实测可达（不需要节点） */
-  const legacyNotes=$$('#settingsModal .st-note');legacyNotes.forEach(el=>{el.textContent='A 版默认使用 ChatGPT 往返；自动模式仅使用 OpenAI 官方 API，单独计费。原有同步配置保留，但新版不自动上传或合并。跨设备请使用完整备份。';});
+  const legacyNotes=$$('#settingsModal .st-note');legacyNotes.forEach(el=>{ if(el.closest('#stgPersona'))return; el.textContent='A 版默认使用 ChatGPT 往返；自动模式仅使用 OpenAI 官方 API，单独计费。原有同步配置保留，但新版不自动上传或合并。跨设备请使用完整备份。';});
   const help=$('#settingsModal .st-help');if(help)help.innerHTML='<b>AI：</b>默认把任务复制到 ChatGPT，练完导回结果；套餐和模型由你的 ChatGPT 账号决定。自动调用仅支持你自己配置的 OpenAI 官方 API，费用单独结算。<br><b>图片：</b>当前默认使用 Pixabay，独立 AI 图片配置属于隐藏的高级功能，通常不需要填写。<br><b>数据：</b>表达仍在本机浏览器，旧键名保持兼容；新增学习记录独立保存。跨地址使用先导出备份。<br><b>同步：</b>保留旧配置，默认暂停自动上传与启动合并；截图、写作和新学习记录请用完整备份迁移。<br><b>跟读：</b>保留播放、录音与回听；分数只作文本匹配、节奏和音量参考。';
   $('#stModel').placeholder='填写你在 OpenAI API 中可用的模型名称';
   aRefreshSettings();
@@ -11746,6 +11926,201 @@ if(OFFLINE_FILE_MODE){
   document.title='英语学习笔记 · 在线版';
 }
 
+/* ============ 学习身份（独立 key，不碰主数据，可随时切换/回滚） ============ */
+const PERSONA_KEY='english-notes-persona-v1';
+const PERSONA_FREE='free';
+const PERSONA_EXAM='exam';
+let personaCache=null;
+function personaReadRaw(){
+  try{ return localStorage.getItem(PERSONA_KEY); }catch(_){ return null; }
+}
+/* 当前身份：'free' | 'exam'；从未选择返回 null */
+function personaGet(){
+  if(personaCache!==null)return personaCache;
+  const v=personaReadRaw();
+  personaCache=(v===PERSONA_EXAM)?PERSONA_EXAM:(v===PERSONA_FREE)?PERSONA_FREE:null;
+  return personaCache;
+}
+function personaIsExam(){ return personaGet()===PERSONA_EXAM; }
+function personaSet(v){
+  const val=(v===PERSONA_EXAM)?PERSONA_EXAM:PERSONA_FREE;
+  personaCache=val;
+  try{ aStore(PERSONA_KEY,val); }catch(_){}
+  personaSyncUI();
+}
+/* 全新用户：没有真实单词、没有真实笔记（demo 内容不算），用于决定是否自动弹身份卡 */
+function personaIsFresh(){
+  try{
+    const words=(state.words||[]).filter(w=>w.source!=='demo');
+    const notes=(state.notes||[]).filter(n=>n.id!=='n_welcome');
+    return !words.length&&!notes.length;
+  }catch(_){ return false; }
+}
+function openPersona(){ personaSyncUI(); $('#personaModal').classList.add('show'); }
+function closePersona(){ $('#personaModal').classList.remove('show'); }
+/* 首次启动：全新用户且没选过才自动弹；老用户升级不打扰，只在设置里可见 */
+function personaMaybeShow(){
+  try{
+    if(personaGet()!==null)return;
+    if(!personaIsFresh())return;
+    openPersona();
+  }catch(_){}
+}
+/* 同步设置页摘要与选中态 */
+function personaSyncUI(){
+  const cur=personaGet()||PERSONA_FREE;
+  const sum=$('#stgSumPersona');
+  if(sum)sum.textContent=cur===PERSONA_EXAM?'我在备考':'自由学习';
+  document.querySelectorAll('.persona-pick').forEach(btn=>{
+    btn.classList.toggle('active',btn.getAttribute('data-persona-pick')===cur);
+  });
+}
+function personaBind(){
+  document.querySelectorAll('#personaModal .persona-opt').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      personaSet(btn.getAttribute('data-persona'));
+      closePersona();
+      try{ render(); }catch(_){}
+    });
+  });
+  const skip=$('#personaSkip');
+  if(skip)skip.addEventListener('click',()=>{
+    personaSet(PERSONA_FREE);   /* 跳过按自由派处理，并记住不再弹 */
+    closePersona();
+    try{ render(); }catch(_){}
+  });
+  document.querySelectorAll('.persona-pick').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      personaSet(btn.getAttribute('data-persona-pick'));
+      try{ render(); }catch(_){}
+    });
+  });
+}
+/* ============ 错因标签（独立 key，按词 id 映射，不碰主数据，可随时回滚） ============ */
+const ERRORCAUSE_KEY='english-notes-errorcause-v1';
+/* 三类错因：没看懂 / 没听清 / 难搭配 */
+const ERROR_CAUSES=[
+  {id:'meaning',label:'没看懂'},
+  {id:'listening',label:'没听清'},
+  {id:'collocation',label:'难搭配'}
+];
+let errorCauseCache=null;
+function errorCauseMap(){
+  if(errorCauseCache)return errorCauseCache;
+  const m=aRead(ERRORCAUSE_KEY,{});
+  errorCauseCache=(m&&typeof m==='object')?m:{};
+  return errorCauseCache;
+}
+/* 某个词已记录的错因 id 数组（没有则空数组） */
+function errorCauseGet(wordId){
+  const rec=errorCauseMap()[wordId];
+  const arr=rec&&Array.isArray(rec.c)?rec.c:[];
+  return arr.filter(c=>ERROR_CAUSES.some(x=>x.id===c));
+}
+function errorCauseLabel(cause){
+  const f=ERROR_CAUSES.find(x=>x.id===cause);
+  return f?f.label:cause;
+}
+function errorCauseSave(wordId,causes){
+  const m=errorCauseMap();
+  const uniq=causes.filter((c,i)=>causes.indexOf(c)===i&&ERROR_CAUSES.some(x=>x.id===c));
+  if(!uniq.length)delete m[wordId];
+  else m[wordId]={c:uniq,t:Date.now()};
+  errorCauseCache=m;
+  return aStore(ERRORCAUSE_KEY,JSON.stringify(m));
+}
+/* 点一下选中、再点取消；返回切换后的数组 */
+function errorCauseToggle(wordId,cause){
+  const cur=errorCauseGet(wordId);
+  const i=cur.indexOf(cause);
+  if(i>=0)cur.splice(i,1); else cur.push(cause);
+  errorCauseSave(wordId,cur);
+  return cur;
+}
+/* ============ 文本 relay 前端（独立 key，不碰主数据，与自带 Key 并存可回滚） ============ */
+const TEXT_DEVICE_KEY='english-notes-device-v1';
+const TEXT_RELAY_KEY='english-notes-text-relay-v1';
+/* 部署后零配置的默认地址；未部署时没 Key 的请求会得到清晰的网络错误 */
+const TEXT_RELAY_DEFAULT='https://english-notes-relay.3374055718-de9.workers.dev';
+
+/* 设备 id：独立 key 持久化，用于 Worker 限流与计量 */
+function deviceIdGet(){
+  try{
+    let v=localStorage.getItem(TEXT_DEVICE_KEY);
+    if(!v||!/^[A-Za-z0-9_-]{8,64}$/.test(v)){
+      v='d'+uid();
+      localStorage.setItem(TEXT_DEVICE_KEY,v);
+    }
+    return v;
+  }catch(_){ return 'd'+uid(); }
+}
+function textRelayConfig(){
+  const saved=aRead(TEXT_RELAY_KEY,{});
+  const relayUrl=String((saved&&saved.relayUrl)||TEXT_RELAY_DEFAULT).trim();
+  return {relayUrl};
+}
+function textRelaySave(patch){
+  const next=Object.assign({},textRelayConfig(),patch);
+  aStore(TEXT_RELAY_KEY,JSON.stringify(next));
+  return next;
+}
+/* 走免 Key 中转。返回上游 message 的 content 字符串；429/错误抛出带 status 的 Error。 */
+async function textRelayFetch(messages,opts){
+  const relay=textRelayConfig().relayUrl.replace(/\/+$/,'');
+  if(!relay) throw new Error('没有可用的免 Key 中转地址');
+  const once=async(useJson)=>{
+    const ctrl=new AbortController();
+    const to=opts&&opts.timeout||30000;
+    const timer=setTimeout(()=>ctrl.abort(),to);
+    try{
+      const body={model:'deepseek-flash',temperature:0.85,messages};
+      if(opts&&opts.maxTokens)body.max_tokens=opts.maxTokens;
+      if(useJson)body.response_format={type:'json_object'};
+      const res=await fetch(relay+'/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Device-Id':deviceIdGet()},
+        body:JSON.stringify(body),
+        signal:ctrl.signal
+      });
+      if(!res.ok){
+        let t='';try{t=await res.text();}catch(_){}
+        const err=new Error(res.status===429?'用的人太多，稍后再试':('HTTP '+res.status+' '+(t||'').slice(0,100)));
+        err.status=res.status;
+        throw err;
+      }
+      const data=await res.json();
+      const message=data&&data.choices&&data.choices[0]&&data.choices[0].message||{};
+      return message.content||message.reasoning_content||'';
+    }finally{ clearTimeout(timer); }
+  };
+  try{
+    return await once(true);   /* 中转默认 DeepSeek，支持 json mode */
+  }catch(err){
+    if(err&&err.status===400)return await once(false);
+    throw err;
+  }
+}
+/* 图片中转：Worker 内部 Openverse→Pixabay→Seedream 接力。返回 {source,candidates,usage}。 */
+async function imgRelayFetch(term,context){
+  const relay=textRelayConfig().relayUrl.replace(/\/+$/,'');
+  if(!relay)throw new Error('没有可用的中转地址');
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),30000);   /* 多源接力，给足时间 */
+  try{
+    const res=await fetch(relay+'/v1/images/generations',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Device-Id':deviceIdGet()},
+      body:JSON.stringify({term:String(term||''),context:String(context||'')}),
+      signal:ctrl.signal
+    });
+    if(!res.ok){
+      const err=new Error(res.status===429?'用的人太多，稍后再试':('图片中转 HTTP '+res.status));
+      err.status=res.status;
+      throw err;
+    }
+    return await res.json();
+  }finally{ clearTimeout(timer); }
+}
 /* ============ 12_feedback.js · 意见反馈（金数据表单，零后端） ============
    用法：在金数据建一个含「多行文字 + 图片（可选）」字段的表单，
    把表单链接里的 token 填到下方 FEEDBACK_FORM_TOKEN，重新构建即可。
@@ -12186,6 +12561,8 @@ try{aiDialogueHistoryMigrate();}catch(e){}
 /* 截图/收件箱迁移到 IndexedDB（异步加载，不阻塞首屏；未就绪时同步兜底读 localStorage） */
 try{ shotsInit(); }catch(e){}
 try{ inboxInit(); }catch(e){}
+/* TTS 音频缓存从 localStorage 搬到 IDB（异步、不阻塞首屏，失败保留 LS 兜底） */
+try{ ttsCacheMigrate(); }catch(e){}
 applyTheme();
 try{ applyLookPrefs(); }catch(e){ console.error('外观偏好应用失败',e); }
 // Preserve existing image cache on upgrade.
@@ -12193,6 +12570,7 @@ try{ applyLookPrefs(); }catch(e){ console.error('外观偏好应用失败',e); }
 // Preserve existing highlights on upgrade.
 if(!localStorage.getItem(LS_KEY)) save();
 try{bindEvents();}catch(e){console.error('界面事件绑定失败',e);}
+try{personaBind();}catch(e){console.error('学习身份绑定失败',e);}
 try{initFeedback();}catch(e){console.error('意见反馈初始化失败',e);}
 try{bindSideSwipe();}catch(e){console.error('侧滑绑定失败',e);}
 try{bindPageSwipe();}catch(e){console.error('页面左右滑绑定失败',e);}
@@ -12206,6 +12584,8 @@ Promise.all([shotsInit(),inboxInit()]).catch(()=>{}).then(()=>{
   try{ if(['words','flash','list'].includes(ui.mode)) render(); }catch(_){}
 });
 syncKbUI();
+/* 全新用户首屏后弹身份选择（老用户不弹） */
+try{ personaMaybeShow(); }catch(e){}
 setTimeout(backupReminder,1600);
 setTimeout(dataSafetyLaunch,2200);
 /* 首屏稳定后再启动存量配图落地，后台静默、不抢资源、不影响使用 */
@@ -12220,7 +12600,7 @@ document.addEventListener('visibilitychange',()=>{
 
 /* 注册 Service Worker：PWA 秒开与离线缓存，失败不影响主功能 */
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{ try{ navigator.serviceWorker.register('sw.js'); }catch(e){} });
+  window.addEventListener('load',()=>{ try{ if(navigator.serviceWorker && navigator.serviceWorker.register){ const p=navigator.serviceWorker.register('sw.js'); if(p&&p.catch)p.catch(()=>{}); } }catch(e){} });
 }
 
 
