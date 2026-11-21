@@ -562,6 +562,7 @@ function openSettings(){
   $('#stTone').value=state.settings.tone||'friend';
   $$('#settingsModal .st-group').forEach(g=>g.classList.toggle('open',g.id==='stgAi'));
   syncSettingsUI();
+  try{ personaSyncUI(); }catch(_){}
   try{ syncProviderCards(); }catch(_){}
   try{ initApiGuide(); }catch(_){}
   try{storageRender();}catch(_){}

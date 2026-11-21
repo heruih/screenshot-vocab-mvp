@@ -428,6 +428,26 @@
 </div>
 
 <!-- ============ 设置弹窗 ============ -->
+<div class="modal" id="personaModal" role="dialog" aria-modal="true" aria-label="选择你的学习方式">
+  <div class="modal-card persona-card">
+    <div class="persona-head">
+      <div class="persona-kicker">欢迎</div>
+      <h3 class="persona-title">你想怎么用？</h3>
+      <p class="persona-sub">选一个就行，功能完全一样，之后随时能改</p>
+    </div>
+    <button class="persona-opt" data-persona="free" type="button">
+      <span class="persona-emoji">🎬</span>
+      <span class="persona-txt"><b>自由学习</b><small>看剧、生活截图，随手记词</small></span>
+      <span class="persona-arrow">›</span>
+    </button>
+    <button class="persona-opt" data-persona="exam" type="button">
+      <span class="persona-emoji">📝</span>
+      <span class="persona-txt"><b>我在备考</b><small>整理真题、错题，集中攻克</small></span>
+      <span class="persona-arrow">›</span>
+    </button>
+    <button class="persona-skip" id="personaSkip" type="button">先随便看看</button>
+  </div>
+</div>
 <div class="modal" id="settingsModal">
   <div class="modal-card">
     <div class="wm-head">
@@ -440,6 +460,16 @@
       </button>
     </div>
     <div class="wm-body st-body">
+      <section class="st-group" id="stgPersona">
+        <button class="st-g-head" data-stg="stgPersona" type="button"><span class="st-g-t">学习身份</span><span class="st-g-s" id="stgSumPersona">自由学习</span><b class="st-chev">›</b></button>
+        <div class="st-g-body">
+          <div class="persona-pick-row">
+            <button class="persona-pick" data-persona-pick="free" type="button">🎬<span>自由学习</span></button>
+            <button class="persona-pick" data-persona-pick="exam" type="button">📝<span>我在备考</span></button>
+          </div>
+          <div class="st-note">只影响默认入口和叫法，功能完全一样，随时切换。</div>
+        </div>
+      </section>
       <section class="st-group open" id="stgAi">
         <button class="st-g-head" data-stg="stgAi" type="button"><span class="st-g-t">AI 接口</span><span class="st-g-s" id="stgSumAi">未配置</span><b class="st-chev">›</b></button>
         <div class="st-g-body">

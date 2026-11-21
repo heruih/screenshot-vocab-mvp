@@ -141,6 +141,7 @@ function todayAiDialogue(){
 }
 renderToday=function(){
   $('#paneTitle').textContent='今日';$('#btnNewNote').style.display='none';
+  const examView=personaIsExam();
   const pending=state.words.filter(aPending),due=dueList(),weak=aWeakWords(),box=$('#noteList');
   const quote=todayDailyQuote(),encouragement=todayEncouragement(pending.length,due.length,weak.length);
   const batch=dialogueBatchState(),reviewed=batchReviewedWords(batch).length,batchEntry=(batchReady(batch)||batch.plan)?'<div class="a-batch-entry"><div><b>今日批量情景对话</b><small>已完成复习 '+reviewed+' 个表达 · 每组约 5 个</small></div><button class="btn primary" id="aBatchOpen">'+(batch.plan?'继续场景练习':'规划今日场景')+'</button></div>':'';
@@ -148,13 +149,13 @@ renderToday=function(){
   const organizeN=pending.length+inboxN;
   const todayHero=
     '<div class="today-hero">'+
-      '<div class="th-title">今日任务</div>'+
+      '<div class="th-title">'+(examView?'今日错题':'今日任务')+'</div>'+
       '<div class="th-nums">'+
-        '<div class="th-num"><b>'+due.length+'</b><span>待复习</span></div>'+
+        '<div class="th-num"><b>'+due.length+'</b><span>'+(examView?'待重做':'待复习')+'</span></div>'+
         '<div class="th-num'+(organizeN?' hot':'')+'"><b>'+organizeN+'</b><span>待整理</span></div>'+
       '</div>'+
       '<div class="th-actions">'+
-        '<button class="th-btn primary" type="button" id="thStart">开始今日复习</button>'+
+        '<button class="th-btn primary" type="button" id="thStart">'+(examView?'开始错题重做':'开始今日复习')+'</button>'+
         (organizeN?'<button class="th-btn" type="button" id="thOrganize">去整理</button>':'')+
       '</div>'+
     '</div>';
@@ -165,13 +166,13 @@ renderToday=function(){
     '<div class="home-quick">'+
       '<button class="home-quick-item" data-hq="recall" type="button"><span class="hq-t">场景回想</span><span class="hq-d">看场景说英文 · 先回忆</span></button>'+
       '<button class="home-quick-item" data-hq="note" type="button"><span class="hq-t">加入笔记</span><span class="hq-d">写英文 · 选中 empower</span></button>'+
-      '<button class="home-quick-item" data-hq="flash" type="button"><span class="hq-t">英文闪卡</span><span class="hq-d">到期回想练习</span></button>'+
+      '<button class="home-quick-item" data-hq="flash" type="button"><span class="hq-t">'+(examView?'错题本':'英文闪卡')+'</span><span class="hq-d">'+(examView?'没掌握的题再做一遍':'到期回想练习')+'</span></button>'+
       '<button class="home-quick-item" data-hq="write" type="button"><span class="hq-t">写作练习</span><span class="hq-d">选词出题 · AI 批改</span></button>'+
       '<button class="home-quick-item primary" data-hq="ai" type="button"><span class="hq-t">AI 对话</span><span class="hq-d">基于刚复习的词开口</span></button>'+
     '</div>'+
     inboxEntry+
-    '<div class="rv-stats"><div class="rv-stat"><div class="n">'+pending.length+'</div><div class="l">待整理</div></div><div class="rv-stat hot"><div class="n">'+due.length+'</div><div class="l">到期回想</div></div><div class="rv-stat"><div class="n">'+weak.length+'</div><div class="l">待再次输出</div></div></div>'+batchEntry+
-    '<div class="today-actions">'+todayCard('organize','整理表达','补上自己的理解与句子',pending.length)+todayCard('recall','场景回想','看场景说英文 · 每轮最多 10 个',due.length)+todayCard('flash','英文闪卡','保留原来的认识与回想练习',due.length)+'</div>'+
+    '<div class="rv-stats"><div class="rv-stat"><div class="n">'+pending.length+'</div><div class="l">待整理</div></div><div class="rv-stat hot"><div class="n">'+due.length+'</div><div class="l">'+(examView?'待重做':'到期回想')+'</div></div><div class="rv-stat"><div class="n">'+weak.length+'</div><div class="l">待再次输出</div></div></div>'+batchEntry+
+    '<div class="today-actions">'+todayCard('organize','整理表达','补上自己的理解与句子',pending.length)+todayCard('recall','场景回想','看场景说英文 · 每轮最多 10 个',due.length)+todayCard('flash',examView?'错题本':'英文闪卡',examView?'没掌握的题再做一遍':'保留原来的认识与回想练习',due.length)+'</div>'+
     '<div class="a-tools"><button class="btn" id="aTodayWords">按日期回看</button><button class="btn" id="aTodayWrite">每周写一段</button><button class="btn" id="aTodayFavorites">收藏对话</button><button class="btn" id="aTodayNew">手动添加</button><button class="btn" id="aTodayBackup">完整备份／迁移</button></div>'+
     '<p class="a-note">普通日参考：视频与模仿 20 分钟 → 整理 8 分钟 → 回想 5 分钟 → 输出 7 分钟。每周 2 次情景练习、1 次写作，可替换当天部分任务。无需清空全部队列。</p>'+
     '<p class="a-note">AI：'+(aRoute()==='chatgpt'?'ChatGPT 往返模式；套餐和模型由 ChatGPT 账号决定。':'OpenAI API 模式；独立计费。')+' 新地址不会自动读取手机旧地址的数据。</p>'+

@@ -1,0 +1,18 @@
+name = "english-notes-relay"
+main = "english-notes-relay-worker.js"
+compatibility_date = "2026-11-20"
+
+# 第一步先创建 KV：npx wrangler kv namespace create RELAY_KV
+# 把命令返回的 id 填到下面（同一文件可再建一个 preview_id，可选）
+[[kv_namespaces]]
+binding = "RELAY_KV"
+id = "替换成你的 KV namespace id"
+
+[vars]
+ALLOWED_ORIGIN = "https://heruih.github.io"
+# 免费档默认值；不写这行就用代码内默认（文本15/语音100/AI图30，含每分钟速率）
+RELAY_LIMITS = '{"text":{"daily":15,"perMinute":6},"tts":{"daily":100,"perMinute":12},"image":{"daily":30,"perMinute":6}}'
+# 现在全免费、每日额度只计数不拦截；将来要硬拦每日额度再改成 "1"
+ENFORCE_DAILY = "0"
+# 不写则强制用 deepseek-flash；要指定模型可放开下一行
+# DEEPSEEK_MODEL = "deepseek-flash"

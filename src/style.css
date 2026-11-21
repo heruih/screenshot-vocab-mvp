@@ -917,6 +917,15 @@ body.side-open #scrim{display:block}
 .grade-btn.hard{color:var(--warn);border-color:rgba(255,159,10,.35)}
 .grade-btn.good{background:var(--accent);border-color:transparent;color:#fff}
 .grade-btn.good small{color:rgba(255,255,255,.75)}
+.cause-row{width:min(94%,600px);margin-bottom:10px}
+.cause-row-title{font-size:12px;color:var(--text3);margin-bottom:7px;font-weight:600}
+.cause-chips{display:flex;gap:8px}
+.cause-chip{
+  flex:1;min-height:40px;border-radius:11px;border:1px solid var(--s5);background:var(--s3);
+  color:var(--text2);font-size:13.5px;font-weight:600;padding:0 6px;
+}
+.cause-chip:active{transform:scale(.97)}
+.cause-chip.active{background:var(--accent);border-color:transparent;color:#fff}
 .review-pause-choice{width:min(94%,600px);margin-top:10px;padding:10px 12px;border:1px solid var(--accent);border-radius:12px;background:var(--accent-soft);color:var(--accent-fg);font-size:12px;font-weight:700}.review-pause-choice>span{display:block;margin-bottom:8px}.review-pause-choice>div{display:flex;gap:8px}.review-pause-choice .btn{flex:1;min-height:40px}
 .flash-hint-row{font-size:12.5px;color:var(--text3);min-height:52px;display:flex;align-items:center}
 .review-exit-row{display:flex;justify-content:center;margin-top:10px}
@@ -1812,3 +1821,36 @@ body.drag-select #noteBody .en-word.sel-pick{
 .media-cons{color:var(--text3)}
 #stTtsMount .adv-wrap{margin-top:4px}
 #stTtsMount .bk-note{margin:6px 0}
+
+/* ============ 学习身份选择 ============ */
+.persona-card{padding:8px 14px calc(14px + env(safe-area-inset-bottom,0))}
+.persona-head{padding:14px 8px 16px}
+.persona-kicker{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.persona-title{font-size:24px;font-weight:800;margin:8px 0 6px;color:var(--text)}
+.persona-sub{font-size:14px;line-height:1.5;color:var(--text2);margin:0}
+.persona-opt{
+  width:100%;display:flex;align-items:center;gap:14px;
+  background:var(--s2);border:1px solid var(--line);border-radius:14px;
+  padding:14px 16px;margin-bottom:10px;text-align:left;color:var(--text);cursor:pointer;
+  transition:background .15s ease,transform .1s ease,border-color .15s ease;
+}
+.persona-opt:active{background:var(--hover);transform:scale(.98)}
+.persona-emoji{font-size:30px;line-height:1;flex:none}
+.persona-txt{flex:1;display:flex;flex-direction:column;gap:3px}
+.persona-txt b{font-size:16px;font-weight:700;color:var(--text)}
+.persona-txt small{font-size:13px;color:var(--text2);line-height:1.4}
+.persona-arrow{font-size:20px;color:var(--text3);flex:none}
+.persona-skip{width:100%;background:none;border:none;cursor:pointer;font-size:14px;color:var(--text2);padding:10px 0 4px}
+.persona-skip:active{color:var(--text)}
+/* 设置里的身份切换 */
+.persona-pick-row{display:flex;gap:10px;margin-top:4px}
+.persona-pick{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;
+  background:var(--s2);border:1.5px solid var(--line);border-radius:12px;
+  padding:14px 8px;font-size:26px;color:var(--text);cursor:pointer;
+  transition:border-color .15s ease,background .15s ease,transform .1s ease;
+}
+.persona-pick span{font-size:13px;font-weight:600}
+.persona-pick.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-fg)}
+.persona-pick:active{transform:scale(.98)}
+.st-note{font-size:12.5px;line-height:1.55;color:var(--text2);margin:10px 2px 2px}
