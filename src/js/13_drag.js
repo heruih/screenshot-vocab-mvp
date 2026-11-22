@@ -8,7 +8,7 @@
 
 /* ---------------- 公共状态 ---------------- */
 const DRAG_PRESS_MS=450;
-let dragGhostEl=null, dragLineEl=null, dragSelBarEl=null;
+let dragGhostEl=null, dragLineEl=null;
 let pressTimer=0, pressSX=0, pressSY=0, pressKind='', pressNode=null, pressMoved=false, suppressClick=false;
 /* 选择态：待移动的词条集合 */
 let selActive=false, selSpans=[], dragNodes=[];
@@ -26,26 +26,13 @@ function ensureDragEls(){
     dragLineEl=document.createElement('div');dragLineEl.id='dragLine';dragLineEl.className='drag-line hidden';
     document.body.appendChild(dragLineEl);
   }
-  if(!dragSelBarEl){
-    dragSelBarEl=document.createElement('div');dragSelBarEl.id='dragSelBar';dragSelBarEl.className='drag-selbar hidden';
-    dragSelBarEl.innerHTML=
-      '<span class="dsel-count" id="dselCount">已选 1 个</span>'+
-      '<button class="dsel-btn ghost" id="dselCancel" type="button">取消</button>'+
-      '<button class="dsel-btn" id="dselCopy" type="button">复制</button>'+
-      '<button class="dsel-btn" id="dselCut" type="button">剪切</button>'+
-      '<button class="dsel-btn primary" id="dselMove" type="button">移动</button>';
-    document.body.appendChild(dragSelBarEl);
-    dragSelBarEl.querySelector('#dselCancel').onclick=cancelSelect;
-    dragSelBarEl.querySelector('#dselCopy').onclick=confirmCopy;
-    dragSelBarEl.querySelector('#dselCut').onclick=confirmCut;
-    dragSelBarEl.querySelector('#dselMove').onclick=confirmSelect;
-  }
 }
 
 /* ---------------- 长按检测 ---------------- */
 function initDragPress(){
   bodyEl.addEventListener('touchstart',e=>{
     clearTimeout(pressTimer);pressMoved=false;pressKind='';pressNode=null;
+    suppressClick=false;
     if(ui.mode!=='edit'||ui.sideOpen)return;
     if(document.querySelector('.modal.show,.ai-page.show,#shotViewer.show,#writeModal.show'))return;
     const tg=e.target;
@@ -88,28 +75,16 @@ function initDragPress(){
 }
 
 /* ---------------- 选择条：批量复制 / 剪切 ---------------- */
-function confirmCopy(){
-  if(!selSpans.length)return;
-  const spans=selSpans.slice();
-  endSelect();
-  clipCopySelected(spans,false);
-}
-function confirmCut(){
-  if(!selSpans.length)return;
-  const spans=selSpans.slice();
-  endSelect();
-  clipCopySelected(spans,true);
-}
 /* 批量复制 / 剪切选中词条（移动仍走跟手拖拽，不在这里） */
 function clipCopySelected(spans,cut){
-  const nodes=collectWordBlocks(spans);
-  if(!nodes.length){ toast('没有可复制的内容','warn');return; }
+  const nodes=[...bodyEl.querySelectorAll('.en-word')].filter(span=>spans.includes(span));
+  if(!nodes.length){ toast('没有可复制的内容','warn');return false; }
   const words=[...new Set(spans.map(findWordOfSpan).filter(Boolean))];
-  const entry={kind:'block',mode:cut?'cut':'copy',html:clipClean(nodes),at:Date.now()};
-  if(!clipWriteAction(entry,words)) return;
+  const entry={kind:'cards',mode:cut?'cut':'copy',html:clipClean(nodes),at:Date.now()};
+  if(!clipWriteAction(entry,words)) return false;
   if(cut){
     const srcId=ui.note;
-    spans.forEach(sp=>{
+    nodes.forEach(sp=>{
       if(!bodyEl.contains(sp))return;
       const block=sp.parentElement;
       sp.remove();
@@ -118,7 +93,7 @@ function clipCopySelected(spans,cut){
     words.forEach(word=>unlinkWordFromNote(word,srcId));
     applyFolds();mvDecorate();persistEditor();
   }
-  toast(cut?'已剪切 '+spans.length+' 个，到其它笔记点粘贴':'已复制 '+spans.length+' 个，到其它笔记点粘贴');
+  return true;
 }
 
 /* ---------------- 多词选择态 ---------------- */
@@ -128,14 +103,10 @@ function beginSelect(first){
   selSpans=list.filter((sp,i)=>sp&&bodyEl.contains(sp)&&list.indexOf(sp)===i);
   if(!selSpans.length){selActive=false;return;}
   selActive=true;
+  clearEditorTextSelection();
   document.body.classList.add('drag-select');
-  dragSelBarEl.classList.remove('hidden');
-  updateSelectCount();syncSelPicks();
+  syncSelPicks();syncEditorBar();
   /* 选择态下点其它词加入/取消；点空白处不做处理 */
-}
-function updateSelectCount(){
-  const c=dragSelBarEl.querySelector('#dselCount');
-  if(c)c.textContent='已选 '+selSpans.length+' 个';
 }
 function syncSelPicks(){
   bodyEl.querySelectorAll('.en-word.sel-pick').forEach(e=>e.classList.remove('sel-pick'));
@@ -149,7 +120,7 @@ function handleSelectTap(e){
   const i=selSpans.indexOf(sp);
   if(i>=0){if(selSpans.length>1)selSpans.splice(i,1);}
   else selSpans.push(sp);
-  updateSelectCount();syncSelPicks();
+  syncSelPicks();syncEditorBar();
 }
 function confirmSelect(){
   if(!selSpans.length)return;
@@ -157,14 +128,11 @@ function confirmSelect(){
   endSelect();
   beginDrag(nodes);
 }
-function cancelSelect(){
-  endSelect();toast('已取消，原样没动');
-}
 function endSelect(){
   selActive=false;selSpans=[];
   bodyEl.querySelectorAll('.en-word.sel-pick').forEach(e=>e.classList.remove('sel-pick'));
   document.body.classList.remove('drag-select');
-  dragSelBarEl.classList.add('hidden');
+  syncEditorBar();
 }
 /* 把选中的词条整理成要搬运的顶层块（保留各自所在块结构） */
 function collectWordBlocks(spans){

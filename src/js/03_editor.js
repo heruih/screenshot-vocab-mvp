@@ -251,10 +251,11 @@ function renderFlash(){
 const titleEl=$('#noteTitle'), bodyEl=$('#noteBody'), editorWrap=$('#editorWrap');
 function renderEditor(){
   const n=state.notes.find(x=>x.id===ui.note);
-  if(!n||ui.mode!=='edit'){ editorWrap.classList.add('hidden'); closeNoteOrganize(); return; }
+  if(!n||ui.mode!=='edit'){ editorWrap.classList.add('hidden'); closeNoteOrganize(); resetEditorBar(); return; }
   editorWrap.classList.remove('hidden');
   $('#edBreadcrumb').textContent=folderName()+' / '+(n.title||'无标题');
   if(ui.lastNote!==ui.note){
+    resetEditorBar();
     titleEl.innerText=(n.title==='无标题')?'':n.title;
     bodyEl.innerHTML=n.content||'';
     ui.lastNote=ui.note;
@@ -264,6 +265,7 @@ function renderEditor(){
   }
   updatePlaceholders();
   syncEdHint();
+  syncEditorBar();
   if(typeof updateNoteInboxBar==='function')updateNoteInboxBar();
 }
 function noteLinkedWords(noteId){
@@ -353,10 +355,14 @@ function histSyncUndoBtn(){
 function histUndo(){
   if(!histStack.length){toast('没有可撤销的操作');return;}
   const snap=histStack.pop();
+  if(!state.notes.some(note=>note.id===snap.noteId)){
+    histSyncUndoBtn();editorUndoFeedback('');toast('原笔记已不存在，无法撤销这一步','warn');return;
+  }
   /* 快照属于另一篇笔记：先切过去（openNote 已不再清空历史），再恢复那篇的状态 */
   if(snap.noteId&&snap.noteId!==ui.note){
     try{ openNote(snap.noteId); }catch(_){ }
   }
+  resetEditorBar();
   titleEl.innerText=snap.title;
   bodyEl.innerHTML=snap.content;
   for(const {wordId,index,link} of snap.links||[]){
@@ -532,7 +538,7 @@ function bodyCleanHTML(){
   c.querySelectorAll('.en-word').forEach(e=>{
     e.removeAttribute('contenteditable');
     e.removeAttribute('spellcheck');
-    e.classList.remove('mv-lift');
+    e.classList.remove('mv-lift','sel-pick');
     if(!e.getAttribute('class')) e.removeAttribute('class');
   });
   c.querySelectorAll('.mv-hit').forEach(e=>e.classList.remove('mv-hit'));
@@ -545,55 +551,6 @@ function bodyCleanHTML(){
   });
   c.querySelectorAll('[class=""]').forEach(e=>e.removeAttribute('class'));
   return c.innerHTML;
-}
-/* ============ 局部字体：有选区只改选中部分；无选区改后续输入并记住为默认 ============ */
-const FONT_TF_CLASS={serif:'tf-serif',rounded:'tf-rounded',mono:'tf-mono'};
-function editorFontRange(){
-  const s=window.getSelection();
-  if(!s||s.rangeCount===0) return null;
-  const r=s.getRangeAt(0);
-  if(r.collapsed||!bodyEl.contains(r.commonAncestorContainer)) return null;
-  return r;
-}
-function wrapRangeWithFont(font){
-  const r=editorFontRange();
-  if(!r) return false;
-  const cls=FONT_TF_CLASS[font];
-  const span=document.createElement('span');
-  if(cls) span.className=cls;
-  try{
-    r.surroundContents(span);
-  }catch(_){
-    /* 选区跨多个节点时 surroundContents 会抛错，用 extract+insert 兜底 */
-    const frag=r.extractContents();
-    span.appendChild(frag);
-    r.insertNode(span);
-  }
-  const nr=document.createRange(); nr.selectNodeContents(span);
-  const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(nr);
-  return true;
-}
-function beginInputFont(font){
-  setFontChoice(font);                 /* 记住，作为下次开始的默认 */
-  const cls=FONT_TF_CLASS[font];
-  if(!cls) return;                     /* system：无需容器，回到默认字体 */
-  const s=window.getSelection();
-  const r=document.createRange();
-  if(s&&s.rangeCount&&bodyEl.contains(s.anchorNode)){ r.setStart(s.anchorNode,s.anchorOffset); r.collapse(true); }
-  else { r.selectNodeContents(bodyEl); r.collapse(false); }
-  const span=document.createElement('span');
-  span.className=cls;
-  span.appendChild(document.createTextNode('​'));  /* 零宽空格，防止空 span 被浏览器吞掉 */
-  r.insertNode(span);
-  const nr=document.createRange(); nr.setStart(span.firstChild,1); nr.collapse(true);
-  const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(nr);
-  bodyEl.focus();
-}
-function editorApplyFont(font){
-  if(FONT_CHOICES.indexOf(font)<0) return;
-  if(editorFontRange()) wrapRangeWithFont(font);
-  else beginInputFont(font);
-  save();
 }
 
 /* ============ 赋能词 = 一个整体：光标进不去，也改不了字母 ============ */

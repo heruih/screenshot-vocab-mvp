@@ -2,44 +2,207 @@
 /* ============ 选词操作条 ============ */
 const pill=$('#empowerPill');
 const pillWord=$('#pillWord');
-let pillTimer=null, pillHoldAt=0, pillHideTimer=null;
+let pillTimer=null, pillHoldAt=0, editorUndoTimer=null;
+let editorTextRange=null, editorSelectedText='', editorCaret=null, editorPanel='', editorUndoLabel='';
 function scheduleCheck(){ clearTimeout(pillTimer); pillTimer=setTimeout(checkSelection,70); }
-/* 手指刚碰到操作条的那一秒内，别自己把自己藏掉（否则点击会落空） */
-function pillHeld(){ return Date.now()-pillHoldAt<900; }
-function rangeInEditor(sel){
-  if(!sel||sel.rangeCount===0) return false;
-  const node=sel.getRangeAt(0).commonAncestorContainer;
-  const host=node.nodeType===1?node:node.parentElement;
-  return !!(host&&editorWrap.contains(host));
-}
-/* 贴在“看得见的那块屏幕”的右下角：iOS 弹键盘时布局视口不变，只能用 visualViewport 算 */
 function placePill(){
   const vv=window.visualViewport;
-  const h=pill.offsetHeight||150;
-  if(!vv){ pill.style.top=''; pill.style.bottom='10px'; return; }
-  pill.style.top=Math.max(0,Math.round(vv.offsetTop+vv.height-h-10))+'px';
-  pill.style.bottom='auto';
+  pill.style.setProperty('--ed-viewport-inset',vv?Math.max(0,innerHeight-vv.offsetTop-vv.height)+'px':'0px');
+  pill.style.setProperty('--ed-visible-height',(vv?.height||innerHeight)+'px');
+}
+function editorBodyCaret(range){
+  if(!range?.collapsed||!bodyEl.contains(range.startContainer))return null;
+  const node=range.startContainer;
+  const element=node.nodeType===Node.ELEMENT_NODE?node:node.parentElement;
+  return element.closest('.en-word')?null:range.cloneRange();
 }
 function checkSelection(){
+  if(ui.mode!=='edit'||selActive||editorPanel)return;
   const sel=window.getSelection();
-  const dead=!sel||sel.isCollapsed||!rangeInEditor(sel);
-  const text=dead?'':sel.toString().replace(/\s+/g,' ').trim();
-  const bad=dead||!text||text.length>80||!/^[A-Za-z][A-Za-z'’\- ]*$/.test(text);
-  if(bad){
-    /* 选区被手指点收起时，别立刻把按钮抽走：留半秒，让那一下点击还落得到 */
-    if(pillHeld()){ setTimeout(()=>{ if(!pillHeld()) checkSelection(); },950); return; }
-    clearTimeout(pillHideTimer);
-    pillHideTimer=setTimeout(()=>{ if(!pillHeld()) hidePill(); },520);
-    return;
+  const range=sel?.rangeCount?sel.getRangeAt(0):null;
+  const inside=range&&bodyEl.contains(range.commonAncestorContainer);
+  const text=inside&&!range.collapsed?sel.toString():'';
+  if(text.trim()){
+    editorTextRange=range.cloneRange();
+    editorSelectedText=text;
+    editorCaret=null;
+  }else{
+    if(Date.now()-pillHoldAt<450)return;
+    clearEditorTextSelection();
+    if(inside)editorCaret=editorBodyCaret(range);
+    else if(document.activeElement===titleEl)editorCaret=null;
   }
-  clearTimeout(pillHideTimer);
-  ui.selectedRange=sel.getRangeAt(0).cloneRange();
-  ui.empowerText=text;
-  if(pillWord) pillWord.textContent=text.length>14?text.slice(0,14)+'…':text;
-  pill.classList.add('show');
+  syncEditorBar();
+}
+function clearEditorTextSelection(){
+  editorTextRange=null;
+  editorSelectedText='';
+  editorPanel='';
+}
+function resetEditorBar(){
+  clearEditorTextSelection();
+  editorCaret=null;
+  editorUndoLabel='';
+  clearTimeout(editorUndoTimer);
+  if(selActive)endSelect();
+  syncEditorBar();
+}
+function editorEmpowerTarget(){
+  const term=editorSelectedText.trim().replace(/\s+/g,' ');
+  const phrase=!selActive&&term.length<=80&&/^[A-Za-z][A-Za-z'’\- ]*$/.test(term)?term:'';
+  const words=selActive?[...new Set(selSpans.map(findWordOfSpan).filter(Boolean))]:
+    state.words.filter(word=>phrase&&word.term.toLowerCase()===phrase.toLowerCase());
+  return {phrase,words,ready:words.filter(word=>!aPending(word))};
+}
+function syncEditorBar(){
+  const clipboard=clipGet();
+  const hasText=!!editorTextRange&&bodyEl.contains(editorTextRange.commonAncestorContainer);
+  const hasCards=selActive&&selSpans.length>0;
+  const picked=hasText||hasCards;
+  const canPaste=!!clipboard&&!picked;
+  const show=ui.mode==='edit'&&!dragOn&&(picked||canPaste||!!editorUndoLabel);
+  pill.classList.toggle('show',show);
+  document.body.classList.toggle('editor-bar-open',show);
+  if(!show)return;
+  const {phrase,words,ready}=editorEmpowerTarget();
+  const canEmpower=!!phrase||words.length>0;
+  const showStyle=picked&&editorPanel==='style';
+  const showEmpower=picked&&canEmpower&&editorPanel==='empower';
+  const selectionLabel=hasCards?'已选 '+selSpans.length+' 张词卡：'+selSpans.map(span=>span.textContent.trim()).join('、'):
+    hasText?'已选：'+editorSelectedText.trim().replace(/\s+/g,' '):'';
+  const pasteLabel=clipboard?.mode==='cut'?'已剪切，点正文选择粘贴位置':'已复制，点正文选择粘贴位置';
+  pillWord.textContent=selectionLabel||editorUndoLabel||(canPaste?pasteLabel:'');
+  $('#edClearSelection').hidden=!picked;
+  $('#edSelectionActions').hidden=!picked;
+  $('#edEmpower').hidden=!canEmpower;
+  $('#edStyle').setAttribute('aria-expanded',String(showStyle));
+  $('#edEmpower').setAttribute('aria-expanded',String(showEmpower));
+  $('#edStylePanel').hidden=!showStyle;
+  $('#edEmpowerPanel').hidden=!showEmpower;
+  $('#btnDict').hidden=!(phrase||words.length===1);
+  $('#btnEmpower').hidden=!(phrase||words.length===1);
+  $('#btnEmpower').textContent=words.length?'查看词卡':'加入词库';
+  $('#edSpeak').hidden=!ready.length;
+  $('#edWrite').hidden=!ready.length;
+  $('#btnClipPaste').hidden=!canPaste;
+  $('#edDrag').hidden=!hasCards||showStyle||showEmpower;
+  $('#edQuickUndo').hidden=!editorUndoLabel;
+  $('#edClipboardActions').hidden=!canPaste&&!editorUndoLabel&&$('#edDrag').hidden;
   placePill();
 }
-function hidePill(){ pill.classList.remove('show'); }
+function editorUndoFeedback(message){
+  editorUndoLabel=message;
+  clearTimeout(editorUndoTimer);
+  if(message)editorUndoTimer=setTimeout(()=>editorUndoFeedback(''),5000);
+  syncEditorBar();
+}
+const EDITOR_STYLE_OPTIONS={
+  edFonts:{property:'font-family',items:[['默认','var(--editor-default-family)'],['衬线','Georgia, serif'],['圆润','ui-rounded, sans-serif'],['等宽','ui-monospace, monospace']]},
+  edSizes:{property:'font-size',items:[['小','calc(var(--fs-body) - 2px)'],['标准','var(--fs-body)'],['大','calc(var(--fs-body) + 4px)']]},
+  edColors:{property:'color',items:[['默认','var(--text-body)'],['主题色','var(--accent-fg)'],['绿','var(--ok)'],['橙','var(--warn)']]}
+};
+function applyEditorSelectionStyle(property,value){
+  const elements=selActive?selSpans.filter(span=>bodyEl.contains(span)):[];
+  const range=editorTextRange;
+  const runs=[];
+  if(!selActive&&range&&bodyEl.contains(range.commonAncestorContainer)){
+    const walker=document.createTreeWalker(bodyEl,NodeFilter.SHOW_TEXT);
+    for(let node=walker.nextNode();node;node=walker.nextNode()){
+      if(!range.intersectsNode(node)||node.parentElement.closest('.en-word,.mf,.mv-drop'))continue;
+      const start=node===range.startContainer?range.startOffset:0;
+      const end=node===range.endContainer?range.endOffset:node.length;
+      if(end>start)runs.push({node,start,end});
+    }
+  }
+  if(!elements.length&&!runs.length){toast('请选择要改样式的正文或词卡','warn');return;}
+  histPush();
+  for(const {node,start,end} of runs){
+    if(end<node.length)node.splitText(end);
+    const text=start?node.splitText(start):node;
+    const parent=text.parentElement;
+    if(parent.matches('[data-editor-style]')&&parent.childNodes.length===1){elements.push(parent);continue;}
+    const span=document.createElement('span');
+    span.dataset.editorStyle='';
+    text.replaceWith(span);
+    span.append(text);
+    elements.push(span);
+  }
+  elements.forEach(el=>el.style.setProperty(property,value));
+  if(runs.length){
+    const next=document.createRange();
+    next.setStartBefore(elements[0]);next.setEndAfter(elements[elements.length-1]);
+    editorTextRange=next;
+    const selection=window.getSelection();selection.removeAllRanges();selection.addRange(next);
+  }
+  persistEditor();
+  editorUndoFeedback('已更改样式');
+}
+function initEditorBar(){
+  for(const [id,{property,items}] of Object.entries(EDITOR_STYLE_OPTIONS)){
+    for(const [label,value] of items){
+      const button=document.createElement('button');
+      button.type='button';button.textContent=label;
+      if(property==='color')button.style.color=value;
+      button.addEventListener('click',()=>applyEditorSelectionStyle(property,value));
+      $('#'+id).append(button);
+    }
+  }
+  pill.addEventListener('pointerdown',e=>{
+    pillHoldAt=Date.now();
+    if(e.target.closest('button'))e.preventDefault();
+  });
+  document.addEventListener('pointerdown',e=>{
+    if(pill.contains(e.target))return;
+    pillHoldAt=0;
+    if(e.target.closest('#noteBody')&&!selActive){clearEditorTextSelection();editorCaret=null;}
+    else editorPanel='';
+    syncEditorBar();
+  });
+  window.visualViewport?.addEventListener('scroll',placePill);
+  $('#edClearSelection').onclick=()=>{
+    window.getSelection()?.removeAllRanges();
+    clearEditorTextSelection();
+    editorCaret=null;
+    if(selActive)endSelect();
+    syncEditorBar();
+  };
+  function copyOrCut(cut){
+    const ok=selActive?clipCopySelected(selSpans,cut):clipCopyText(editorTextRange,editorSelectedText,cut);
+    if(!ok)return;
+    $('#edClearSelection').click();
+    if(cut)editorUndoFeedback('已剪切。点正文选择粘贴位置');
+  }
+  $('#edCopy').onclick=()=>copyOrCut(false);
+  $('#edCut').onclick=()=>copyOrCut(true);
+  $('#btnClipPaste').onclick=()=>{
+    const selection=window.getSelection();
+    const caret=editorBodyCaret(selection?.rangeCount?selection.getRangeAt(0):null)||editorBodyCaret(editorCaret);
+    if(!caret){toast('先点正文，放好光标再粘贴','warn');return;}
+    if(clipPaste(null,caret)){pillHoldAt=0;checkSelection();editorUndoFeedback('已粘贴');}
+  };
+  $('#edQuickUndo').onclick=histUndo;
+  $('#edDrag').onclick=confirmSelect;
+  $('#edStyle').onclick=()=>{editorPanel=editorPanel==='style'?'':'style';syncEditorBar();};
+  $('#edEmpower').onclick=()=>{editorPanel=editorPanel==='empower'?'':'empower';syncEditorBar();};
+  $('#btnDict').onclick=()=>{
+    const {phrase,words}=editorEmpowerTarget();
+    $('#edClearSelection').click();openDict(phrase||words[0]?.term||'');
+  };
+  $('#btnEmpower').onclick=()=>{
+    const {phrase,words}=editorEmpowerTarget();
+    const word=words[0],range=editorTextRange,note=state.notes.find(n=>n.id===ui.note);
+    $('#edClearSelection').click();
+    if(word||phrase)openWordModal(word?.term||phrase,note?{id:note.id,title:note.title}:null,range,word||null);
+  };
+  $('#edSpeak').onclick=()=>{
+    const {ready}=editorEmpowerTarget();
+    $('#edClearSelection').click();if(ready.length)openAiPackPractice(ready);
+  };
+  $('#edWrite').onclick=()=>{
+    const {ready}=editorEmpowerTarget();
+    $('#edClearSelection').click();if(ready.length)aOpenWriteWith(ready.slice(0,8));
+  };
+}
 
 /* ============ 收起键盘 ============ */
 const kbChip=$('#kbChip');

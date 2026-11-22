@@ -1035,11 +1035,13 @@ function backupReminder(){
 const LOOK_COLOR_LABEL={sky:'晴空蓝',mint:'薄荷绿',amber:'暖琥珀',lilac:'丁香紫',pearl:'珍珠白',capsule:'胶囊'};
 const LOOK_FONT_LABEL={system:'系统默认',serif:'衬线',rounded:'圆润',mono:'等宽'};
 function initLookPop(){
-  const pop=$('#lookPop'),btn=$('#btnLook'),colorBox=$('#lookColors');
+  const pop=$('#lookPop'),btn=$('#btnLook'),colorBox=$('#lookColors'),fontBox=$('#fontChoices');
   colorBox.innerHTML=WORD_COLORS.map(c=>
     '<button type="button" class="look-color" data-c="'+c+'" aria-label="'+LOOK_COLOR_LABEL[c]+'"><span class="lc-dot lc-'+c+'"></span><small>'+LOOK_COLOR_LABEL[c]+'</small></button>').join('');
+  fontBox.innerHTML=FONT_CHOICES.map(f=>'<button type="button" class="look-font" data-f="'+f+'">'+LOOK_FONT_LABEL[f]+'</button>').join('');
   function syncLook(){
     const cc=getWordColor();
+    fontBox.querySelectorAll('[data-f]').forEach(b=>b.classList.toggle('on',b.dataset.f===getFontChoice()));
     colorBox.querySelectorAll('.look-color').forEach(b=>b.classList.toggle('on',b.getAttribute('data-c')===cc));
   }
   btn.addEventListener('click',e=>{
@@ -1047,45 +1049,21 @@ function initLookPop(){
     if(pop.hidden){ syncLook();pop.hidden=false; }else pop.hidden=true;
   });
   pop.addEventListener('click',e=>e.stopPropagation());
+  fontBox.addEventListener('click',e=>{
+    const b=e.target.closest('[data-f]');if(!b)return;
+    setFontChoice(b.dataset.f);syncLook();
+  });
   colorBox.addEventListener('click',e=>{
     const b=e.target.closest('.look-color');if(!b)return;
     setWordColor(b.getAttribute('data-c'));syncLook();
   });
   document.addEventListener('pointerdown',e=>{
-    if(!pop.hidden&&!pop.contains(e.target)&&e.target!==btn)pop.hidden=true;
-  });
-}
-/* 独立字体弹层：有选区只改选中部分，无选区改后续输入并记住为默认 */
-function initFontPop(){
-  const pop=$('#fontPop'),btn=$('#btnFont'),box=$('#fontChoices'),hint=$('#fontPopHint');
-  box.innerHTML=FONT_CHOICES.map(f=>
-    '<button type="button" class="look-font" data-f="'+f+'">'+LOOK_FONT_LABEL[f]+'</button>').join('');
-  function syncFont(){
-    const ff=getFontChoice();
-    box.querySelectorAll('.look-font').forEach(b=>b.classList.toggle('on',b.getAttribute('data-f')===ff));
-  }
-  btn.addEventListener('click',e=>{
-    e.stopPropagation();
-    if(pop.hidden){
-      syncFont();
-      hint.textContent=editorFontRange()?'已选中：只改选中部分的字体':'无选区：切换后续输入字体并记住';
-      pop.hidden=false;
-    }else pop.hidden=true;
-  });
-  pop.addEventListener('click',e=>e.stopPropagation());
-  box.addEventListener('click',e=>{
-    const b=e.target.closest('.look-font');if(!b)return;
-    editorApplyFont(b.getAttribute('data-f'));
-    syncFont();
-    pop.hidden=true;
-  });
-  document.addEventListener('pointerdown',e=>{
-    if(!pop.hidden&&!pop.contains(e.target)&&e.target!==btn)pop.hidden=true;
+    if(!pop.hidden&&!pop.contains(e.target)&&!btn.contains(e.target))pop.hidden=true;
   });
 }
 function bindEvents(){
   try{ initLookPop(); }catch(e){ console.error('外观面板初始化失败',e); }
-  try{ initFontPop(); }catch(e){ console.error('字体面板初始化失败',e); }
+  initEditorBar();
   /* 侧边栏 */
   $('#btnNewFolder').addEventListener('click',()=>{
     showConfirm({title:'新建文件夹',msg:'',okText:'创建',danger:false,onOk:null});
@@ -1352,7 +1330,6 @@ function bindEvents(){
   /* 编辑器 */
   $('#btnBack').addEventListener('click',backToList);
   $('#btnHistUndo').addEventListener('click',histUndo);
-  $('#btnClipPaste').addEventListener('click',clipStartChoose);
   $('#btnDelNote').addEventListener('click',()=>{ if(ui.note) deleteNote(ui.note); });
   $('#btnNoteOrganize').addEventListener('click',openNoteOrganize);
   $('#noteOrganizeClose').addEventListener('click',closeNoteOrganize);
@@ -1413,13 +1390,6 @@ function bindEvents(){
     const drop=e.target.closest&&e.target.closest('.mv-drop');
     if(drop&&bodyEl.contains(drop)){
       e.preventDefault(); e.stopPropagation();
-      /* 剪贴板选目标节 */
-      if(clipChoosing&&drop.hasAttribute('data-clipdrop')){
-        const h=drop.parentElement;
-        clipChoosing=false;
-        clipPaste(h);
-        return;
-      }
       const h=drop.parentElement, hi=headList().indexOf(h);
       if(mvState.kind==='word') mvDropWord(h||null);
       else if(mvState.kind==='section') mvDropSection(h);
@@ -1445,34 +1415,7 @@ function bindEvents(){
   let lpFired=false;
   editorWrap.addEventListener('mousedown',e=>{ if(e.target.closest('.en-word')) e.preventDefault(); });
   editorWrap.addEventListener('click',handleWordTap);
-  document.addEventListener('mousedown',e=>{ if(!e.target.closest('#empowerPill')) hidePill(); });
-  document.addEventListener('pointerdown',e=>{ if(!e.target.closest('#empowerPill')) hidePill(); },true);
-  document.addEventListener('scroll',()=>{ if(pill.classList.contains('show')) placePill(); },true);
   document.addEventListener('selectionchange',()=>{ if(ui.mode==='edit') scheduleCheck(); });
-  /* 手指按到操作条上：先记时间，别让“选区一收起就隐藏”把按钮吃掉 */
-  ['pointerdown','touchstart'].forEach(ev=>{
-    pill.addEventListener(ev,()=>{ pillHoldAt=Date.now(); },{passive:true,capture:true});
-  });
-  /* 按下就执行（不等 click）：键盘/布局一变化，click 可能落到别处 */
-  function bindPillAction(btn,fn){
-    let last=0;
-    const fire=()=>{ if(Date.now()-last<400) return; last=Date.now(); pillHoldAt=Date.now(); fn(); };
-    btn.addEventListener('pointerdown',e=>{ e.preventDefault(); fire(); });
-    btn.addEventListener('click',e=>{ e.preventDefault(); fire(); });
-    btn.addEventListener('touchend',e=>{ e.preventDefault(); fire(); });
-  }
-  bindPillAction($('#btnEmpower'),()=>{
-    const term=ui.empowerText,range=ui.selectedRange;
-    hidePill();
-    if(!term) return;
-    const n=state.notes.find(x=>x.id===ui.note);
-    openWordModal(term,n?{id:n.id,title:n.title}:null,range,null);
-  });
-  bindPillAction($('#btnDict'),()=>{
-    const term=ui.empowerText;
-    hidePill();
-    openDict(term||'');
-  });
   /* 单词卡片里的「移动」→ 拿起这个词 */
   const wmMoveBtn=$('#wmMove');
   if(wmMoveBtn) wmMoveBtn.addEventListener('click',()=>{

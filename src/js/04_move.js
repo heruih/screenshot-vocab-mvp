@@ -531,8 +531,20 @@ function clipClean(nodes){
   tmp.querySelectorAll('.mf,.mv-drop').forEach(e=>e.remove());
   tmp.querySelectorAll('.en-word').forEach(e=>{
     e.removeAttribute('contenteditable');e.removeAttribute('spellcheck');
+    e.classList.remove('sel-pick');
   });
   return tmp.innerHTML;
+}
+function clipCopyText(range,text,cut){
+  if(!range||range.collapsed||!bodyEl.contains(range.commonAncestorContainer))return false;
+  if(cut&&Array.from(bodyEl.querySelectorAll('.en-word')).some(span=>range.intersectsNode(span))){
+    toast('这段文字里有词卡。长按词卡可单独剪切。','warn');
+    return false;
+  }
+  const entry={kind:'inline',mode:cut?'cut':'copy',html:'<span>'+esc(text).replace(/\r?\n/g,'<br>')+'</span>',at:Date.now()};
+  if(!clipWriteAction(entry,[]))return false;
+  if(cut){range.deleteContents();persistEditor();}
+  return true;
 }
 /* 复制 / 剪切整节 */
 function clipCopySection(h,cut){
@@ -577,53 +589,50 @@ function clipParse(html){
   return Array.prototype.slice.call(tmp.children);
 }
 /* 粘贴到目标节（targetHead=null 表示文末）；复制可多次、剪切粘一次后清空 */
-function clipPaste(targetHead){
+function clipPaste(targetHead,caret=null){
   const c=clipGet();
-  if(!c){ toast('剪贴板是空的','warn');return; }
+  if(!c){ toast('剪贴板是空的','warn');return false; }
   const els=clipParse(c.html);
-  if(!els.length){ toast('剪贴板内容无效','warn');return; }
-  const anchor=targetHead?sectionEnd(targetHead):null;
+  if(!els.length){ toast('剪贴板内容无效','warn');return false; }
+  const atCaret=caret&&caret.collapsed&&bodyEl.contains(caret.startContainer);
+  const inline=atCaret&&(c.kind==='inline'||c.kind==='cards');
+  let anchor=targetHead?sectionEnd(targetHead):null;
+  if(atCaret&&!inline&&caret.startContainer!==bodyEl){
+    anchor=caret.startContainer;
+    while(anchor.parentNode!==bodyEl)anchor=anchor.parentNode;
+  }
   const noteId=ui.note;
   const note=state.notes.find(x=>x.id===noteId);
   const noteTitle=note?note.title:'无标题';
   const frag=document.createDocumentFragment();
-  els.forEach(el=>frag.appendChild(el));
   const words=clipWordsIn(els),cut=c.mode==='cut';
-  if(cut&&!clipClear()){ toast('剪贴板无法更新，请重试','warn');return; }
+  if(inline&&c.kind==='inline')frag.append(...els[0].childNodes);
+  else els.forEach((el,i)=>{
+    if(inline&&i>0)frag.append(' ');
+    frag.append(el);
+  });
+  const last=frag.lastChild;
+  if(cut&&!clipClear()){ toast('剪贴板无法更新，请重试','warn');return false; }
   histPush(cut?{before:c,after:null}:null,words);
   try{
-    if(anchor)anchor.parentNode.insertBefore(frag,anchor.nextSibling);
+    if(inline)caret.insertNode(frag);
+    else if(anchor)anchor.parentNode.insertBefore(frag,anchor.nextSibling);
+    else if(atCaret)bodyEl.insertBefore(frag,bodyEl.childNodes[caret.startOffset]||null);
     else bodyEl.appendChild(frag);
   }catch(_){
     if(cut) clipSet(c);
-    toast('粘贴失败','warn');return;
+    toast('粘贴失败','warn');return false;
+  }
+  if(last){
+    const next=document.createRange();next.setStartAfter(last);next.collapse(true);
+    const selection=window.getSelection();selection.removeAllRanges();selection.addRange(next);
   }
   /* 粘贴进来的词条：关联到当前目标笔记 */
   words.forEach(word=>linkWordToNote(word,noteId,noteTitle));
   lockWords(bodyEl); mvDecorate(); applyFolds(); persistEditor();
   try{ if(navigator.vibrate)navigator.vibrate(8); }catch(_){}
   toast(c.mode==='cut'?'已粘贴，剪贴板已清空':'已粘贴，可继续粘贴到别处');
-}
-/* 点「粘贴」按钮：先选放到哪一节（高亮各节），也可直接放文末 */
-let clipChoosing=false;
-function clipStartChoose(){
-  if(!clipGet()){ toast('剪贴板是空的，先在笔记里复制或剪切','warn');return; }
-  clipChoosing=true;
-  headList().forEach(h=>h.classList.add('mv-pick'));
-  /* 各节投放区 */
-  headList().forEach((h,i)=>{
-    if(!h.querySelector('.mv-drop')){
-      const b=document.createElement('span');
-      b.className='mv-drop';b.setAttribute('contenteditable','false');b.setAttribute('data-clipdrop',String(i));
-      h.appendChild(b);
-    }
-  });
-  document.body.classList.add('mv-lift');
-  toast('点某一节放进去，或点「文末」');
-}
-function clipCancelChoose(){
-  clipChoosing=false;
-  mvClearTargets();
+  return true;
 }
 function clipSyncBtn(){
   const b=$('#btnClipPaste');
@@ -631,6 +640,7 @@ function clipSyncBtn(){
   const has=!!clipGet();
   b.classList.toggle('disabled',!has);
   b.disabled=!has;
+  syncEditorBar();
 }
 /* ============ 系统剪切拦截：选区含词条时引导用应用内按钮，纯文字不拦 ============ */
 function selectionHasWord(){

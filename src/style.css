@@ -275,27 +275,38 @@ body.mode-edit #noteListPane{display:none}
   .note-organize-card{width:100%;max-height:78vh;border-radius:18px 18px 12px 12px;padding:16px}
 }
 
-/* ============ 选词操作卡（右下角小块，避开 iPhone 的剪切/粘贴菜单） ============ */
+/* ============ 编辑器底部操作栏 ============ */
 #empowerPill{
-  position:fixed;right:10px;bottom:10px;z-index:95;display:none;flex-direction:column;gap:8px;
-  width:172px;padding:10px;border-radius:16px;
+  position:fixed;inset-inline:0;bottom:calc(var(--ed-viewport-inset,0px) + max(8px,env(safe-area-inset-bottom,0px)));z-index:95;
+  display:none;flex-direction:column;gap:8px;margin-inline:auto;
+  width:min(560px,calc(100% - 20px));padding:10px;border-radius:16px;
+  max-height:min(58vh,calc(var(--ed-visible-height,100vh) - 20px),420px);overflow:auto;overscroll-behavior:contain;
   background:var(--bar-bg);border:1px solid var(--sep);box-shadow:var(--shadow-lg);
   -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
 }
 #empowerPill.show{display:flex;animation:pillIn .16s ease}
-@keyframes pillIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
-.pill-sel{display:flex;align-items:center;gap:6px;min-width:0;padding:0 2px 2px}
-.pill-tag{flex:none;font-size:11px;color:var(--text3);background:var(--s3);border-radius:6px;padding:3px 6px;line-height:1}
-.pill-sel b{min-width:0;font-size:15px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes pillIn{from{opacity:0}to{opacity:1}}
+.pill-sel{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 2px}
+.pill-sel b{flex:1;min-width:0;font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ed-work-row{display:flex;flex-wrap:wrap;gap:6px}
 #empowerPill button{
-  width:100%;height:46px;border-radius:12px;
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  font-size:15.5px;font-weight:600;-webkit-user-select:none;user-select:none;
+  flex:1;min-height:44px;padding:0 9px;border-radius:10px;background:var(--s4);color:var(--text);
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;white-space:nowrap;-webkit-user-select:none;user-select:none;
   -webkit-touch-callout:none;touch-action:manipulation;
 }
+#empowerPill [hidden]{display:none}
+#empowerPill #edClearSelection{flex:none;background:transparent;color:var(--text2)}
+#empowerPill #btnClipPaste,#empowerPill button[aria-expanded="true"]{background:var(--accent-soft);color:var(--accent-fg)}
+#empowerPill #edQuickUndo{color:var(--accent-fg)}
+#btnHistUndo{width:auto;min-width:44px;padding:0 7px;gap:3px;font-size:12px}
+#btnHistUndo .icon{width:16px;height:16px}
 #empowerPill button:active{transform:scale(.97)}
-#btnEmpower{background:var(--accent);color:#fff;box-shadow:0 4px 14px rgba(10,132,255,.35)}
-#btnDict{background:var(--s4);color:var(--text)}
+.ed-work-panel{display:grid;gap:6px;border-top:1px solid var(--sep);padding-top:6px}
+.ed-work-panel>div{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:4px;color:var(--text2);font-size:12px}
+.ed-style-options{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+body.editor-bar-open #editorWrap{padding-bottom:220px}
+body.editor-bar-open .coach-bubble{display:none}
 
 /* ============ 移动：词 / 整节（拿起 → 放下） ============ */
 #noteBody .nh{padding-right:40px}
@@ -1549,7 +1560,7 @@ html[data-font="mono"]{--font-body:ui-monospace,"SF Mono",Menlo,Consolas,monospa
 .tf-serif{font-family:Georgia,"Iowan Old Style","Times New Roman","Songti SC",serif}
 .tf-rounded{font-family:ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN","Microsoft YaHei",-apple-system,sans-serif}
 .tf-mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
-.font-pop-hint{font-size:12px;color:var(--text3);padding:0 14px 10px}
+#noteBody{--editor-default-family:var(--font-body)}
 
 /* ============ 手机端表达库：筛选收进底部抽屉（桌面端布局保持不变） ============ */
 .word-filter-trigger{display:none}
@@ -1801,19 +1812,6 @@ html[data-font="mono"]{--font-body:ui-monospace,"SF Mono",Menlo,Consolas,monospa
   content:"";position:absolute;left:-5px;top:-7px;width:11px;height:11px;border-radius:50%;
   background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);
 }
-
-.drag-selbar{
-  position:fixed;z-index:398;left:0;right:0;bottom:0;
-  display:flex;align-items:center;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));
-  background:var(--s1);border-top:1px solid var(--sep);
-  box-shadow:0 -8px 26px rgba(0,0,0,.3);
-}
-.drag-selbar.hidden{display:none}
-.dsel-count{flex:1;font-size:14px;font-weight:700;color:var(--text);text-align:left}
-.dsel-btn{min-height:44px;border-radius:11px;padding:0 13px;font-size:14px;font-weight:600;white-space:nowrap}
-.dsel-btn.ghost{background:var(--s3);border:1px solid var(--s5);color:var(--text)}
-.dsel-btn.primary{background:var(--accent);color:#fff;border-color:transparent}
-.dsel-btn:active{transform:scale(.97)}
 
 /* 拖拽中：正文接管触摸，禁止系统选择/长按菜单，原节点半透明 */
 body.drag-active{overflow:hidden}

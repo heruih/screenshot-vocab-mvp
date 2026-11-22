@@ -85,14 +85,9 @@
       </button>
       <button class="icon-btn" id="btnHistUndo" title="撤销" aria-label="撤销">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
-      </button>
-      <button class="icon-btn" id="btnClipPaste" title="粘贴" aria-label="粘贴">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+        <span>撤销</span>
       </button>
       <span id="edBreadcrumb"></span>
-      <button class="icon-btn" id="btnFont" title="字体" aria-label="字体">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"/><path d="M4 7h11"/><path d="M11 19l5-12 5 12"/><path d="M13 15h6"/></svg>
-      </button>
       <button class="icon-btn" id="btnLook" title="外观（配色）" aria-label="外观">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="9.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><path d="M12 21a3 3 0 0 1 0-6c2 0 3-1.5 3-3"/></svg>
       </button>
@@ -108,16 +103,13 @@
     <!-- 外观下拉：配色 + 字体，实时生效，不离开编辑页 -->
     <div id="lookPop" class="look-pop" role="dialog" aria-label="外观设置" hidden>
       <div class="look-group">
-        <div class="look-label">配色</div>
+        <div class="look-label">笔记词卡配色</div>
         <div class="look-colors" id="lookColors"></div>
       </div>
-    </div>
-    <div id="fontPop" class="look-pop" role="dialog" aria-label="字体设置" hidden>
       <div class="look-group">
-        <div class="look-label">字体</div>
+        <div class="look-label">正文默认字体</div>
         <div class="look-fonts" id="fontChoices"></div>
       </div>
-      <div class="font-pop-hint" id="fontPopHint">无选区：切换后续输入字体并记住</div>
     </div>
     <div id="editorWrap">
       <div id="noteInboxBar" class="note-inbox-bar hidden" role="button" tabindex="0" aria-label="处理这篇笔记的待处理截图">
@@ -126,7 +118,7 @@
       </div>
       <div class="note-editor-label"><span class="note-editor-kicker">笔记</span><span class="note-editor-context">原始语境 · 个人表达</span></div>
       <div id="noteTitle" class="ce" contenteditable="true" data-ph="标题"></div>
-      <div id="edHint" class="ed-hint hidden">行首打 <b>#</b> 加空格 = 大标题；选中英文单词点 <b>empower</b> 存进表达库</div>
+      <div id="edHint" class="ed-hint hidden">选中文字或长按词卡后，底部可以剪贴、改样式或开始练习。</div>
       <div class="note-body-label">正文</div>
       <div id="noteBody" class="ce" contenteditable="true" data-ph="写点什么…"></div>
     </div>
@@ -142,16 +134,26 @@
 </div>
 
 <!-- ============ 选词操作条（贴底大按钮，好按） ============ -->
-<div id="empowerPill" role="toolbar" aria-label="选中文字的操作">
-  <div class="pill-sel"><span class="pill-tag">已选</span><b id="pillWord"></b></div>
-  <button id="btnDict" aria-label="查询这个词的词典释义">
-    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-    <span>查词</span>
-  </button>
-  <button id="btnEmpower" aria-label="把这个词存入表达库">
-    <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/></svg>
-    <span>empower</span>
-  </button>
+<div id="empowerPill" role="region" aria-label="笔记编辑操作">
+  <div class="pill-sel"><b id="pillWord" aria-live="polite"></b><button id="edClearSelection" type="button">取消选择</button></div>
+  <div class="ed-work-row" id="edSelectionActions" role="group" aria-label="选中内容的操作">
+    <button id="edCopy" type="button">复制</button><button id="edCut" type="button">剪切</button>
+    <button id="edStyle" type="button" aria-expanded="false" aria-controls="edStylePanel">样式</button>
+    <button id="edEmpower" type="button" aria-expanded="false" aria-controls="edEmpowerPanel">Empower</button>
+  </div>
+  <div id="edStylePanel" class="ed-work-panel" hidden>
+    <div><span>字体</span><div class="ed-style-options" id="edFonts"></div></div>
+    <div><span>字号</span><div class="ed-style-options" id="edSizes"></div></div>
+    <div><span>颜色</span><div class="ed-style-options" id="edColors"></div></div>
+  </div>
+  <div id="edEmpowerPanel" class="ed-work-row" hidden>
+    <button id="btnDict" type="button">查词</button><button id="btnEmpower" type="button">加入词库</button>
+    <button id="edSpeak" type="button">对话</button><button id="edWrite" type="button">写作</button>
+  </div>
+  <div id="edClipboardActions" class="ed-work-row" hidden>
+    <button id="btnClipPaste" type="button">粘贴</button><button id="edDrag" type="button">拖动</button>
+    <button id="edQuickUndo" type="button">撤销</button>
+  </div>
 </div>
 
 <!-- ============ 收起键盘（弹窗里输入时浮出，贴在可见区右上角） ============ -->
