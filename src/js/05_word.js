@@ -55,12 +55,12 @@ function editorEmpowerTarget(){
   return {phrase,words,ready:words.filter(word=>!aPending(word))};
 }
 function syncEditorBar(){
-  const clipboard=clipGet();
+  const editing=ui.mode==='edit';
+  $('#btnClipPaste').hidden=!editing||!clipGet();
   const hasText=!!editorTextRange&&bodyEl.contains(editorTextRange.commonAncestorContainer);
   const hasCards=selActive&&selSpans.length>0;
   const picked=hasText||hasCards;
-  const canPaste=!!clipboard&&!picked;
-  const show=ui.mode==='edit'&&!dragOn&&(picked||canPaste||!!editorUndoLabel);
+  const show=editing&&!dragOn&&(picked||!!editorUndoLabel);
   pill.classList.toggle('show',show);
   document.body.classList.toggle('editor-bar-open',show);
   if(!show)return;
@@ -70,8 +70,7 @@ function syncEditorBar(){
   const showEmpower=picked&&canEmpower&&editorPanel==='empower';
   const selectionLabel=hasCards?'已选 '+selSpans.length+' 张词卡：'+selSpans.map(span=>span.textContent.trim()).join('、'):
     hasText?'已选：'+editorSelectedText.trim().replace(/\s+/g,' '):'';
-  const pasteLabel=clipboard?.mode==='cut'?'已剪切，点正文选择粘贴位置':'已复制，点正文选择粘贴位置';
-  pillWord.textContent=selectionLabel||editorUndoLabel||(canPaste?pasteLabel:'');
+  pillWord.textContent=selectionLabel||editorUndoLabel;
   $('#edClearSelection').hidden=!picked;
   $('#edSelectionActions').hidden=!picked;
   $('#edEmpower').hidden=!canEmpower;
@@ -84,10 +83,9 @@ function syncEditorBar(){
   $('#btnEmpower').textContent=words.length?'查看词卡':'加入词库';
   $('#edSpeak').hidden=!ready.length;
   $('#edWrite').hidden=!ready.length;
-  $('#btnClipPaste').hidden=!canPaste;
   $('#edDrag').hidden=!hasCards||showStyle||showEmpower;
   $('#edQuickUndo').hidden=!editorUndoLabel;
-  $('#edClipboardActions').hidden=!canPaste&&!editorUndoLabel&&$('#edDrag').hidden;
+  $('#edClipboardActions').hidden=!editorUndoLabel&&$('#edDrag').hidden;
   placePill();
 }
 function editorUndoFeedback(message){
@@ -170,14 +168,18 @@ function initEditorBar(){
     const ok=selActive?clipCopySelected(selSpans,cut):clipCopyText(editorTextRange,editorSelectedText,cut);
     if(!ok)return;
     $('#edClearSelection').click();
-    if(cut)editorUndoFeedback('已剪切。点正文选择粘贴位置');
+    if(cut)editorUndoFeedback('已剪切');
+    else{editorUndoFeedback('');toast('已复制');}
   }
   $('#edCopy').onclick=()=>copyOrCut(false);
   $('#edCut').onclick=()=>copyOrCut(true);
+  $('#btnClipPaste').addEventListener('pointerdown',e=>e.preventDefault());
   $('#btnClipPaste').onclick=()=>{
     const selection=window.getSelection();
-    const caret=editorBodyCaret(selection?.rangeCount?selection.getRangeAt(0):null)||editorBodyCaret(editorCaret);
-    if(!caret){toast('先点正文，放好光标再粘贴','warn');return;}
+    const range=selection?.rangeCount?selection.getRangeAt(0):null;
+    const hasSelection=selActive||(range&&!range.collapsed&&bodyEl.contains(range.commonAncestorContainer));
+    const caret=editorBodyCaret(range)||editorBodyCaret(editorCaret);
+    if(hasSelection||!caret){toast('先点正文，放好光标再粘贴','warn');return;}
     if(clipPaste(null,caret)){pillHoldAt=0;checkSelection();editorUndoFeedback('已粘贴');}
   };
   $('#edQuickUndo').onclick=histUndo;

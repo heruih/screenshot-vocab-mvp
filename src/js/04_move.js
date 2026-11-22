@@ -257,7 +257,7 @@ function openNote(id){
   ui.note=id; ui.mode='edit'; ui.tag=null; ui.sideOpen=false;
   render();
   try{ histSyncUndoBtn(); }catch(_){ }
-  try{ clipSyncBtn(); }catch(_){ }
+  try{ syncEditorBar(); }catch(_){ }
   const n=state.notes.find(x=>x.id===id);
   restoreCaret(n&&n.sel);
   revealCaret();
@@ -279,7 +279,7 @@ function newNote(){
   ui.note=n.id; ui.mode='edit'; ui.tag=null; ui.sideOpen=false;
   render();
   try{ histSyncUndoBtn(); }catch(_){ }
-  try{ clipSyncBtn(); }catch(_){ }
+  try{ syncEditorBar(); }catch(_){ }
   titleEl.focus();
 }
 function createFolder(name){
@@ -503,12 +503,12 @@ function clipGet(){
 }
 function clipSet(obj){
   try{ localStorage.setItem(CLIPBOARD_KEY,JSON.stringify(obj)); }catch(_){ return false; }
-  clipSyncBtn();
+  syncEditorBar();
   return true;
 }
 function clipClear(){
   try{ localStorage.removeItem(CLIPBOARD_KEY); }catch(_){ return false; }
-  clipSyncBtn();
+  syncEditorBar();
   return true;
 }
 function clipWriteAction(entry,words){
@@ -631,16 +631,7 @@ function clipPaste(targetHead,caret=null){
   words.forEach(word=>linkWordToNote(word,noteId,noteTitle));
   lockWords(bodyEl); mvDecorate(); applyFolds(); persistEditor();
   try{ if(navigator.vibrate)navigator.vibrate(8); }catch(_){}
-  toast(c.mode==='cut'?'已粘贴，剪贴板已清空':'已粘贴，可继续粘贴到别处');
   return true;
-}
-function clipSyncBtn(){
-  const b=$('#btnClipPaste');
-  if(!b)return;
-  const has=!!clipGet();
-  b.classList.toggle('disabled',!has);
-  b.disabled=!has;
-  syncEditorBar();
 }
 /* ============ 系统剪切拦截：选区含词条时引导用应用内按钮，纯文字不拦 ============ */
 function selectionHasWord(){

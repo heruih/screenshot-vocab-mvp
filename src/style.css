@@ -297,10 +297,11 @@ body.mode-edit #noteListPane{display:none}
 }
 #empowerPill [hidden]{display:none}
 #empowerPill #edClearSelection{flex:none;background:transparent;color:var(--text2)}
-#empowerPill #btnClipPaste,#empowerPill button[aria-expanded="true"]{background:var(--accent-soft);color:var(--accent-fg)}
+#empowerPill button[aria-expanded="true"]{background:var(--accent-soft);color:var(--accent-fg)}
 #empowerPill #edQuickUndo{color:var(--accent-fg)}
 #btnHistUndo{width:auto;min-width:44px;padding:0 7px;gap:3px;font-size:12px}
 #btnHistUndo .icon{width:16px;height:16px}
+#btnClipPaste{min-height:44px}
 #empowerPill button:active{transform:scale(.97)}
 .ed-work-panel{display:grid;gap:6px;border-top:1px solid var(--sep);padding-top:6px}
 .ed-work-panel>div{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:4px;color:var(--text2);font-size:12px}

@@ -382,7 +382,7 @@ const COACH_TIPS={
   list:{title:'笔记',text:'点右上角 ＋ 新建笔记；相机按钮可以一次选多张截图，AI 自动识别。'},
   words:{title:'表达库',text:'点任意单词看例句和配图，喇叭图标可以练发音。'},
   flash:{title:'复习',text:'先自己开口说，再看答案；记不住的会安排以后再见。'},
-  edit:{title:'选中内容就能编辑',text:'长按词卡或划选正文，底部就会出现操作。剪贴后，点正文放好光标，再点底部的粘贴；顶部可撤销。'}
+  edit:{title:'选中内容就能编辑',text:'长按词卡或划选正文，底部就会出现操作。复制或剪切后，点正文放好光标，再点顶部的「粘贴」。'}
 };
 function coachState(){
   try{const o=JSON.parse(localStorage.getItem(COACH_KEY)||'{}');if(o&&typeof o==='object')return Object.assign({seen:{},off:false},o);}catch(_){}
