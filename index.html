@@ -309,10 +309,11 @@ body.mode-edit #noteListPane{display:none}
 }
 #empowerPill [hidden]{display:none}
 #empowerPill #edClearSelection{flex:none;background:transparent;color:var(--text2)}
-#empowerPill #btnClipPaste,#empowerPill button[aria-expanded="true"]{background:var(--accent-soft);color:var(--accent-fg)}
+#empowerPill button[aria-expanded="true"]{background:var(--accent-soft);color:var(--accent-fg)}
 #empowerPill #edQuickUndo{color:var(--accent-fg)}
 #btnHistUndo{width:auto;min-width:44px;padding:0 7px;gap:3px;font-size:12px}
 #btnHistUndo .icon{width:16px;height:16px}
+#btnClipPaste{min-height:44px}
 #empowerPill button:active{transform:scale(.97)}
 .ed-work-panel{display:grid;gap:6px;border-top:1px solid var(--sep);padding-top:6px}
 .ed-work-panel>div{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:4px;color:var(--text2);font-size:12px}
@@ -1972,6 +1973,7 @@ body.drag-select #noteBody .en-word.sel-pick{
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
         <span>撤销</span>
       </button>
+      <button class="note-organize-btn" id="btnClipPaste" type="button" hidden>粘贴</button>
       <span id="edBreadcrumb"></span>
       <button class="icon-btn" id="btnLook" title="外观（配色）" aria-label="外观">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="9.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><path d="M12 21a3 3 0 0 1 0-6c2 0 3-1.5 3-3"/></svg>
@@ -2036,7 +2038,7 @@ body.drag-select #noteBody .en-word.sel-pick{
     <button id="edSpeak" type="button">对话</button><button id="edWrite" type="button">写作</button>
   </div>
   <div id="edClipboardActions" class="ed-work-row" hidden>
-    <button id="btnClipPaste" type="button">粘贴</button><button id="edDrag" type="button">拖动</button>
+    <button id="edDrag" type="button">拖动</button>
     <button id="edQuickUndo" type="button">撤销</button>
   </div>
 </div>
@@ -4695,7 +4697,7 @@ function openNote(id){
   ui.note=id; ui.mode='edit'; ui.tag=null; ui.sideOpen=false;
   render();
   try{ histSyncUndoBtn(); }catch(_){ }
-  try{ clipSyncBtn(); }catch(_){ }
+  try{ syncEditorBar(); }catch(_){ }
   const n=state.notes.find(x=>x.id===id);
   restoreCaret(n&&n.sel);
   revealCaret();
@@ -4717,7 +4719,7 @@ function newNote(){
   ui.note=n.id; ui.mode='edit'; ui.tag=null; ui.sideOpen=false;
   render();
   try{ histSyncUndoBtn(); }catch(_){ }
-  try{ clipSyncBtn(); }catch(_){ }
+  try{ syncEditorBar(); }catch(_){ }
   titleEl.focus();
 }
 function createFolder(name){
@@ -4941,12 +4943,12 @@ function clipGet(){
 }
 function clipSet(obj){
   try{ localStorage.setItem(CLIPBOARD_KEY,JSON.stringify(obj)); }catch(_){ return false; }
-  clipSyncBtn();
+  syncEditorBar();
   return true;
 }
 function clipClear(){
   try{ localStorage.removeItem(CLIPBOARD_KEY); }catch(_){ return false; }
-  clipSyncBtn();
+  syncEditorBar();
   return true;
 }
 function clipWriteAction(entry,words){
@@ -5069,16 +5071,7 @@ function clipPaste(targetHead,caret=null){
   words.forEach(word=>linkWordToNote(word,noteId,noteTitle));
   lockWords(bodyEl); mvDecorate(); applyFolds(); persistEditor();
   try{ if(navigator.vibrate)navigator.vibrate(8); }catch(_){}
-  toast(c.mode==='cut'?'已粘贴，剪贴板已清空':'已粘贴，可继续粘贴到别处');
   return true;
-}
-function clipSyncBtn(){
-  const b=$('#btnClipPaste');
-  if(!b)return;
-  const has=!!clipGet();
-  b.classList.toggle('disabled',!has);
-  b.disabled=!has;
-  syncEditorBar();
 }
 /* ============ 系统剪切拦截：选区含词条时引导用应用内按钮，纯文字不拦 ============ */
 function selectionHasWord(){
@@ -5169,12 +5162,12 @@ function editorEmpowerTarget(){
   return {phrase,words,ready:words.filter(word=>!aPending(word))};
 }
 function syncEditorBar(){
-  const clipboard=clipGet();
+  const editing=ui.mode==='edit';
+  $('#btnClipPaste').hidden=!editing||!clipGet();
   const hasText=!!editorTextRange&&bodyEl.contains(editorTextRange.commonAncestorContainer);
   const hasCards=selActive&&selSpans.length>0;
   const picked=hasText||hasCards;
-  const canPaste=!!clipboard&&!picked;
-  const show=ui.mode==='edit'&&!dragOn&&(picked||canPaste||!!editorUndoLabel);
+  const show=editing&&!dragOn&&(picked||!!editorUndoLabel);
   pill.classList.toggle('show',show);
   document.body.classList.toggle('editor-bar-open',show);
   if(!show)return;
@@ -5184,8 +5177,7 @@ function syncEditorBar(){
   const showEmpower=picked&&canEmpower&&editorPanel==='empower';
   const selectionLabel=hasCards?'已选 '+selSpans.length+' 张词卡：'+selSpans.map(span=>span.textContent.trim()).join('、'):
     hasText?'已选：'+editorSelectedText.trim().replace(/\s+/g,' '):'';
-  const pasteLabel=clipboard?.mode==='cut'?'已剪切，点正文选择粘贴位置':'已复制，点正文选择粘贴位置';
-  pillWord.textContent=selectionLabel||editorUndoLabel||(canPaste?pasteLabel:'');
+  pillWord.textContent=selectionLabel||editorUndoLabel;
   $('#edClearSelection').hidden=!picked;
   $('#edSelectionActions').hidden=!picked;
   $('#edEmpower').hidden=!canEmpower;
@@ -5198,10 +5190,9 @@ function syncEditorBar(){
   $('#btnEmpower').textContent=words.length?'查看词卡':'加入词库';
   $('#edSpeak').hidden=!ready.length;
   $('#edWrite').hidden=!ready.length;
-  $('#btnClipPaste').hidden=!canPaste;
   $('#edDrag').hidden=!hasCards||showStyle||showEmpower;
   $('#edQuickUndo').hidden=!editorUndoLabel;
-  $('#edClipboardActions').hidden=!canPaste&&!editorUndoLabel&&$('#edDrag').hidden;
+  $('#edClipboardActions').hidden=!editorUndoLabel&&$('#edDrag').hidden;
   placePill();
 }
 function editorUndoFeedback(message){
@@ -5284,14 +5275,18 @@ function initEditorBar(){
     const ok=selActive?clipCopySelected(selSpans,cut):clipCopyText(editorTextRange,editorSelectedText,cut);
     if(!ok)return;
     $('#edClearSelection').click();
-    if(cut)editorUndoFeedback('已剪切。点正文选择粘贴位置');
+    if(cut)editorUndoFeedback('已剪切');
+    else{editorUndoFeedback('');toast('已复制');}
   }
   $('#edCopy').onclick=()=>copyOrCut(false);
   $('#edCut').onclick=()=>copyOrCut(true);
+  $('#btnClipPaste').addEventListener('pointerdown',e=>e.preventDefault());
   $('#btnClipPaste').onclick=()=>{
     const selection=window.getSelection();
-    const caret=editorBodyCaret(selection?.rangeCount?selection.getRangeAt(0):null)||editorBodyCaret(editorCaret);
-    if(!caret){toast('先点正文，放好光标再粘贴','warn');return;}
+    const range=selection?.rangeCount?selection.getRangeAt(0):null;
+    const hasSelection=selActive||(range&&!range.collapsed&&bodyEl.contains(range.commonAncestorContainer));
+    const caret=editorBodyCaret(range)||editorBodyCaret(editorCaret);
+    if(hasSelection||!caret){toast('先点正文，放好光标再粘贴','warn');return;}
     if(clipPaste(null,caret)){pillHoldAt=0;checkSelection();editorUndoFeedback('已粘贴');}
   };
   $('#edQuickUndo').onclick=histUndo;
@@ -12098,7 +12093,7 @@ const COACH_TIPS={
   list:{title:'笔记',text:'点右上角 ＋ 新建笔记；相机按钮可以一次选多张截图，AI 自动识别。'},
   words:{title:'表达库',text:'点任意单词看例句和配图，喇叭图标可以练发音。'},
   flash:{title:'复习',text:'先自己开口说，再看答案；记不住的会安排以后再见。'},
-  edit:{title:'选中内容就能编辑',text:'长按词卡或划选正文，底部就会出现操作。剪贴后，点正文放好光标，再点底部的粘贴；顶部可撤销。'}
+  edit:{title:'选中内容就能编辑',text:'长按词卡或划选正文，底部就会出现操作。复制或剪切后，点正文放好光标，再点顶部的「粘贴」。'}
 };
 function coachState(){
   try{const o=JSON.parse(localStorage.getItem(COACH_KEY)||'{}');if(o&&typeof o==='object')return Object.assign({seen:{},off:false},o);}catch(_){}
