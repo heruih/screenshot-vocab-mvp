@@ -432,37 +432,41 @@ function deleteFolder(id){
     }
   });
 }
-/* 赋能词内按回车 → 换行并恢复普通文本输入 */
-function handleEnterInWord(e){
-  if(e.key!=='Enter') return;
-  const sel=window.getSelection();
-  if(!sel) return;
-  const node=sel.anchorNode;
-  if(!node) return;
-  const span=node.nodeType===3?(node.parentElement&&node.parentElement.closest('.en-word')):(node.nodeType===1?node.closest('.en-word'):null);
-  if(!span||!span.parentNode) return;
-  e.preventDefault();
-  const parent=span.parentNode;
-  const br=document.createElement('br');
-  if(node.nodeType===3&&node.parentElement===span){
-    const off=sel.anchorOffset;
-    if(off<node.length){
-      const tail=node.splitText(off);
-      parent.insertBefore(tail,span.nextSibling);
-      parent.insertBefore(br,tail);
-    }else{
-      parent.insertBefore(br,span.nextSibling);
-    }
-  }else{
-    parent.insertBefore(br,span.nextSibling);
-  }
-  if(span.textContent.trim()==='') parent.removeChild(span);
+function placeWordCaret(span,after){
+  if(!span||!bodyEl.contains(span))return;
+  bodyEl.focus({preventScroll:true});
   const range=document.createRange();
-  range.setStartAfter(br);
+  if(after)range.setStartAfter(span);
+  else range.setStartBefore(span);
   range.collapse(true);
-  sel.removeAllRanges();
-  sel.addRange(range);
-  onEditorInput();
+  const selection=window.getSelection();
+  selection.removeAllRanges();selection.addRange(range);
+}
+function handleWordCaretKey(e){
+  if(e.isComposing||e.metaKey||e.ctrlKey||e.altKey||e.shiftKey)return;
+  const key=e.key;
+  if(key!=='ArrowLeft'&&key!=='ArrowRight'&&key!=='Enter')return;
+  const selection=window.getSelection();
+  if(!selection?.rangeCount||!selection.isCollapsed)return;
+  const {startContainer:node,startOffset:offset}=selection.getRangeAt(0);
+  if(!bodyEl.contains(node))return;
+  const text=node.nodeType===Node.TEXT_NODE;
+  const span=(text?node.parentElement:node).closest('.en-word');
+  const right=key==='ArrowRight';
+  if(span){
+    if(key==='Enter'){
+      // 有些浏览器会暂时报出卡片内部的光标。让原生换行发生在整张卡片之后。
+      placeWordCaret(span,true);
+      return;
+    }
+    e.preventDefault();placeWordCaret(span,right);return;
+  }
+  if(key==='Enter')return;
+  if(text&&offset!==(right?node.length:0))return;
+  let neighbor=text?(right?node.nextSibling:node.previousSibling):node.childNodes[right?offset:offset-1];
+  while(neighbor?.nodeType===Node.TEXT_NODE&&!neighbor.length)neighbor=right?neighbor.nextSibling:neighbor.previousSibling;
+  if(neighbor?.nodeType!==Node.ELEMENT_NODE||!neighbor.matches('.en-word'))return;
+  e.preventDefault();placeWordCaret(neighbor,right);
 }
 
 /* 点击赋能词（含左侧小圆点）→ 查看单词卡片 */
@@ -608,7 +612,7 @@ function clipPaste(targetHead,caret=null){
   const words=clipWordsIn(els),cut=c.mode==='cut';
   if(inline&&c.kind==='inline')frag.append(...els[0].childNodes);
   else els.forEach((el,i)=>{
-    if(inline&&i>0)frag.append(' ');
+    if(inline&&i>0)frag.append(document.createElement('br'));
     frag.append(el);
   });
   const last=frag.lastChild;

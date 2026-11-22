@@ -1359,8 +1359,7 @@ function bindEvents(){
   bodyEl.addEventListener('touchend',scheduleCheck);
   titleEl.addEventListener('keyup',scheduleCheck);
   bodyEl.addEventListener('keyup',scheduleCheck);
-  titleEl.addEventListener('keydown',handleEnterInWord);
-  bodyEl.addEventListener('keydown',handleEnterInWord);
+  bodyEl.addEventListener('keydown',handleWordCaretKey);
   /* 大标题：回车往下回到正文，行首退格变回正文 */
   bodyEl.addEventListener('keydown',e=>{
     if(e.isComposing) return;

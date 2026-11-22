@@ -30,6 +30,13 @@ function ensureDragEls(){
 
 /* ---------------- 长按检测 ---------------- */
 function initDragPress(){
+  bodyEl.addEventListener('contextmenu',e=>{
+    if(ui.mode!=='edit'||ui.sideOpen||e.pointerType==='touch'||(e.button!==2&&!e.ctrlKey))return;
+    const card=e.target.closest('.en-word');
+    if(!card)return;
+    e.preventDefault();
+    beginSelect([card]);
+  });
   bodyEl.addEventListener('touchstart',e=>{
     clearTimeout(pressTimer);pressMoved=false;pressKind='';pressNode=null;
     suppressClick=false;

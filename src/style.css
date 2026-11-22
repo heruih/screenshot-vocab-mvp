@@ -265,6 +265,7 @@ body.mode-edit #noteListPane{display:none}
 }
 .en-word::before{content:none}
 .en-word:active{filter:brightness(.95)}
+#noteBody .en-word{display:inline-block;max-width:100%;overflow-wrap:anywhere;vertical-align:baseline}
 @media (max-width:767px){
   body.mode-edit #editorWrap{padding:18px 16px 120px}
   .note-editor-label{padding-bottom:12px}
