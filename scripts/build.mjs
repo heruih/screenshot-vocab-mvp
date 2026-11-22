@@ -41,6 +41,8 @@ const modules = [
   '10i_persona.js',
   '10j_errorcause.js',
   '10k_text_relay.js',
+  '10l_conc_data.js',
+  '10l_abstract.js',
   '12_feedback.js',
   '13_drag.js',
   '11_boot.js',

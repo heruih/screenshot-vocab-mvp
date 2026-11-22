@@ -141,38 +141,85 @@ function aImageSetConfirm(rec){
   if(confirm) confirm.classList.toggle('hidden',!aImageCurrent(rec&&rec.term||'')||!!(rec&&rec.confirmed));
   if(more) more.classList.toggle('hidden',!!(rec&&rec.confirmed)||!rec||!Array.isArray(rec.cands)||rec.cands.length<2);
 }
+let aImageLastFlipAt=0;
+/* 同步截图卡：有截图就填充并显示，没有就隐藏并复位层级 */
+function aImageSyncShotCard(term){
+  const stack=$('#wmIllusBox'), shotCard=$('#wmShotCard'), shotImg=$('#wmShotImg');
+  if(!stack)return false;
+  const list=shotsGet(term);
+  if(list.length){
+    shotCard.classList.remove('hidden');
+    if(shotImg.getAttribute('src')!==list[0].dataUrl)shotImg.src=list[0].dataUrl;
+    return true;
+  }
+  shotCard.classList.add('hidden');
+  stack.classList.remove('flipped');
+  aImageSlide.kind='ai';
+  return false;
+}
+/* 交换两张卡片的层级（叠放方案 A 的核心动作） */
+function aImageFlip(){
+  const stack=$('#wmIllusBox');
+  if(!stack||!wmState)return;
+  const term=wmState.term;
+  if(!shotsGet(term).length)return;
+  stack.classList.toggle('flipped');
+  const flipped=stack.classList.contains('flipped');
+  aImageSlide={term:String(term||''),kind:flipped?'shot':'ai',touchX:0,touchY:0};
+  aImageLastFlipAt=Date.now();
+  const note=$('#aImageSwipeNote');
+  if(note)note.textContent=flipped?'点击边角或左滑回到配图':'点击边角或左滑查看截图';
+}
 function aImageRenderAi(term){
   const rec=aImageRecord(term), c=aImageCurrent(term);
+  const stack=$('#wmIllusBox');
+  if(stack)stack.classList.remove('flipped');
   aImageSlide={term:String(term||''),kind:'ai',touchX:0,touchY:0};
+  aImageSyncShotCard(term);
   if(c){
     wmIllusPaint({term:term,cands:rec.cands,idx:rec.idx||0,src:rec.prov||rec.src||'ai'});
     aImageSetConfirm(Object.assign({},rec,{term:term}));
-    const note=$('#aImageSwipeNote');if(note)note.textContent=shotsGet(term).length?'左滑查看截图':'当前没有截图';
+    const note=$('#aImageSwipeNote');if(note)note.textContent=shotsGet(term).length?'点击边角或左滑查看截图':'当前没有截图';
     return true;
   }
   return false;
 }
 function aImageRenderShot(term){
-  const list=shotsGet(term), img=$('#wmIllusImg'), box=$('#wmIllus'), skel=$('#wmIllusSkel'), cap=$('#wmIllusCap'), more=$('#wmIllusMore'), confirm=$('#wmIllusConfirm');
-  if(!list.length||!img||!box)return false;
+  if(!aImageSyncShotCard(term))return false;
+  const stack=$('#wmIllusBox');
+  if(stack)stack.classList.add('flipped');
   aImageSlide={term:String(term||''),kind:'shot',touchX:0,touchY:0};
-  wmMemoHide();box.classList.remove('hidden');if(skel)skel.classList.add('hidden');img.classList.add('ok');img.alt='原始截图';img.src=list[0].dataUrl;
-  if(cap){cap.textContent='原始截图 1 / '+list.length;cap.removeAttribute('href');}
-  if(more)more.classList.add('hidden');if(confirm)confirm.classList.add('hidden');
-  const note=$('#aImageSwipeNote');if(note)note.textContent='左滑回到 AI 图';
+  aImageLastFlipAt=Date.now();
+  const note=$('#aImageSwipeNote');if(note)note.textContent='点击边角或左滑回到配图';
   return true;
 }
-function aImageSwipe(dir){
-  if(!wmState||!wmState.term)return;
-  const term=wmState.term;
-  if(dir>0&&aImageSlide.kind==='ai'&&shotsGet(term).length){aImageRenderShot(term);return;}
-  if(dir<0&&aImageSlide.kind==='shot'){aImageRenderAi(term);return;}
-}
 function aImageBindSwipe(){
-  const box=$('#wmIllus');if(!box||box.dataset.aSwipeBound)return;box.dataset.aSwipeBound='1';
+  const stack=$('#wmIllusBox');
+  if(!stack)return;
+  if(wmState&&wmState.term)aImageSyncShotCard(wmState.term);
+  if(stack.dataset.aSwipeBound)return;stack.dataset.aSwipeBound='1';
   const start=e=>{const p=e.touches?e.touches[0]:e;aImageSlide.touchX=p.clientX;aImageSlide.touchY=p.clientY;};
-  const end=e=>{const p=e.changedTouches?e.changedTouches[0]:e,dx=p.clientX-aImageSlide.touchX,dy=p.clientY-aImageSlide.touchY;if(Math.abs(dx)<45||Math.abs(dx)<Math.abs(dy)*1.2)return;aImageSwipe(dx<0?-1:1);};
-  box.addEventListener('touchstart',start,{passive:true});box.addEventListener('touchend',end,{passive:true});
+  const end=e=>{
+    const p=e.changedTouches?e.changedTouches[0]:e,
+      dx=p.clientX-aImageSlide.touchX,dy=p.clientY-aImageSlide.touchY;
+    if(Math.abs(dx)<45||Math.abs(dx)<Math.abs(dy)*1.2)return;
+    if(wmState&&shotsGet(wmState.term).length)aImageFlip();
+  };
+  stack.addEventListener('touchstart',start,{passive:true});
+  stack.addEventListener('touchend',end,{passive:true});
+  /* 触摸滑动后的合成 click 会被时间戳守卫挡掉，避免一次操作翻转两次 */
+  const clickGuard=()=>Date.now()-aImageLastFlipAt<450;
+  const shotCard=$('#wmShotCard'),picCard=$('#wmPicCard');
+  if(shotCard)shotCard.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(clickGuard()||stack.classList.contains('flipped'))return;
+    aImageFlip();
+  });
+  if(picCard)picCard.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(clickGuard()||!stack.classList.contains('flipped'))return;
+    aImageFlip();
+  });
 }
 async function aGenerateImage(term,signal){
   if(aRoute()!=='api')return null;
@@ -389,7 +436,7 @@ function aInit(){
   $('#aApply').onclick=()=>{if(!aBridgeJob)return;try{const value=aValidateResult(aParseResult($('#aResult').value),aBridgeJob.prompt);const job=aBridgeJob;aBridgeJob=null;$('#aBridge').classList.remove('show');job.resolve(value);}catch(e){$('#aBridgeError').textContent='还不能使用：'+e.message;}};
   $('#aRecallClose').onclick=()=>{$('#aRecall').classList.remove('show');render();};const batchCloseBtn=$('#aBatchClose'),batchPanel=$('#aBatch');if(batchCloseBtn)batchCloseBtn.onclick=()=>batchClose();if(batchPanel)batchPanel.addEventListener('click',e=>{if(e.target.id==='aBatch')batchClose();});$('#aBackupClose').onclick=()=>$('#aBackup').classList.remove('show');$('#aExport').onclick=aDownloadBackup;$('#aImport').onchange=e=>{aImportFile(e.target.files[0]);e.target.value='';};
   ['aPurpose','aOwn','aOriginal','aSource','aTime'].forEach(id=>$('#'+id).addEventListener('input',()=>{if(wmState&&wmState.aMetaKey)aPut(wmState.aMetaKey,aFieldValues());}));
-  const cap=$('#wmIllusCap');if(cap&&!$('#aImageSwipeNote')){const note=document.createElement('span');note.id='aImageSwipeNote';note.className='illus-swipe-note';note.textContent='右滑查看截图';cap.append(note);}
+  const cap=$('#wmIllusCap');if(cap&&!$('#aImageSwipeNote')){const note=document.createElement('span');note.id='aImageSwipeNote';note.className='illus-swipe-note';note.textContent='点击边角或左滑查看截图';cap.append(note);}
   const confirm=$('#wmIllusConfirm');if(confirm){confirm.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();if(!wmState)return;const rec=aImageRecord(wmState.term),c=aImageCurrent(wmState.term);if(!c)return;rec.term=wmState.term;rec.confirmed=true;wmImgStore(wmState.term,rec);aImageSetConfirm(rec);toast('图片已确定，之后打开会保持这一张','ok');},{capture:true});}
   const more=$('#wmIllusMore');
   if(more)more.addEventListener('click',()=>{

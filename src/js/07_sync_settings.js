@@ -348,7 +348,6 @@ function syncSettingsUI(){
   $$('#stTheme [data-theme-val]').forEach(b=>b.classList.toggle('on',activeTheme===b.dataset.themeVal));
   $$('#stFs [data-fs-val]').forEach(b=>b.classList.toggle('on',(st.fs||'m')===b.dataset.fsVal));
   $$('#stWordColor [data-wc-val]').forEach(b=>b.classList.toggle('on',getWordColor()===b.dataset.wcVal));
-  $$('#stFont [data-font-val]').forEach(b=>b.classList.toggle('on',getFontChoice()===b.dataset.fontVal));
   const n=$('#stBackupNote');
   if(n){
     n.textContent=backupNoteText();
@@ -467,7 +466,7 @@ const GUIDE_STEPS={
       {kind:'recharge',text:'先充值余额，否则调用会被拒绝'},
       {kind:'create',text:'创建 API Key 并复制，粘回本 App 保存'}]},
   pixabay:{label:'Pixabay配图',url:'https://pixabay.com/api/docs/',warn:false,
-    note:'免费图片密钥，选填，不填也有记忆卡兜底',
+    note:'免费图片密钥，选填；不填也默认用 Openverse 自动找图，找不到可改用截图',
     steps:[
       {kind:'register',img:'pixabay-1.jpeg',text:'打开 Pixabay，点右上角 Log in 注册一个免费账号'},
       {kind:'verify',text:'去邮箱点确认链接，激活账号'},
@@ -1036,15 +1035,12 @@ function backupReminder(){
 const LOOK_COLOR_LABEL={sky:'晴空蓝',mint:'薄荷绿',amber:'暖琥珀',lilac:'丁香紫',pearl:'珍珠白',capsule:'胶囊'};
 const LOOK_FONT_LABEL={system:'系统默认',serif:'衬线',rounded:'圆润',mono:'等宽'};
 function initLookPop(){
-  const pop=$('#lookPop'),btn=$('#btnLook'),colorBox=$('#lookColors'),fontBox=$('#lookFonts');
+  const pop=$('#lookPop'),btn=$('#btnLook'),colorBox=$('#lookColors');
   colorBox.innerHTML=WORD_COLORS.map(c=>
     '<button type="button" class="look-color" data-c="'+c+'" aria-label="'+LOOK_COLOR_LABEL[c]+'"><span class="lc-dot lc-'+c+'"></span><small>'+LOOK_COLOR_LABEL[c]+'</small></button>').join('');
-  fontBox.innerHTML=FONT_CHOICES.map(f=>
-    '<button type="button" class="look-font" data-f="'+f+'">'+LOOK_FONT_LABEL[f]+'</button>').join('');
   function syncLook(){
-    const cc=getWordColor(),ff=getFontChoice();
+    const cc=getWordColor();
     colorBox.querySelectorAll('.look-color').forEach(b=>b.classList.toggle('on',b.getAttribute('data-c')===cc));
-    fontBox.querySelectorAll('.look-font').forEach(b=>b.classList.toggle('on',b.getAttribute('data-f')===ff));
   }
   btn.addEventListener('click',e=>{
     e.stopPropagation();
@@ -1055,9 +1051,33 @@ function initLookPop(){
     const b=e.target.closest('.look-color');if(!b)return;
     setWordColor(b.getAttribute('data-c'));syncLook();
   });
-  fontBox.addEventListener('click',e=>{
+  document.addEventListener('pointerdown',e=>{
+    if(!pop.hidden&&!pop.contains(e.target)&&e.target!==btn)pop.hidden=true;
+  });
+}
+/* 独立字体弹层：有选区只改选中部分，无选区改后续输入并记住为默认 */
+function initFontPop(){
+  const pop=$('#fontPop'),btn=$('#btnFont'),box=$('#fontChoices'),hint=$('#fontPopHint');
+  box.innerHTML=FONT_CHOICES.map(f=>
+    '<button type="button" class="look-font" data-f="'+f+'">'+LOOK_FONT_LABEL[f]+'</button>').join('');
+  function syncFont(){
+    const ff=getFontChoice();
+    box.querySelectorAll('.look-font').forEach(b=>b.classList.toggle('on',b.getAttribute('data-f')===ff));
+  }
+  btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(pop.hidden){
+      syncFont();
+      hint.textContent=editorFontRange()?'已选中：只改选中部分的字体':'无选区：切换后续输入字体并记住';
+      pop.hidden=false;
+    }else pop.hidden=true;
+  });
+  pop.addEventListener('click',e=>e.stopPropagation());
+  box.addEventListener('click',e=>{
     const b=e.target.closest('.look-font');if(!b)return;
-    setFontChoice(b.getAttribute('data-f'));syncLook();
+    editorApplyFont(b.getAttribute('data-f'));
+    syncFont();
+    pop.hidden=true;
   });
   document.addEventListener('pointerdown',e=>{
     if(!pop.hidden&&!pop.contains(e.target)&&e.target!==btn)pop.hidden=true;
@@ -1065,6 +1085,7 @@ function initLookPop(){
 }
 function bindEvents(){
   try{ initLookPop(); }catch(e){ console.error('外观面板初始化失败',e); }
+  try{ initFontPop(); }catch(e){ console.error('字体面板初始化失败',e); }
   /* 侧边栏 */
   $('#btnNewFolder').addEventListener('click',()=>{
     showConfirm({title:'新建文件夹',msg:'',okText:'创建',danger:false,onOk:null});
@@ -1129,9 +1150,6 @@ function bindEvents(){
   $$('#stWordColor [data-wc-val]').forEach(b=>b.addEventListener('click',()=>{
     setWordColor(b.dataset.wcVal); syncSettingsUI();
   }));
-  $$('#stFont [data-font-val]').forEach(b=>b.addEventListener('click',()=>{
-    setFontChoice(b.dataset.fontVal); syncSettingsUI();
-  }));
   $('#stAnki').addEventListener('click',exportAnki);
   /* 云同步 */
   $$('#stSyncProv [data-syncprov-val]').forEach(b=>b.addEventListener('click',()=>{
@@ -1186,7 +1204,6 @@ function bindEvents(){
     else if(k==='flash'){ ui.mode='flash'; ui.flash=null; }
     else if(k==='speak'){ ui.mode='speak'; }
     else if(k==='write-history'){ ui.sideOpen=false; render(); try{openWriteHistory();}catch(_){} return; }
-    else if(k==='feedback'){ ui.sideOpen=false; render(); try{openFeedback();}catch(_){} return; }
     if(ui.mode!=='words'){ ui.selMode=false; ui.sel=[]; }
     ui.note=null; ui.tag=null; ui.sideOpen=false;
     render();

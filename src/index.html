@@ -40,10 +40,6 @@
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
         <span class="nav-copy"><b class="nav-name">我的作文</b><small class="nav-desc">回看历史写作与批改</small></span>
       </button>
-      <button class="nav-item" data-nav="feedback">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9.5h8M8 13h5"/></svg>
-        <span class="nav-copy"><b class="nav-name">意见反馈</b><small class="nav-desc">不满意或建议，随时告诉我们</small></span>
-      </button>
       <div class="nav-divider">文件夹</div>
       <div id="folderList"></div>
     </nav>
@@ -94,7 +90,10 @@
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
       </button>
       <span id="edBreadcrumb"></span>
-      <button class="icon-btn" id="btnLook" title="外观（配色 / 字体）" aria-label="外观">
+      <button class="icon-btn" id="btnFont" title="字体" aria-label="字体">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"/><path d="M4 7h11"/><path d="M11 19l5-12 5 12"/><path d="M13 15h6"/></svg>
+      </button>
+      <button class="icon-btn" id="btnLook" title="外观（配色）" aria-label="外观">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="9.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><path d="M12 21a3 3 0 0 1 0-6c2 0 3-1.5 3-3"/></svg>
       </button>
       <button class="note-organize-btn" id="btnNoteOrganize" type="button" title="整理这篇笔记">整理</button>
@@ -112,10 +111,13 @@
         <div class="look-label">配色</div>
         <div class="look-colors" id="lookColors"></div>
       </div>
+    </div>
+    <div id="fontPop" class="look-pop" role="dialog" aria-label="字体设置" hidden>
       <div class="look-group">
         <div class="look-label">字体</div>
-        <div class="look-fonts" id="lookFonts"></div>
+        <div class="look-fonts" id="fontChoices"></div>
       </div>
+      <div class="font-pop-hint" id="fontPopHint">无选区：切换后续输入字体并记住</div>
     </div>
     <div id="editorWrap">
       <div id="noteInboxBar" class="note-inbox-bar hidden" role="button" tabindex="0" aria-label="处理这篇笔记的待处理截图">
@@ -275,9 +277,14 @@
         <button class="memo-keyhint hidden" id="wmMemoKeyHint" type="button">配个图库 Key 会更好：真实图片记得更牢，点这里看怎么配</button>
       </div>
       <div class="wm-illus hidden" id="wmIllus">
-        <div class="illus-box">
+        <div class="illus-box" id="wmIllusBox">
           <div class="illus-skel" id="wmIllusSkel"></div>
-          <img id="wmIllusImg" alt="" decoding="async">
+          <div class="illus-card illus-card-shot hidden" id="wmShotCard">
+            <img id="wmShotImg" alt="原始截图" decoding="async">
+          </div>
+          <div class="illus-card illus-card-pic" id="wmPicCard">
+            <img id="wmIllusImg" alt="" decoding="async">
+          </div>
         </div>
         <div class="illus-cap">
           <a id="wmIllusCap" target="_blank" rel="noopener"></a>
@@ -488,7 +495,7 @@
             <ul class="ag-list ag-faq">
               <li><b>填错会扣钱吗？</b>不会，填错只是连不上、会提示错误，不产生费用。</li>
               <li><b>官网打不开？</b>换个网络或稍后再试，可先跳过，不影响其它功能。</li>
-              <li><b>配图 Key 是什么？</b>Pixabay 免费图片密钥，选填，不填也有记忆卡兜底。</li>
+              <li><b>配图要配 Key 吗？</b>不用。配图默认自动用 Openverse 找图，找不到再用 Pixabay；Pixabay Key 只是选填，不填也能看图或改用截图。</li>
             </ul>
           </details>
           <div class="ag-safety">Key 只保存在本机、不会上传；请勿截图发到公开场合或发给别人。</div>
@@ -550,9 +557,9 @@
         <div class="st-g-body">
       <div class="media-intro">这两项都不影响背单词的核心功能，不填也能用；填了发音更好听、配图更准。下面分别写清楚利弊，你按需接。</div>
       <div class="media-card">
-        <div class="media-card-head"><b>配图 Pixabay</b><span class="media-badge">推荐接 · 免费</span></div>
-        <p class="media-pros">利：免费真实照片，帮你看图记词；申请简单、不花钱。</p>
-        <p class="media-cons">弊：要花几分钟注册拿 Key；不填也有 Openverse 免费图和记忆卡兜底。</p>
+        <div class="media-card-head"><b>配图 Pixabay（选填）</b><span class="media-badge">免费 · 不配也能用</span></div>
+        <p class="media-pros">利：免费真实照片，配了自己的 Key 多一个图源，看图记词更稳。</p>
+        <p class="media-cons">弊：要花几分钟注册拿 Key；不填也默认用 Openverse 自动找图，找不到可改用截图。</p>
         <div class="st-field">
           <label for="stPixabay">Pixabay Key（选填）</label>
           <input id="stPixabay" type="password" placeholder="填了显示真实照片；不填也能用" autocomplete="off">
@@ -594,15 +601,6 @@
           <button data-wc-val="lilac">丁香紫</button>
           <button data-wc-val="pearl">珍珠白</button>
           <button data-wc-val="capsule">复古胶囊</button>
-        </div>
-      </div>
-      <div class="st-field">
-        <label>正文字体</label>
-        <div class="seg seg-wide" id="stFont">
-          <button data-font-val="system">系统默认</button>
-          <button data-font-val="serif">优雅衬线</button>
-          <button data-font-val="rounded">圆润无衬线</button>
-          <button data-font-val="mono">等宽打字机</button>
         </div>
       </div>
         </div>
@@ -680,18 +678,24 @@
       </div>
       </section>
       <div class="st-help">
-        <b>兼容说明：</b>支持任意 OpenAI 格式的接口。点上方按钮会自动填好地址和模型：DeepSeek（api.deepseek.com / deepseek-flash）、智谱（open.bigmodel.cn/api/paas/v4 / glm-4-flash，免费）、OpenAI（api.openai.com/v1 / gpt-4o-mini）。模型名以服务商控制台为准，下线了会报 HTTP 400。<br>
-        <b>隐私：</b>AI 密钥和同步凭据只存在本机浏览器（localStorage），只会直连你选的服务商 / 你自己的仓库，不经过我们的服务器。<br>
+        <b>兼容说明：</b>支持任意 OpenAI 格式的接口。点上方卡片会自动填好地址和模型：DeepSeek（api.deepseek.com / deepseek-flash，便宜稳定）、豆包（有免费额度、到量自动停）、ChatGPT（国内无法直连）。模型名以服务商控制台为准，下线了会报 HTTP 400。<br>
+        <b>隐私：</b>你自己的 AI 密钥和同步凭据只存在本机浏览器（localStorage），调用时直连你选的服务商 / 你自己的仓库，不会上传给我们。<br>
+        <b>自动配图：</b>配图无需你配置，默认由我们的中转服务完成：抽象词先转成具体可搜的词，再从 Openverse（已认证）找图，找不到再用 Pixabay；这一步不使用你的密钥，也可以随时忽略配图、只用截图。<br>
         <b>云同步：</b>填 GitHub Token（或自建地址）后，手机和电脑共用一份数据；按条目合并、删除也会同步，改完约 5 秒自动上传。<br>
         <b>AI 对话：</b>配置同一套接口后，单词弹窗里的「AI 对话」进入「情景口语」——选场景、开口翻译、AI 打分纠错、标准答案跟读。<br>
         <b>朗读：</b>单词用词典真人女声；英文句子与中文提示自动选系统里最自然的女声（设备不同会略有差异）。<br>
-        <b>未配置时：</b>empower 会使用免费词典接口查询释义；网络不可用时可直接手动填写。
+        <b>未配置时：</b>查词会使用免费词典接口，配图与截图照常可用；网络不可用时可直接手动填写。
       </div>
     </div>
     <div class="st-actions">
       <button class="btn" id="stClear">清除配置</button>
       <button class="btn" id="stTest">测试连接</button>
       <button class="btn primary" id="stSave">保存设置</button>
+    </div>
+    <div class="st-feedback">
+      <b>意见反馈</b>
+      <p class="a-note">哪里不好用、想加什么功能，写下来或截图告诉我们</p>
+      <button class="btn" id="stFeedbackBtn" type="button" style="width:100%;min-height:42px">写意见 / 提建议</button>
     </div>
   </div>
 </div>
@@ -880,9 +884,9 @@
  <div class="modal-card a-guide-card"><div class="wm-head"><div><b>使用小手册</b><div class="a-note">每天做一小轮，慢慢把“看懂”变成“用得出”。</div></div><button class="modal-close" id="aGuideClose" aria-label="关闭使用小手册">×</button></div>
  <div class="wm-body a-guide-body">
   <div class="a-guide-step"><b>1. 截图收集</b><span>看全英视频或日常遇到好表达，点相机按钮选字幕截图，可一次选多张，AI 自动识别文字。</span></div>
-  <div class="a-guide-step"><b>2. 自己整理</b><span>选中要学的表达，写清中文功能、原句和自己的句子，归到一篇笔记后再加入学习。</span></div>
-  <div class="a-guide-step"><b>3. 回想复习</b><span>每天先完成待复习的词，先自己说、再看答案；主页面左右滑就能切换。</span></div>
-  <div class="a-guide-step"><b>4. 开口练</b><span>复习后按每组约 5 个词进入情景对话，单词页也能单独练发音和例句。</span></div>
+  <div class="a-guide-step"><b>2. 自己整理</b><span>选中要学的表达，写清中文功能、原句和自己的句子；编辑器工具栏可给内容切换字体，归到一篇笔记后再加入学习。</span></div>
+  <div class="a-guide-step"><b>3. 配图与截图</b><span>每个词自动配真实图片（抽象词会先转成具体画面），配图和你的截图叠在一起，点卡片边角或左滑就能切换；不想要配图可只用截图。</span></div>
+  <div class="a-guide-step"><b>4. 回想复习 · 开口练</b><span>每天先完成待复习的词，先自己说、再看答案；再按每组约 5 个词进入情景对话，单词页也能单独练发音。</span></div>
   <div class="a-guide-step"><b>5. 装到主屏幕 · 用完导出</b><span>装到主屏幕像 App 一样用、数据更稳；每次用完导出一份备份，清缓存或换设备才不会丢。</span></div>
   <div class="a-guide-tip">浏览器里的数据清缓存会消失，只有“装到主屏幕”的独立 App 能豁免；记得定期导出完整备份。</div>
  </div></div>

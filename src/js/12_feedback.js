@@ -27,8 +27,9 @@ function closeFeedback(){
   $('#feedbackModal').classList.remove('show');
 }
 function initFeedback(){
-  const fab=$('#fabFeedback');
-  if(fab)fab.addEventListener('click',openFeedback);
+  /* 反馈入口已移到设置页底部 */
+  const btn=$('#stFeedbackBtn');
+  if(btn)btn.addEventListener('click',openFeedback);
   const close=$('#feedbackClose');
   if(close)close.addEventListener('click',closeFeedback);
   const modal=$('#feedbackModal');

@@ -120,13 +120,25 @@ function renderFlash(){
   const picRec=wmImgCached(w.term);
   const picCand=(picRec&&Array.isArray(picRec.cands)&&picRec.cands.length)?picRec.cands[Math.min(picRec.idx||0,picRec.cands.length-1)]:null;
   const picUrl=picCand?(picCand.thumb||picCand.src||''):'';
+  const shot0=shots.length?shots[0].dataUrl:'';
+  let fbMedia='';
+  if(picUrl&&shot0){
+    fbMedia='<div class="fb-stack" data-fbstack>'+
+      '<div class="fb-card fb-card-shot" data-fbflip><img src="'+esc(shot0)+'" alt="截图" data-fbshot="0" loading="lazy"></div>'+
+      '<div class="fb-card fb-card-pic" data-fbflip><img src="'+esc(picUrl)+'" alt="配图" data-fbpic="1" loading="lazy" referrerpolicy="no-referrer"></div>'+
+    '</div>';
+  }else if(picUrl){
+    fbMedia='<div class="fb-stack single"><div class="fb-card fb-card-pic"><img src="'+esc(picUrl)+'" alt="配图" data-fbpic="1" loading="lazy" referrerpolicy="no-referrer"></div></div>';
+  }else if(shot0){
+    fbMedia='<div class="fb-stack single"><div class="fb-card fb-card-shot"><img src="'+esc(shot0)+'" alt="截图" data-fbshot="0" loading="lazy"></div></div>';
+  }
   const backFace=
     '<div class="flash-face flash-back">'+
       (w.phonetic?'<div class="fb-phon">'+esc(w.phonetic)+'</div>':'')+
       '<div class="fb-def">'+esc(w.definition||'（暂无释义）')+'</div>'+
       (w.collocations&&w.collocations.length?'<div class="fb-coll">'+w.collocations.map(c=>'<span class="coll-chip">'+esc(c)+'</span>').join('')+'</div>':'')+
       (origEx?'<div class="fb-orig">原句：'+qwHTML(origEx.x.en,w.term,w.term,origEx.oi)+'</div>':'')+
-      (picUrl||shots.length?'<div class="fb-shot">'+(picUrl?'<img class="word-pic" src="'+esc(picUrl)+'" alt="配图" data-fbpic="1" loading="lazy" referrerpolicy="no-referrer">':'')+shots.map((sh,i)=>'<img class="word-shot" src="'+sh.dataUrl+'" alt="截图" data-fbshot="'+i+'">').join('')+'</div>':'')+
+      fbMedia+
       (examples.length?'<div class="fb-ex">'+examples.map((o,i)=>{const x=o.x;return '<div class="fb-ex-item"><div class="fb-ex-row"><div class="e" data-fbcn="'+i+'">“'+qwHTML(x.en,w.term,w.term,o.oi)+'”</div>'+speakBtn(x.en)+'</div>'+(x.cn?'<div class="c hided"><span class="cn-real">'+esc(x.cn)+'</span><span class="cn-tip">点这一行看中文</span></div>':'')+'</div>';}).join('')+'</div>':(origEx?'<div class="fb-tagline">原文句已在上方</div>':'<div class="fb-tagline">这个词还没有例句</div>'))+
       '<div class="fb-tagline">第 '+s.box+' 箱 · '+(s.due<=Date.now()?'今天到期':srsNextLabel(w))+'</div>'+
       (srcN?'<div class="fb-src">来自笔记：'+esc(srcN.title||'')+'</div>':'')+
@@ -179,15 +191,36 @@ function renderFlash(){
     if(b.getAttribute('data-play-kind')==='word') speakWord(b.getAttribute('data-play'));
     else speak(b.getAttribute('data-play'),b.getAttribute('data-play-lang')||'en-US');
   }));
-  $$('#flashCard [data-fbshot]').forEach(b=>b.addEventListener('click',e=>{
-    e.stopPropagation();
-    openShotViewerFor(w.term,Number(b.dataset.fbshot));
-  }));
-  /* 点配图 → 打开词卡（那里能换一张、看大图、触发搜索） */
-  $$('#flashCard [data-fbpic]').forEach(b=>b.addEventListener('click',e=>{
-    e.stopPropagation();
-    openWordModal(w.term,null,null,w);
-  }));
+  /* 叠放卡片：点下层露出边角先交换，点当前在上的主图执行原动作；左滑也可交换 */
+  const fbStack=$('#flashCard [data-fbstack]');
+  if(fbStack){
+    let fbLastFlip=0;
+    const doFlip=()=>{fbStack.classList.toggle('flipped');fbLastFlip=Date.now();};
+    let sx=0,sy=0;
+    fbStack.addEventListener('touchstart',e=>{const p=e.touches[0];sx=p.clientX;sy=p.clientY;},{passive:true});
+    fbStack.addEventListener('touchend',e=>{
+      const p=e.changedTouches[0],dx=p.clientX-sx,dy=p.clientY-sy;
+      if(Math.abs(dx)<45||Math.abs(dx)<Math.abs(dy)*1.2)return;
+      if(fbStack.classList.contains('single'))return;
+      e.stopPropagation();doFlip();
+    },{passive:true});
+    fbStack.addEventListener('click',e=>{
+      if(Date.now()-fbLastFlip<450)return;            /* 触摸滑动后的合成 click 忽略 */
+      const shotEl=e.target.closest('[data-fbshot]');
+      const picEl=e.target.closest('[data-fbpic]');
+      if(!shotEl&&!picEl)return;
+      e.stopPropagation();
+      const isSingle=fbStack.classList.contains('single');
+      const flipped=fbStack.classList.contains('flipped');
+      if(shotEl){
+        if(!isSingle&&!flipped){doFlip();return;}
+        openShotViewerFor(w.term,0);
+      }else{
+        if(!isSingle&&flipped){doFlip();return;}
+        openWordModal(w.term,null,null,w);
+      }
+    });
+  }
   $$('#flashCard [data-fbcn]').forEach(el=>el.addEventListener('click',e=>{
     e.stopPropagation();            /* 别让卡片跟着翻回去 */
     const it=el.closest('.fb-ex-item');
@@ -487,7 +520,62 @@ function bodyCleanHTML(){
   c.querySelectorAll('.mv-hit').forEach(e=>e.classList.remove('mv-hit'));
   c.querySelectorAll('[style=""]').forEach(e=>e.removeAttribute('style'));
   c.querySelectorAll('[class=""]').forEach(e=>e.removeAttribute('class'));
+  /* 局部字体：去掉用于占位的零宽空格，解包没有实际内容的空字体壳 */
+  c.querySelectorAll('.tf-serif,.tf-rounded,.tf-mono').forEach(e=>{
+    if(e.innerHTML.indexOf('​')>=0) e.innerHTML=e.innerHTML.split('​').join('');
+    if(!e.textContent && !e.querySelector('img,.en-word')){ while(e.firstChild) e.parentNode.insertBefore(e.firstChild,e); e.remove(); }
+  });
+  c.querySelectorAll('[class=""]').forEach(e=>e.removeAttribute('class'));
   return c.innerHTML;
+}
+/* ============ 局部字体：有选区只改选中部分；无选区改后续输入并记住为默认 ============ */
+const FONT_TF_CLASS={serif:'tf-serif',rounded:'tf-rounded',mono:'tf-mono'};
+function editorFontRange(){
+  const s=window.getSelection();
+  if(!s||s.rangeCount===0) return null;
+  const r=s.getRangeAt(0);
+  if(r.collapsed||!bodyEl.contains(r.commonAncestorContainer)) return null;
+  return r;
+}
+function wrapRangeWithFont(font){
+  const r=editorFontRange();
+  if(!r) return false;
+  const cls=FONT_TF_CLASS[font];
+  const span=document.createElement('span');
+  if(cls) span.className=cls;
+  try{
+    r.surroundContents(span);
+  }catch(_){
+    /* 选区跨多个节点时 surroundContents 会抛错，用 extract+insert 兜底 */
+    const frag=r.extractContents();
+    span.appendChild(frag);
+    r.insertNode(span);
+  }
+  const nr=document.createRange(); nr.selectNodeContents(span);
+  const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(nr);
+  return true;
+}
+function beginInputFont(font){
+  setFontChoice(font);                 /* 记住，作为下次开始的默认 */
+  const cls=FONT_TF_CLASS[font];
+  if(!cls) return;                     /* system：无需容器，回到默认字体 */
+  const s=window.getSelection();
+  const r=document.createRange();
+  if(s&&s.rangeCount&&bodyEl.contains(s.anchorNode)){ r.setStart(s.anchorNode,s.anchorOffset); r.collapse(true); }
+  else { r.selectNodeContents(bodyEl); r.collapse(false); }
+  const span=document.createElement('span');
+  span.className=cls;
+  span.appendChild(document.createTextNode('​'));  /* 零宽空格，防止空 span 被浏览器吞掉 */
+  r.insertNode(span);
+  const nr=document.createRange(); nr.setStart(span.firstChild,1); nr.collapse(true);
+  const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(nr);
+  bodyEl.focus();
+}
+function editorApplyFont(font){
+  if(FONT_CHOICES.indexOf(font)<0) return;
+  if(editorFontRange()) wrapRangeWithFont(font);
+  else beginInputFont(font);
+  save();
 }
 
 /* ============ 赋能词 = 一个整体：光标进不去，也改不了字母 ============ */

@@ -45,7 +45,8 @@ function setFontChoice(v){
 }
 function applyLookPrefs(){
   document.documentElement.setAttribute('data-word-color',getWordColor());
-  document.documentElement.setAttribute('data-font',getFontChoice());
+  /* 全局字体不再切换，固定系统默认；字体改为编辑器内局部/后续输入控制 */
+  document.documentElement.setAttribute('data-font','system');
 }
 let state=null;
 let ui={sideOpen:false,mode:'today',folder:'all',note:null,tag:null,lastNote:null,selectedRange:null,empowerText:'',wordFilter:'all',prevMode:'list',search:'',wordSort:'time',wordTag:'',selMode:false,sel:[],logTerm:'',tagEdit:false,tagNewOpen:false};

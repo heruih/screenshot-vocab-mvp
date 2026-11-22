@@ -61,7 +61,7 @@ async function textRelayFetch(messages,opts){
     throw err;
   }
 }
-/* 图片中转：Worker 内部 Openverse→Pixabay→Seedream 接力。返回 {source,candidates,usage}。 */
+/* 图片中转：本地先判抽象，Worker 内抽象词 LLM 改写后走 Openverse(认证)→Pixabay。返回 {source,candidates,usage}。 */
 async function imgRelayFetch(term,context){
   const relay=textRelayConfig().relayUrl.replace(/\/+$/,'');
   if(!relay)throw new Error('没有可用的中转地址');
@@ -71,7 +71,7 @@ async function imgRelayFetch(term,context){
     const res=await fetch(relay+'/v1/images/generations',{
       method:'POST',
       headers:{'Content-Type':'application/json','X-Device-Id':deviceIdGet()},
-      body:JSON.stringify({term:String(term||''),context:String(context||'')}),
+      body:JSON.stringify({term:String(term||''),context:String(context||''),abstract:isAbstractTerm(term)}),
       signal:ctrl.signal
     });
     if(!res.ok){

@@ -1,8 +1,16 @@
 /* ============ 学习身份（独立 key，不碰主数据，可随时切换/回滚） ============ */
 const PERSONA_KEY='english-notes-persona-v1';
+const PERSONA_SEEN_KEY='english-notes-persona-seen-v1';
 const PERSONA_FREE='free';
 const PERSONA_EXAM='exam';
 let personaCache=null;
+/* 弹窗是否已自动展示过：哪怕用户没点选项就切走，也保证只自动弹这一次 */
+function personaWasSeen(){
+  try{ return localStorage.getItem(PERSONA_SEEN_KEY)==='1'; }catch(_){ return false; }
+}
+function personaMarkSeen(){
+  try{ aStore(PERSONA_SEEN_KEY,'1'); }catch(_){}
+}
 function personaReadRaw(){
   try{ return localStorage.getItem(PERSONA_KEY); }catch(_){ return null; }
 }
@@ -30,11 +38,13 @@ function personaIsFresh(){
 }
 function openPersona(){ personaSyncUI(); $('#personaModal').classList.add('show'); }
 function closePersona(){ $('#personaModal').classList.remove('show'); }
-/* 首次启动：全新用户且没选过才自动弹；老用户升级不打扰，只在设置里可见 */
+/* 首次启动：全新用户且没选过才自动弹，且只自动弹这一次；老用户升级不打扰，只在设置里可见 */
 function personaMaybeShow(){
   try{
-    if(personaGet()!==null)return;
-    if(!personaIsFresh())return;
+    if(personaGet()!==null)return;     /* 已明确选择，不再弹 */
+    if(personaWasSeen())return;        /* 已自动弹过一次（即便没点选项），不再打扰 */
+    if(!personaIsFresh())return;       /* 老用户不打扰 */
+    personaMarkSeen();                 /* 先标记再弹，确保只自动弹这一次 */
     openPersona();
   }catch(_){}
 }

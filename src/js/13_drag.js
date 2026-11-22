@@ -1,13 +1,14 @@
 /* ===== 13_drag.js · 备忘录式长按移动（自研触摸拖拽，与系统剪贴板分开） =====
-   长按单词/整节 → 小菜单「移动 / 复制 / 剪切」
-   - 复制 / 剪切：复用应用内剪贴板（保留/移除，单词绑定不丢）
-   - 移动：先进入多词选择（可加选），再浮起跟手拖拽，插入线 + 自动滚动；
-           拖到左边缘可跨笔记，全程不碰系统剪贴板。
+   长按单词 → 直接进入选择态（该词已选中，可继续加选/减选）；
+   长按整节标题 → 选中该节所有词，进入同一选择态。
+   底部操作条统一提供：
+   - 复制 / 剪切：批量作用，复用应用内剪贴板（保留/移除，单词绑定不丢）
+   - 移动：浮起跟手拖拽，插入线 + 自动滚动，拖到左边缘可跨笔记，全程不碰系统剪贴板。
    所有动作都走 histPush，配合全局撤销可逐步撤回。 */
 
 /* ---------------- 公共状态 ---------------- */
 const DRAG_PRESS_MS=450;
-let dragCtxEl=null, dragGhostEl=null, dragLineEl=null, dragSelBarEl=null;
+let dragGhostEl=null, dragLineEl=null, dragSelBarEl=null;
 let pressTimer=0, pressSX=0, pressSY=0, pressKind='', pressNode=null, pressMoved=false, suppressClick=false;
 /* 选择态：待移动的词条集合 */
 let selActive=false, selSpans=[], dragNodes=[];
@@ -17,19 +18,6 @@ let dragOn=false, dragPayload=null, dragAutoRAF=0, dragAutoDir=0, dragInsert=nul
 let crossPayload=null;
 
 function ensureDragEls(){
-  if(!dragCtxEl){
-    dragCtxEl=document.createElement('div');dragCtxEl.id='dragCtx';dragCtxEl.className='drag-ctx hidden';
-    dragCtxEl.innerHTML=
-      '<button class="drag-ctx-item" data-dact="move"><span class="dci-ico">✥</span>移动</button>'+
-      '<button class="drag-ctx-item" data-dact="copy"><span class="dci-ico">⧉</span>复制</button>'+
-      '<button class="drag-ctx-item" data-dact="cut"><span class="dci-ico">✂</span>剪切</button>';
-    document.body.appendChild(dragCtxEl);
-    dragCtxEl.addEventListener('click',e=>{
-      const b=e.target.closest('[data-dact]');if(!b)return;
-      const act=b.getAttribute('data-dact');
-      handleCtxAction(act);
-    });
-  }
   if(!dragGhostEl){
     dragGhostEl=document.createElement('div');dragGhostEl.id='dragGhost';dragGhostEl.className='drag-ghost hidden';
     document.body.appendChild(dragGhostEl);
@@ -43,9 +31,13 @@ function ensureDragEls(){
     dragSelBarEl.innerHTML=
       '<span class="dsel-count" id="dselCount">已选 1 个</span>'+
       '<button class="dsel-btn ghost" id="dselCancel" type="button">取消</button>'+
+      '<button class="dsel-btn" id="dselCopy" type="button">复制</button>'+
+      '<button class="dsel-btn" id="dselCut" type="button">剪切</button>'+
       '<button class="dsel-btn primary" id="dselMove" type="button">移动</button>';
     document.body.appendChild(dragSelBarEl);
     dragSelBarEl.querySelector('#dselCancel').onclick=cancelSelect;
+    dragSelBarEl.querySelector('#dselCopy').onclick=confirmCopy;
+    dragSelBarEl.querySelector('#dselCut').onclick=confirmCut;
     dragSelBarEl.querySelector('#dselMove').onclick=confirmSelect;
   }
 }
@@ -68,11 +60,18 @@ function initDragPress(){
       if(t.clientX-r.left<=32){pressKind='section';pressNode=head;}
     }
     if(!pressKind)return;
-    const node=pressNode;
+    const node=pressNode,kind=pressKind;
     pressTimer=setTimeout(()=>{
       if(pressMoved)return;
       suppressClick=true;
-      openContextMenu(pressKind,node,pressSX,pressSY);
+      if(kind==='section'){
+        /* 整节：选中该节所有词，进入统一选择态 */
+        const words=[];
+        secGroup(node).forEach(b=>b.querySelectorAll&&b.querySelectorAll('.en-word').forEach(w=>words.push(w)));
+        if(words.length)beginSelect(words);
+      }else{
+        beginSelect([node]);
+      }
       try{if(navigator.vibrate)navigator.vibrate(10);}catch(_){}
     },DRAG_PRESS_MS);
   },{passive:true});
@@ -88,42 +87,47 @@ function initDragPress(){
   },true);
 }
 
-/* ---------------- 上下文菜单 ---------------- */
-function openContextMenu(kind,node,x,y){
-  ensureDragEls();
-  dragCtxEl.classList.remove('hidden');
-  dragCtxEl.dataset.kind=kind;
-  /* 菜单定位在手指附近，避免超出屏幕 */
-  const w=dragCtxEl.offsetWidth||150,h=dragCtxEl.offsetHeight||140;
-  let left=x+14,top=y-h/2;
-  if(left+w>window.innerWidth-8)left=x-w-14;
-  left=Math.max(8,left);top=Math.max(8,Math.min(top,window.innerHeight-h-8));
-  dragCtxEl.style.left=left+'px';dragCtxEl.style.top=top+'px';
-  dragCtxEl._node=node;
+/* ---------------- 选择条：批量复制 / 剪切 ---------------- */
+function confirmCopy(){
+  if(!selSpans.length)return;
+  const spans=selSpans.slice();
+  endSelect();
+  clipCopySelected(spans,false);
 }
-function hideContextMenu(){if(dragCtxEl)dragCtxEl.classList.add('hidden');}
-function handleCtxAction(act){
-  const kind=dragCtxEl.dataset.kind,node=dragCtxEl._node;
-  hideContextMenu();
-  if(!node)return;
-  if(act==='copy'){
-    if(kind==='word')clipCopyWord(node,false);else clipCopySection(node,false);
-  }else if(act==='cut'){
-    if(kind==='word')clipCopyWord(node,true);else clipCopySection(node,true);
-  }else if(act==='move'){
-    if(kind==='section'){
-      /* 整节直接进入拖拽，无需多选 */
-      selSpans=[];
-      beginDrag(secGroup(node));
-    }else{
-      beginSelect(node);
-    }
+function confirmCut(){
+  if(!selSpans.length)return;
+  const spans=selSpans.slice();
+  endSelect();
+  clipCopySelected(spans,true);
+}
+/* 批量复制 / 剪切选中词条（移动仍走跟手拖拽，不在这里） */
+function clipCopySelected(spans,cut){
+  const nodes=collectWordBlocks(spans);
+  if(!nodes.length){ toast('没有可复制的内容','warn');return; }
+  histPush();
+  clipSet({kind:'block',mode:cut?'cut':'copy',html:clipClean(nodes),at:Date.now()});
+  if(cut){
+    const srcId=ui.note;
+    spans.forEach(sp=>{
+      if(!bodyEl.contains(sp))return;
+      const wm=findWordOfSpan(sp);
+      if(wm)unlinkWordFromNote(wm,srcId);
+      const block=sp.parentElement;
+      sp.remove();
+      if(block&&block!==bodyEl&&!(block.textContent.trim()||block.querySelector('.en-word')))block.remove();
+    });
+    applyFolds();mvDecorate();persistEditor();
   }
+  toast(cut?'已剪切 '+spans.length+' 个，到其它笔记点粘贴':'已复制 '+spans.length+' 个，到其它笔记点粘贴');
 }
 
 /* ---------------- 多词选择态 ---------------- */
 function beginSelect(first){
-  selActive=true;selSpans=[first];
+  const list=Array.isArray(first)?first:[first];
+  /* 去重，只保留正文里还存在的词 */
+  selSpans=list.filter((sp,i)=>sp&&bodyEl.contains(sp)&&list.indexOf(sp)===i);
+  if(!selSpans.length){selActive=false;return;}
+  selActive=true;
   document.body.classList.add('drag-select');
   dragSelBarEl.classList.remove('hidden');
   updateSelectCount();syncSelPicks();

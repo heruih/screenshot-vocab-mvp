@@ -578,6 +578,9 @@ body.typing .kb-btn{opacity:1;visibility:visible}
 .st-help b{color:var(--text)}
 .st-actions{display:flex;gap:10px;padding:18px 20px 20px;border-top:1px solid var(--sep);margin-top:18px}
 .st-actions .btn{flex:1}
+.st-feedback{margin:4px 20px 26px;padding:14px 14px 16px;background:var(--s2);border:1px solid var(--s4);border-radius:12px}
+.st-feedback b{color:var(--text);font-size:14px}
+.st-feedback .a-note{margin:6px 0 12px}
 
 /* 确认弹窗 */
 #confirmModal .modal-card{width:min(92vw,340px)}
@@ -1173,15 +1176,27 @@ body.mode-flash .global-search,body.mode-speak .global-search{display:none}
 .wm-draft-drop:active{opacity:.6}
 
 /* ============ 单词配图 ============ */
-.wm-illus{margin:0 0 14px}
+.wm-illus{margin:0 0 14px;padding:6px 14px 10px}
 .illus-box{
-  position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;
-  background:var(--s3);border:1px solid var(--sep);
+  position:relative;width:100%;aspect-ratio:16/9;
 }
-.illus-box img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .25s ease}
-.illus-box img.ok{opacity:1}
+.illus-card{
+  position:absolute;inset:0;border-radius:12px;overflow:hidden;
+  background:var(--s3);border:1px solid var(--sep);
+  box-shadow:0 6px 16px rgba(0,0,0,.14);
+  transition:transform .35s cubic-bezier(.22,.61,.36,1),z-index 0s linear .175s;
+  will-change:transform;
+}
+.illus-card img{width:100%;height:100%;object-fit:cover;display:block}
+.illus-card.hidden{display:none}
+.illus-card-shot{transform:translate(13px,9px) rotate(4deg);z-index:1}
+.illus-card-pic{transform:translate(0,0) rotate(0);z-index:2}
+.illus-box.flipped .illus-card-shot{transform:translate(0,0) rotate(0);z-index:2}
+.illus-box.flipped .illus-card-pic{transform:translate(-13px,9px) rotate(-4deg);z-index:1}
+#wmIllusImg{opacity:0;transition:opacity .25s ease}
+#wmIllusImg.ok{opacity:1}
 .illus-skel{
-  position:absolute;inset:0;z-index:1;
+  position:absolute;inset:0;z-index:3;border-radius:12px;overflow:hidden;
   background:linear-gradient(100deg,var(--s3) 20%,var(--s4) 40%,var(--s3) 60%);
   background-size:220% 100%;animation:illusShine 1.1s linear infinite;
 }
@@ -1345,9 +1360,20 @@ body.mode-flash .global-search,body.mode-speak .global-search{display:none}
 .shot-empty{ color:var(--text3); font-size:12.5px; line-height:1.7; }
 .wc-shot-row{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
 .word-shot{ width:56px; height:37px; object-fit:cover; border-radius:7px; border:1px solid var(--s4); background:var(--s2); flex:none; }
-.fb-shot{ display:flex; gap:6px; margin:8px 0 2px; flex-wrap:wrap; align-items:center; }
-.fb-shot .word-shot{ width:76px; height:50px; }
-.word-pic{ width:104px; height:72px; object-fit:cover; border-radius:8px; border:1px solid var(--s4); background:var(--s2); flex:none; }
+.fb-stack{ position:relative; width:72%; max-width:240px; aspect-ratio:16/9; margin:10px 0 4px; }
+.fb-stack.single{ width:62%; max-width:205px; }
+.fb-card{
+  position:absolute; inset:0; border-radius:10px; overflow:hidden;
+  background:var(--s2); border:1px solid var(--s4);
+  box-shadow:0 4px 12px rgba(0,0,0,.13);
+  transition:transform .35s cubic-bezier(.22,.61,.36,1),z-index 0s linear .175s;
+  will-change:transform;
+}
+.fb-card img{ width:100%; height:100%; object-fit:cover; display:block; }
+.fb-card-shot{ transform:translate(11px,8px) rotate(4deg); z-index:1; }
+.fb-card-pic{ transform:translate(0,0) rotate(0); z-index:2; }
+.fb-stack.flipped .fb-card-shot{ transform:translate(0,0) rotate(0); z-index:2; }
+.fb-stack.flipped .fb-card-pic{ transform:translate(-11px,8px) rotate(-4deg); z-index:1; }
 #shotViewer{ position:fixed; inset:0; z-index:300; background:rgba(0,0,0,.93); display:none; align-items:center; justify-content:center; }
 #shotViewer.show{ display:flex; }
 #shotViewer img{ max-width:94vw; max-height:86vh; border-radius:10px; }
@@ -1519,6 +1545,11 @@ html[data-font="system"]{--font-body:-apple-system,BlinkMacSystemFont,"SF Pro Te
 html[data-font="serif"]{--font-body:Georgia,"Iowan Old Style","Times New Roman","Songti SC",serif}
 html[data-font="rounded"]{--font-body:ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN","Microsoft YaHei",-apple-system,sans-serif}
 html[data-font="mono"]{--font-body:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+/* 局部字体：只作用于被标记的内容，可内联保存、随复制剪切带走；system 用默认无需类 */
+.tf-serif{font-family:Georgia,"Iowan Old Style","Times New Roman","Songti SC",serif}
+.tf-rounded{font-family:ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN","Microsoft YaHei",-apple-system,sans-serif}
+.tf-mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.font-pop-hint{font-size:12px;color:var(--text3);padding:0 14px 10px}
 
 /* ============ 手机端表达库：筛选收进底部抽屉（桌面端布局保持不变） ============ */
 .word-filter-trigger{display:none}
@@ -1773,13 +1804,13 @@ html[data-font="mono"]{--font-body:ui-monospace,"SF Mono",Menlo,Consolas,monospa
 
 .drag-selbar{
   position:fixed;z-index:398;left:0;right:0;bottom:0;
-  display:flex;align-items:center;gap:10px;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));
+  display:flex;align-items:center;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));
   background:var(--s1);border-top:1px solid var(--sep);
   box-shadow:0 -8px 26px rgba(0,0,0,.3);
 }
 .drag-selbar.hidden{display:none}
 .dsel-count{flex:1;font-size:14px;font-weight:700;color:var(--text);text-align:left}
-.dsel-btn{min-height:44px;border-radius:11px;padding:0 18px;font-size:15px;font-weight:600}
+.dsel-btn{min-height:44px;border-radius:11px;padding:0 13px;font-size:14px;font-weight:600;white-space:nowrap}
 .dsel-btn.ghost{background:var(--s3);border:1px solid var(--s5);color:var(--text)}
 .dsel-btn.primary{background:var(--accent);color:#fff;border-color:transparent}
 .dsel-btn:active{transform:scale(.97)}
