@@ -20,16 +20,16 @@ function pickVoice(voices,lang){
 }
 const VOLC_TTS_KEY='en-tts-v1';
 const VOLC_TTS_DEFAULT={apiKey:'',speaker:'zh_female_vv_uranus_bigtts',resourceId:'seed-tts-2.0',speechRate:0,pitchRate:0,relayUrl:'https://english-notes-tts.english-notes.workers.dev'};
-let volcAudio=null,cancelVolcSpeech=null,volcTtsPlayPending=0,volcTtsLastError='';
+let volcAudio=null,cancelVolcSpeech=null,volcTtsPlayPending=0,volcTtsLastError='',volcRecentAudio=null;
 function volcTtsConfig(){try{const raw=JSON.parse(localStorage.getItem(VOLC_TTS_KEY)||'{}');return Object.assign({},VOLC_TTS_DEFAULT,raw);}catch(_){return Object.assign({},VOLC_TTS_DEFAULT);}}
 function volcTtsSave(patch){const next=Object.assign(volcTtsConfig(),patch||{});try{localStorage.setItem(VOLC_TTS_KEY,JSON.stringify(next));}catch(_){}return next;}
 function volcTtsReady(){const cfg=volcTtsConfig();return !!(String(cfg.speaker||'').trim()&&(String(cfg.apiKey||'').trim()||String(cfg.relayUrl||'').trim()));}
 function volcTtsCacheKey(text,lang){const cfg=volcTtsConfig();return [cfg.relayUrl||'direct',cfg.resourceId,cfg.speaker,cfg.speechRate,cfg.pitchRate,lang||'en-US',String(text||'').trim()].join('|');}
-async function volcTtsRequest(text){
+async function volcTtsRequest(text,signal){
   const cfg=volcTtsConfig(),relay=String(cfg.relayUrl||'').trim(),body={req_params:{text:String(text||''),speaker:String(cfg.speaker||''),audio_params:{format:'mp3',sample_rate:24000,speech_rate:Number(cfg.speechRate)||0,pitch_rate:Number(cfg.pitchRate)||0}}};
   const headers={'Content-Type':'application/json'};
   if(!relay){headers['X-Api-Key']=String(cfg.apiKey||'').trim();headers['X-Api-Resource-Id']=String(cfg.resourceId||'seed-tts-2.0');}
-  const res=await fetch(relay||'https://openspeech.bytedance.com/api/v3/tts/unidirectional',{method:'POST',headers,body:JSON.stringify(body)});
+  const res=await fetch(relay||'https://openspeech.bytedance.com/api/v3/tts/unidirectional',{method:'POST',headers,body:JSON.stringify(body),signal});
   if(!res.ok)throw new Error((relay?'豆包中转 HTTP ':'豆包语音 HTTP ')+res.status);
   const rawBody=await res.text();let data;
   try{data=JSON.parse(rawBody);}catch(_){
@@ -42,12 +42,67 @@ async function volcTtsRequest(text){
   if(apiCode&&Number(apiCode)!==0)throw new Error('豆包语音 '+(apiMessage||apiCode));
   const raw=String(data&&data.data||'').trim();if(!raw)throw new Error('豆包语音没有返回音频');return raw.indexOf('data:')===0?raw:'data:audio/mpeg;base64,'+raw;
 }
-function volcTtsPlay(src,onend){const audio=new Audio(src);volcAudio=audio;let done=false;const finish=()=>{if(done)return;done=true;if(volcAudio===audio)volcAudio=null;if(cancelVolcSpeech===cancel)cancelVolcSpeech=null;onend&&onend();};const cancel=()=>{try{audio.pause();audio.currentTime=0;}catch(_){}if(cancelVolcSpeech===cancel)cancelVolcSpeech=null;};cancelVolcSpeech=cancel;audio.addEventListener('ended',finish,{once:true});audio.addEventListener('error',finish,{once:true});const p=audio.play();if(p&&p.catch)p.catch(finish);}
-async function playVolcAudio(text,lang,onend){stopSpeech();const key=volcTtsCacheKey(text,lang),seq=Date.now()+Math.random();volcTtsPlayPending=seq;try{let src=await ttsCacheGet(key);if(!src){src=await volcTtsRequest(text);ttsCacheSet(key,src);}if(volcTtsPlayPending!==seq)return false;volcTtsLastError='';volcTtsPlay(src,onend);return true;}catch(e){volcTtsLastError=(e&&e.message)||'豆包语音请求失败';if(volcTtsPlayPending===seq){const value=String(text||'').trim();if(lang==='en-US'&&!/\s/.test(value))playYoudaoAudio(value,lang,onend);else speakQueued(value,lang,onend);}return false;}}
+async function volcTtsPlay(src,onend){
+  const audio=volcAudio||(volcAudio=new Audio());
+  const events=new AbortController();
+  const clear=()=>{
+    events.abort();
+    if(cancelVolcSpeech===cancel)cancelVolcSpeech=null;
+  };
+  const cancel=()=>{clear();audio.pause();};
+  cancelVolcSpeech=cancel;
+  audio.addEventListener('ended',()=>{clear();onend?.();},{once:true,signal:events.signal});
+  audio.src=src;
+  try{await audio.play();}
+  catch(e){if(cancelVolcSpeech===cancel)cancel();throw e;}
+  if(events.signal.aborted)return;
+  audio.addEventListener('error',()=>{
+    clear();
+    toast('朗读中断，请再点一次喇叭','warn');
+    onend?.();
+  },{once:true,signal:events.signal});
+}
+async function playVolcAudio(text,lang,onend){
+  stopSpeech();
+  const key=volcTtsCacheKey(text,lang),seq=volcTtsPlayPending;
+  try{
+    let src=volcRecentAudio?.key===key?volcRecentAudio.src:await ttsCacheGet(key);
+    if(volcTtsPlayPending!==seq)return false;
+    if(!src){
+      const request=new AbortController();
+      const timer=setTimeout(()=>request.abort(),12000);
+      cancelVolcSpeech=()=>request.abort();
+      try{src=await volcTtsRequest(text,request.signal);}
+      finally{clearTimeout(timer);}
+      if(volcTtsPlayPending!==seq)return false;
+      ttsCacheSet(key,src);
+    }
+    volcRecentAudio={key,src};
+    await volcTtsPlay(src,onend);
+    if(volcTtsPlayPending!==seq)return false;
+    volcTtsLastError='';
+    return true;
+  }catch(e){
+    if(volcTtsPlayPending!==seq)return false;
+    cancelVolcSpeech=null;
+    if(e?.name==='NotAllowedError'){
+      volcTtsLastError='浏览器拦截了播放，请再点一次';
+      toast('音频已准备好，请再点一次喇叭','warn');
+      onend?.();
+      return false;
+    }
+    volcTtsLastError=e?.name==='AbortError'?'豆包语音请求超时':(e?.message||'豆包语音请求失败');
+    const value=String(text||'').trim();
+    if(lang==='en-US'&&!/\s/.test(value))playYoudaoAudio(value,lang,onend);
+    else speakQueued(value,lang,onend);
+    return false;
+  }
+}
 let cancelDictionarySpeech=null;
 function stopSpeech(){
   speechSeq++;
-  if(cancelVolcSpeech)cancelVolcSpeech();
+  volcTtsPlayPending++;
+  if(cancelVolcSpeech){cancelVolcSpeech();cancelVolcSpeech=null;}
   if(cancelDictionarySpeech)cancelDictionarySpeech();
   try{window.speechSynthesis?.cancel();}catch(_){}
 }

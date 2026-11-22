@@ -1640,8 +1640,6 @@ function bindEvents(){
     if(sc){ startScene(aiState.scenes[parseInt(sc.getAttribute('data-scene'),10)]); return; }
     const gs=e.target.closest('#aiGotoScenes');
     if(gs){ aiGotoScenes(); return; }
-    const p=e.target.closest('[data-play]');
-    if(p) speak(p.getAttribute('data-play'),p.getAttribute('data-play-lang')||'en-US');
   });
   $('#wordModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeWordModal(); });
   $('#settingsModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) $('#settingsModal').classList.remove('show'); });

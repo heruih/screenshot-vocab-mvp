@@ -351,7 +351,7 @@ function ttsRefreshSettings(){
   if(relay&&document.activeElement!==relay)relay.value=cfg.relayUrl||'';
   if(rate&&document.activeElement!==rate)rate.value=String(cfg.speechRate||0);
   if(pitch&&document.activeElement!==pitch)pitch.value=String(cfg.pitchRate||0);
-  if(status)status.textContent=volcTtsLastError?'豆包失败，已回退：'+volcTtsLastError:(volcTtsReady()?'已配置，英文朗读时会生成并缓存':'还未配置');
+  if(status)status.textContent=volcTtsLastError||(volcTtsReady()?'已配置，英文朗读时会生成并缓存':'还未配置');
 }
 async function ttsTest(){
   const key=$('#stTtsKey'),speaker=$('#stTtsSpeaker'),relay=$('#stTtsRelay'),rate=$('#stTtsRate'),pitch=$('#stTtsPitch');
@@ -359,7 +359,8 @@ async function ttsTest(){
   if(!voice||(!apiKey&&!relayUrl)){toast('先填写豆包 API Key 或服务端中转地址，并填写音色 ID','warn');return;}
   volcTtsSave({apiKey,speaker:voice,relayUrl:String(relay&&relay.value||'').trim(),speechRate:Number(rate&&rate.value)||0,pitchRate:Number(pitch&&pitch.value)||0});
   const ok=await playVolcAudio('Could you say that again?','en-US');
-  toast(ok?'豆包试听已开始，后续会复用缓存':'豆包请求失败，已回退原朗读：'+(volcTtsLastError||'请检查配置'),'warn');
+  if(ok)toast('豆包试听已开始，后续会复用缓存','ok');
+  else if(volcTtsLastError)toast(volcTtsLastError,'warn');
   ttsRefreshSettings();
 }
 const aOriginalSettings=openSettings;
