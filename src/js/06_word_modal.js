@@ -1356,6 +1356,24 @@ function startScene(sc){
     const retry=$('#aiRetry'); if(retry) retry.addEventListener('click',()=>startScene(sc));
   });
 }
+async function aiJudge(attempt){
+  const target=aiTargetTerm(aiState.currentTargetWord||aiState.term);
+  const context=aiState.lines.filter(line=>line.who!=='YOU').map(line=>line.en).join('\n');
+  const review=await aiCall([
+    {role:'system',content:'你是英语口语教练。'+toneSystem()+'只返回 JSON。给一个自然、符合中文提示并使用目标词的英文参考答案，简要解释用法，列出最多两个具体易错点。'},
+    {role:'user',content:JSON.stringify({
+      target,
+      context,
+      promptCn:aiState.attemptPromptCn,
+      attempt,
+      responseFormat:{standard:'英文参考答案',fit:'中文用法说明',pitfalls:['中文易错点']}
+    })}
+  ]);
+  if(typeof review?.standard!=='string'||!review.standard.trim()){
+    throw new Error('批改缺少参考答案，请重试');
+  }
+  return review;
+}
 async function submitAttempt(){
   if(aiState.phase!=='practice'||aiState.busy) return;
   if(aiPrefetchTimer){clearTimeout(aiPrefetchTimer);aiPrefetchTimer=null;}
@@ -1363,6 +1381,7 @@ async function submitAttempt(){
   const text=input.value.trim();
   if(!text){ toast('先把你的翻译说出来或写下来','warn'); return; }
   stopAiDictation();
+  const attemptState=aiState;
   aiState.busy=true;
   const youLines=aiState.lines.filter(l=>l.who==='YOU');
   const youLine=aiState.multiTurn?(youLines[aiState.turnIndex]||youLines[0]):youLines[0];
@@ -1382,10 +1401,11 @@ async function submitAttempt(){
     aiSchedulePrefetch(4000);
   }).catch(err=>{
     if(session!==aiSession||term!==aiState.term||mySeq!==aiState.seq) return;
+    if(!input.value) input.value=text;
     aiShowBody();
     aiSetChatbar('practice');
-    toast(String(err&&err.message||'批改失败，请重试'),'warn');
-  }).finally(()=>{ aiState.busy=false; });
+    toast(aiErrText(err),'warn');
+  }).finally(()=>{ attemptState.busy=false; });
 }
 function saveSpeakLog(d,attempt){
   const sc=aiState.scene||{};

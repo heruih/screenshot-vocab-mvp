@@ -495,18 +495,34 @@ function linkWordToNote(word,noteId,noteTitle){
 }
 function unlinkWordFromNote(word,noteId){
   if(!word||!Array.isArray(word.notes))return;
+  if(Array.from(bodyEl.querySelectorAll('.en-word')).some(span=>findWordOfSpan(span)===word)) return;
   word.notes=word.notes.filter(l=>l.noteId!==noteId);
 }
 function clipGet(){
   try{ return JSON.parse(localStorage.getItem(CLIPBOARD_KEY))||null; }catch(_){ return null; }
 }
 function clipSet(obj){
-  try{ localStorage.setItem(CLIPBOARD_KEY,JSON.stringify(obj)); }catch(_){ }
+  try{ localStorage.setItem(CLIPBOARD_KEY,JSON.stringify(obj)); }catch(_){ return false; }
   clipSyncBtn();
+  return true;
 }
 function clipClear(){
-  try{ localStorage.removeItem(CLIPBOARD_KEY); }catch(_){ }
+  try{ localStorage.removeItem(CLIPBOARD_KEY); }catch(_){ return false; }
   clipSyncBtn();
+  return true;
+}
+function clipWriteAction(entry,words){
+  const before=clipGet();
+  if(!clipSet(entry)){
+    toast('剪贴板保存失败，请重试','warn');
+    return false;
+  }
+  if(entry.mode==='cut') histPush({before,after:entry},words);
+  return true;
+}
+function clipWordsIn(nodes){
+  const spans=nodes.flatMap(node=>node.matches('.en-word')?[node]:Array.from(node.querySelectorAll('.en-word')));
+  return [...new Set(spans.map(findWordOfSpan).filter(Boolean))];
 }
 /* 克隆一段 DOM 并清掉临时装饰/属性，得到可保存、可粘贴的干净 HTML */
 function clipClean(nodes){
@@ -522,17 +538,13 @@ function clipClean(nodes){
 function clipCopySection(h,cut){
   if(!h||!bodyEl.contains(h))return;
   const g=secGroup(h);
-  histPush();
-  clipSet({kind:'section',mode:cut?'cut':'copy',html:clipClean(g),at:Date.now()});
+  const words=clipWordsIn(g);
+  const entry={kind:'section',mode:cut?'cut':'copy',html:clipClean(g),at:Date.now()};
+  if(!clipWriteAction(entry,words)) return;
   if(cut){
     const srcId=ui.note;
-    g.forEach(el=>{
-      el.querySelectorAll('.en-word').forEach(sp=>{
-        const wm=findWordOfSpan(sp);
-        if(wm)unlinkWordFromNote(wm,srcId);
-      });
-    });
     g.forEach(el=>el.remove());
+    words.forEach(word=>unlinkWordFromNote(word,srcId));
     foldClear(); applyFolds(); mvDecorate(); persistEditor();
   }
   toast(cut?'已剪切整节，到其它笔记点粘贴':'已复制整节，到其它笔记点粘贴');
@@ -540,13 +552,13 @@ function clipCopySection(h,cut){
 /* 复制 / 剪切单个词条（.en-word 可能是词组，即“一段单词”） */
 function clipCopyWord(span,cut){
   if(!span||!bodyEl.contains(span)){ toast('词条不在正文里','warn');return; }
-  histPush();
-  clipSet({kind:'block',mode:cut?'cut':'copy',html:'<div>'+clipClean([span])+'</div>',at:Date.now()});
+  const word=findWordOfSpan(span);
+  const entry={kind:'block',mode:cut?'cut':'copy',html:'<div>'+clipClean([span])+'</div>',at:Date.now()};
+  if(!clipWriteAction(entry,word?[word]:[])) return;
   if(cut){
-    const srcId=ui.note, wm=findWordOfSpan(span);
-    if(wm)unlinkWordFromNote(wm,srcId);
     const block=span.parentElement;
     span.remove();
+    unlinkWordFromNote(word,ui.note);
     if(block&&block!==bodyEl&&!(block.textContent.trim()||block.querySelector('.en-word')))block.remove();
     applyFolds(); mvDecorate(); persistEditor();
   }
@@ -568,7 +580,6 @@ function clipParse(html){
 function clipPaste(targetHead){
   const c=clipGet();
   if(!c){ toast('剪贴板是空的','warn');return; }
-  histPush();
   const els=clipParse(c.html);
   if(!els.length){ toast('剪贴板内容无效','warn');return; }
   const anchor=targetHead?sectionEnd(targetHead):null;
@@ -577,19 +588,19 @@ function clipPaste(targetHead){
   const noteTitle=note?note.title:'无标题';
   const frag=document.createDocumentFragment();
   els.forEach(el=>frag.appendChild(el));
+  const words=clipWordsIn(els),cut=c.mode==='cut';
+  if(cut&&!clipClear()){ toast('剪贴板无法更新，请重试','warn');return; }
+  histPush(cut?{before:c,after:null}:null,words);
   try{
     if(anchor)anchor.parentNode.insertBefore(frag,anchor.nextSibling);
     else bodyEl.appendChild(frag);
-  }catch(_){ toast('粘贴失败','warn');return; }
+  }catch(_){
+    if(cut) clipSet(c);
+    toast('粘贴失败','warn');return;
+  }
   /* 粘贴进来的词条：关联到当前目标笔记 */
-  els.forEach(el=>{
-    el.querySelectorAll&&el.querySelectorAll('.en-word').forEach(sp=>{
-      const wm=findWordOfSpan(sp);
-      if(wm)linkWordToNote(wm,noteId,noteTitle);
-    });
-  });
+  words.forEach(word=>linkWordToNote(word,noteId,noteTitle));
   lockWords(bodyEl); mvDecorate(); applyFolds(); persistEditor();
-  if(c.mode==='cut')clipClear();
   try{ if(navigator.vibrate)navigator.vibrate(8); }catch(_){}
   toast(c.mode==='cut'?'已粘贴，剪贴板已清空':'已粘贴，可继续粘贴到别处');
 }

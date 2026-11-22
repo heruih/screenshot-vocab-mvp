@@ -179,7 +179,12 @@ function aiProviderRefreshFields(){
 }
 function aRoute(){return localStorage.getItem(A_PREF_KEY)==='chatgpt'?'chatgpt':'api';}
 function aiApiConfig(){return aiProviderCfg();}
-function aAiReady(){const cfg=aiProviderCfg();return aRoute()==='chatgpt'||!!(String(cfg.apiKey||'').trim()&&String(cfg.model||'').trim()&&String(cfg.baseUrl||'').trim());}
+function aAiReady(){
+  if(aRoute()==='chatgpt') return true;
+  const cfg=aiProviderCfg();
+  if(cfg.apiKey) return Boolean(cfg.model&&cfg.baseUrl);
+  return globalThis.APP_CONFIG?.product==='commercial'&&Boolean(textRelayConfig().relayUrl);
+}
 function aiImageConfig(){
   const saved=aRead(AI_IMAGE_KEY,{}),provider=aiProviderCfg(),useProvider=provider.name==='openai';
   return {baseUrl:String(saved.baseUrl||(useProvider?provider.baseUrl:'')).trim(),apiKey:String(saved.apiKey||(useProvider?provider.apiKey:'')).trim(),model:String(saved.model||'gpt-image-1').trim()};

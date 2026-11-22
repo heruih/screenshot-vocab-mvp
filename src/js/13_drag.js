@@ -104,18 +104,18 @@ function confirmCut(){
 function clipCopySelected(spans,cut){
   const nodes=collectWordBlocks(spans);
   if(!nodes.length){ toast('没有可复制的内容','warn');return; }
-  histPush();
-  clipSet({kind:'block',mode:cut?'cut':'copy',html:clipClean(nodes),at:Date.now()});
+  const words=[...new Set(spans.map(findWordOfSpan).filter(Boolean))];
+  const entry={kind:'block',mode:cut?'cut':'copy',html:clipClean(nodes),at:Date.now()};
+  if(!clipWriteAction(entry,words)) return;
   if(cut){
     const srcId=ui.note;
     spans.forEach(sp=>{
       if(!bodyEl.contains(sp))return;
-      const wm=findWordOfSpan(sp);
-      if(wm)unlinkWordFromNote(wm,srcId);
       const block=sp.parentElement;
       sp.remove();
       if(block&&block!==bodyEl&&!(block.textContent.trim()||block.querySelector('.en-word')))block.remove();
     });
+    words.forEach(word=>unlinkWordFromNote(word,srcId));
     applyFolds();mvDecorate();persistEditor();
   }
   toast(cut?'已剪切 '+spans.length+' 个，到其它笔记点粘贴':'已复制 '+spans.length+' 个，到其它笔记点粘贴');

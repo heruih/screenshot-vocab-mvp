@@ -1,10 +1,31 @@
-async function ocrAttachShot(w,dataUrl){
-  const all=shotsAll(),k=shotsKeyOf(w.term),list=Array.isArray(all[k])?all[k]:[];
-  const attachCap=await shotCapacity();
-  if(list.length>=SHOT_MAX_PER_WORD||shotsTotal(all)>=attachCap)return false;
-  list.push({id:uid(),dataUrl,at:Date.now()});all[k]=list;return shotsFlush(all);
+let ocrShotQueue=Promise.resolve();
+let ocrMountBusy=false;
+const ocrInboxBusy=new Set();
+function ocrAttachShot(term,dataUrl){
+  const write=ocrShotQueue.then(async()=>{
+    const attachCap=await shotCapacity();
+    const all=shotsAll(),key=shotsKeyOf(term),list=all[key]||[];
+    if(list.some(shot=>shot.dataUrl===dataUrl)) return true;
+    if(list.length>=SHOT_MAX_PER_WORD||shotsTotal(all)>=attachCap) return false;
+    const next={...all,[key]:[...list,{id:uid(),dataUrl,at:Date.now()}]};
+    if(shotUseIdb){
+      const db=await idbOpen();
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction(IDB_STORE_SHOTS,'readwrite');
+        tx.oncomplete=resolve;
+        tx.onabort=()=>reject(tx.error||new Error('截图保存失败'));
+        tx.objectStore(IDB_STORE_SHOTS).put(next,'all');
+      });
+    }
+    else if(!aStore(SHOTS_KEY,JSON.stringify(next))) throw new Error('截图保存失败');
+    if(shotReady) shotCache=next;
+    return true;
+  });
+  ocrShotQueue=write.catch(()=>{});
+  return write;
 }
 async function ocrInboxConfirm(id){
+  if(ocrInboxBusy.has(id)) return;
   const list=ocrInboxRead(),item=list.find(x=>x.id===id);if(!item)return;
   const row=Array.from(document.querySelectorAll('[data-inbox-id]')).find(el=>el.dataset.inboxId===id);
   if(!row)return;
@@ -14,26 +35,55 @@ async function ocrInboxConfirm(id){
   const targets=[];const seen=new Set();
   candIds.forEach(cid=>{
     const w=state.words.find(x=>x.id===cid);
-    if(w&&!seen.has(w.id)){seen.add(w.id);targets.push({w,created:false});}
+    if(w&&!seen.has(ocrNorm(w.term))){seen.add(ocrNorm(w.term));targets.push(w.term);}
   });
   manualTerms.forEach(term=>{
-    let w=state.words.find(x=>ocrNorm(x.term)===ocrNorm(term));
-    let created=false;
-    if(!w){w=upsertWord({term,definition:'',examples:[],collocations:[],tags:[],source:'shot',notes:[],mastered:false});created=true;}
-    if(!seen.has(w.id)){seen.add(w.id);targets.push({w,created});}
+    const key=ocrNorm(term);
+    if(seen.has(key)) return;
+    seen.add(key);
+    const w=state.words.find(x=>ocrNorm(x.term)===key);
+    targets.push(w?w.term:term);
   });
   if(!targets.length){toast('先点候选词，或手动输入至少一个词','warn');return;}
-  /* 同一张图依次挂到所有目标词；某个词满了就跳过并记录 */
-  let ok=0;const failed=[],createdIds=[];
-  for(const t of targets){
-    if(await ocrAttachShot(t.w,item.dataUrl)){ok++;if(t.created)createdIds.push(t.w.id);}
-    else failed.push(t.w.term);
+  const controls=row.querySelectorAll('button');
+  ocrInboxBusy.add(id);
+  controls.forEach(button=>button.disabled=true);
+  try{
+    let saved=0;
+    const failed=[];
+    for(const term of targets){
+      if(!await ocrAttachShot(term,item.dataUrl)){
+        failed.push(term);
+        continue;
+      }
+      ocrEnsureWord(term);
+      saved++;
+    }
+    save();
+    if(failed.length){
+      toast('「'+failed.join('、')+'」截图已满，待匹配原图仍在收件箱','warn');
+      return;
+    }
+    await inboxRemoveItem(id);
+    render();ocrInboxRender();
+    toast('已挂到 '+saved+' 个词','ok');
+  }catch(_){
+    toast('截图保存未完成，原图仍在收件箱，可重试','warn');
+  }finally{
+    ocrInboxBusy.delete(id);
+    controls.forEach(button=>button.disabled=false);
   }
-  if(!ok){toast('这些词都没挂上（可能已满 4 张），截图保留在收件箱','warn');return;}
-  await inboxRemoveItem(id);
-  createdIds.forEach(cid=>aPut(cid,{stage:'pending'}));save();if(ui.mode==='words')renderWordsPane();render();ocrInboxRender();
-  let msg='已挂到 '+ok+' 个词';if(failed.length)msg+='，「'+failed.join('、')+'」已满跳过';
-  toast(msg,'ok');
+}
+function ocrEnsureWord(term){
+  const existing=state.words.find(w=>w.term.toLowerCase()===term.toLowerCase());
+  if(existing) return existing;
+  const word=upsertWord({term,definition:'',examples:[],collocations:[],tags:[],source:'shot',notes:[],mastered:false});
+  try{ aPut(word.id,{stage:'pending'}); }
+  catch(err){
+    state.words.splice(state.words.indexOf(word),1);
+    throw err;
+  }
+  return word;
 }
 async function ocrInboxDelete(id){await inboxRemoveItem(id);ocrInboxRender();toast('已删除这张截图','ok');}
 async function ocrImportBatch(files,noteId){
@@ -259,38 +309,35 @@ async function ocrImportImage(event){
   }
 }
 async function ocrMount(){
+  if(ocrMountBusy) return;
   const ed=$('#ocrEdit');
   const text=ed?ed.value.trim():'';
   if(!ocrDataUrl){ toast('先选一张截图','warn'); return; }
   if(!text){ toast('先点词框选中，或直接输入单词/短语','warn'); return; }
-  const key=text.toLowerCase();
-  const before=state.words.find(x=>x.term.toLowerCase()===key);
-  let w=before;
-  let created=0;
-  if(!w){
-    w=upsertWord({term:text,definition:'',examples:[],collocations:[],tags:[],source:'shot',notes:[],mastered:false});
-    created=1;
+  const dataUrl=ocrDataUrl,button=$('#ocrMount');
+  ocrMountBusy=true;
+  button.disabled=true;
+  try{
+    if(!await ocrAttachShot(text,dataUrl)){
+      toast('截图空间已满，本次选图已保留','warn');
+      return;
+    }
+    const word=ocrEnsureWord(text);
+    save();
+    if(ocrDataUrl!==dataUrl) return;
+    $('#ocrSheet').classList.remove('show');
+    ocrDataUrl=''; ocrSel=[]; ocrWords=[];
+    ed.value='';
+    $('#ocrBoxes').innerHTML=''; $('#ocrImg').src='';
+    $('#ocrImgWrap').classList.add('hidden'); $('#ocrSelected').classList.add('hidden');
+    render();
+    openWordModal(word.term,null,null,word);
+    toast('截图已保存到「'+word.term+'」','ok');
+  }catch(_){
+    toast('截图保存失败，请重试','warn');
+  }finally{
+    ocrMountBusy=false;
+    button.disabled=false;
   }
-  const all=shotsAll();
-  const k=shotsKeyOf(w.term);
-  const list=Array.isArray(all[k])?all[k]:[];
-  let linked=0;
-  const mountCap=await shotCapacity();
-  if(list.length<SHOT_MAX_PER_WORD&&shotsTotal(all)<mountCap){
-    list.push({id:uid(),dataUrl:ocrDataUrl,at:Date.now()});
-    all[k]=list; linked=1;
-  }
-  if(linked&&!shotsFlush(all)) return;
-  if(created) aPut(w.id,{stage:'pending'});
-  save();
-  $('#ocrSheet').classList.remove('show');
-  ocrDataUrl=''; ocrSel=[]; ocrWords=[];
-  if(ed) ed.value='';
-  $('#ocrBoxes').innerHTML=''; $('#ocrImg').src='';
-  $('#ocrImgWrap').classList.add('hidden'); $('#ocrSelected').classList.add('hidden');
-  if(ui.mode==='words') renderWordsPane();
-  render();
-  openWordModal(w.term,null,null,w);
-  toast('已保存「'+text+'」'+(created?'（新建词条）':'，匹配已有词条')+(linked?'，截图已挂上':'，截图空间已满')+'；去单词页点「截图」按钮可查看','ok');
 }
 

@@ -45,7 +45,11 @@ async function textRelayFetch(messages,opts){
       });
       if(!res.ok){
         let t='';try{t=await res.text();}catch(_){}
-        const err=new Error(res.status===429?'用的人太多，稍后再试':('HTTP '+res.status+' '+(t||'').slice(0,100)));
+        const statusMessage={
+          402:'共用 AI 服务额度不足（HTTP 402），请稍后再试',
+          429:'用的人太多，稍后再试'
+        };
+        const err=new Error(statusMessage[res.status]||('HTTP '+res.status+' '+(t||'').slice(0,100)));
         err.status=res.status;
         throw err;
       }

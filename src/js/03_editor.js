@@ -324,10 +324,16 @@ function histSnapshot(){
   return {noteId:ui.note, title:titleEl.innerText.trim()||'无标题', content:bodyCleanHTML()};
 }
 /* 压入一个「可回到的过去状态」；与栈顶相同不重复压，超长度丢最旧 */
-function histPush(){
+function histPush(clipboardChange=null,affectedWords=[]){
   const snap=histSnapshot();
+  const words=[...new Set(affectedWords)];
+  snap.links=words.map(word=>{
+    const index=(word.notes||[]).findIndex(link=>link.noteId===snap.noteId);
+    return {wordId:word.id,index,link:index<0?null:{...word.notes[index]}};
+  });
+  snap.clipboardChange=clipboardChange;
   const top=histStack[histStack.length-1];
-  if(top&&top.title===snap.title&&top.content===snap.content)return;
+  if(!clipboardChange&&!words.length&&top&&top.noteId===snap.noteId&&top.title===snap.title&&top.content===snap.content)return;
   histStack.push(snap);
   if(histStack.length>HIST_MAX)histStack.shift();
   histSyncUndoBtn();
@@ -353,13 +359,25 @@ function histUndo(){
   }
   titleEl.innerText=snap.title;
   bodyEl.innerHTML=snap.content;
+  for(const {wordId,index,link} of snap.links||[]){
+    const word=state.words.find(item=>item.id===wordId);
+    if(!word) continue;
+    const notes=(word.notes||[]).filter(item=>item.noteId!==snap.noteId);
+    if(link) notes.splice(index,0,link);
+    word.notes=notes;
+  }
+  const change=snap.clipboardChange;
+  let clipboardRestored=true;
+  if(change&&JSON.stringify(clipGet())===JSON.stringify(change.after)){
+    clipboardRestored=change.before?clipSet(change.before):clipClear();
+  }
   try{ lockWords(bodyEl); }catch(_){ }
   try{ mvDecorate(); }catch(_){ }
   try{ applyFolds(); }catch(_){ }
   try{ persistEditor(); }catch(_){ }
   histSyncUndoBtn();
   try{ if(navigator.vibrate)navigator.vibrate(8); }catch(_){}
-  toast('已撤销');
+  toast(clipboardRestored?'已撤销':'正文已撤销，剪贴板恢复失败',clipboardRestored?'ok':'warn');
 }
 function onEditorInput(){
   try{ histArmInput(); }catch(_){ }
