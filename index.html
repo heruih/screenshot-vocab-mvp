@@ -287,27 +287,38 @@ body.mode-edit #noteListPane{display:none}
   .note-organize-card{width:100%;max-height:78vh;border-radius:18px 18px 12px 12px;padding:16px}
 }
 
-/* ============ 选词操作卡（右下角小块，避开 iPhone 的剪切/粘贴菜单） ============ */
+/* ============ 编辑器底部操作栏 ============ */
 #empowerPill{
-  position:fixed;right:10px;bottom:10px;z-index:95;display:none;flex-direction:column;gap:8px;
-  width:172px;padding:10px;border-radius:16px;
+  position:fixed;inset-inline:0;bottom:calc(var(--ed-viewport-inset,0px) + max(8px,env(safe-area-inset-bottom,0px)));z-index:95;
+  display:none;flex-direction:column;gap:8px;margin-inline:auto;
+  width:min(560px,calc(100% - 20px));padding:10px;border-radius:16px;
+  max-height:min(58vh,calc(var(--ed-visible-height,100vh) - 20px),420px);overflow:auto;overscroll-behavior:contain;
   background:var(--bar-bg);border:1px solid var(--sep);box-shadow:var(--shadow-lg);
   -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
 }
 #empowerPill.show{display:flex;animation:pillIn .16s ease}
-@keyframes pillIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
-.pill-sel{display:flex;align-items:center;gap:6px;min-width:0;padding:0 2px 2px}
-.pill-tag{flex:none;font-size:11px;color:var(--text3);background:var(--s3);border-radius:6px;padding:3px 6px;line-height:1}
-.pill-sel b{min-width:0;font-size:15px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes pillIn{from{opacity:0}to{opacity:1}}
+.pill-sel{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 2px}
+.pill-sel b{flex:1;min-width:0;font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ed-work-row{display:flex;flex-wrap:wrap;gap:6px}
 #empowerPill button{
-  width:100%;height:46px;border-radius:12px;
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  font-size:15.5px;font-weight:600;-webkit-user-select:none;user-select:none;
+  flex:1;min-height:44px;padding:0 9px;border-radius:10px;background:var(--s4);color:var(--text);
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;white-space:nowrap;-webkit-user-select:none;user-select:none;
   -webkit-touch-callout:none;touch-action:manipulation;
 }
+#empowerPill [hidden]{display:none}
+#empowerPill #edClearSelection{flex:none;background:transparent;color:var(--text2)}
+#empowerPill #btnClipPaste,#empowerPill button[aria-expanded="true"]{background:var(--accent-soft);color:var(--accent-fg)}
+#empowerPill #edQuickUndo{color:var(--accent-fg)}
+#btnHistUndo{width:auto;min-width:44px;padding:0 7px;gap:3px;font-size:12px}
+#btnHistUndo .icon{width:16px;height:16px}
 #empowerPill button:active{transform:scale(.97)}
-#btnEmpower{background:var(--accent);color:#fff;box-shadow:0 4px 14px rgba(10,132,255,.35)}
-#btnDict{background:var(--s4);color:var(--text)}
+.ed-work-panel{display:grid;gap:6px;border-top:1px solid var(--sep);padding-top:6px}
+.ed-work-panel>div{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:4px;color:var(--text2);font-size:12px}
+.ed-style-options{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+body.editor-bar-open #editorWrap{padding-bottom:220px}
+body.editor-bar-open .coach-bubble{display:none}
 
 /* ============ 移动：词 / 整节（拿起 → 放下） ============ */
 #noteBody .nh{padding-right:40px}
@@ -1561,7 +1572,7 @@ html[data-font="mono"]{--font-body:ui-monospace,"SF Mono",Menlo,Consolas,monospa
 .tf-serif{font-family:Georgia,"Iowan Old Style","Times New Roman","Songti SC",serif}
 .tf-rounded{font-family:ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN","Microsoft YaHei",-apple-system,sans-serif}
 .tf-mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
-.font-pop-hint{font-size:12px;color:var(--text3);padding:0 14px 10px}
+#noteBody{--editor-default-family:var(--font-body)}
 
 /* ============ 手机端表达库：筛选收进底部抽屉（桌面端布局保持不变） ============ */
 .word-filter-trigger{display:none}
@@ -1814,19 +1825,6 @@ html[data-font="mono"]{--font-body:ui-monospace,"SF Mono",Menlo,Consolas,monospa
   background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);
 }
 
-.drag-selbar{
-  position:fixed;z-index:398;left:0;right:0;bottom:0;
-  display:flex;align-items:center;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));
-  background:var(--s1);border-top:1px solid var(--sep);
-  box-shadow:0 -8px 26px rgba(0,0,0,.3);
-}
-.drag-selbar.hidden{display:none}
-.dsel-count{flex:1;font-size:14px;font-weight:700;color:var(--text);text-align:left}
-.dsel-btn{min-height:44px;border-radius:11px;padding:0 13px;font-size:14px;font-weight:600;white-space:nowrap}
-.dsel-btn.ghost{background:var(--s3);border:1px solid var(--s5);color:var(--text)}
-.dsel-btn.primary{background:var(--accent);color:#fff;border-color:transparent}
-.dsel-btn:active{transform:scale(.97)}
-
 /* 拖拽中：正文接管触摸，禁止系统选择/长按菜单，原节点半透明 */
 body.drag-active{overflow:hidden}
 body.drag-active #noteBody{touch-action:none}
@@ -1972,14 +1970,9 @@ body.drag-select #noteBody .en-word.sel-pick{
       </button>
       <button class="icon-btn" id="btnHistUndo" title="撤销" aria-label="撤销">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
-      </button>
-      <button class="icon-btn" id="btnClipPaste" title="粘贴" aria-label="粘贴">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+        <span>撤销</span>
       </button>
       <span id="edBreadcrumb"></span>
-      <button class="icon-btn" id="btnFont" title="字体" aria-label="字体">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"/><path d="M4 7h11"/><path d="M11 19l5-12 5 12"/><path d="M13 15h6"/></svg>
-      </button>
       <button class="icon-btn" id="btnLook" title="外观（配色）" aria-label="外观">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="9.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><path d="M12 21a3 3 0 0 1 0-6c2 0 3-1.5 3-3"/></svg>
       </button>
@@ -1995,16 +1988,13 @@ body.drag-select #noteBody .en-word.sel-pick{
     <!-- 外观下拉：配色 + 字体，实时生效，不离开编辑页 -->
     <div id="lookPop" class="look-pop" role="dialog" aria-label="外观设置" hidden>
       <div class="look-group">
-        <div class="look-label">配色</div>
+        <div class="look-label">笔记词卡配色</div>
         <div class="look-colors" id="lookColors"></div>
       </div>
-    </div>
-    <div id="fontPop" class="look-pop" role="dialog" aria-label="字体设置" hidden>
       <div class="look-group">
-        <div class="look-label">字体</div>
+        <div class="look-label">正文默认字体</div>
         <div class="look-fonts" id="fontChoices"></div>
       </div>
-      <div class="font-pop-hint" id="fontPopHint">无选区：切换后续输入字体并记住</div>
     </div>
     <div id="editorWrap">
       <div id="noteInboxBar" class="note-inbox-bar hidden" role="button" tabindex="0" aria-label="处理这篇笔记的待处理截图">
@@ -2013,7 +2003,7 @@ body.drag-select #noteBody .en-word.sel-pick{
       </div>
       <div class="note-editor-label"><span class="note-editor-kicker">笔记</span><span class="note-editor-context">原始语境 · 个人表达</span></div>
       <div id="noteTitle" class="ce" contenteditable="true" data-ph="标题"></div>
-      <div id="edHint" class="ed-hint hidden">行首打 <b>#</b> 加空格 = 大标题；选中英文单词点 <b>empower</b> 存进表达库</div>
+      <div id="edHint" class="ed-hint hidden">选中文字或长按词卡后，底部可以剪贴、改样式或开始练习。</div>
       <div class="note-body-label">正文</div>
       <div id="noteBody" class="ce" contenteditable="true" data-ph="写点什么…"></div>
     </div>
@@ -2029,16 +2019,26 @@ body.drag-select #noteBody .en-word.sel-pick{
 </div>
 
 <!-- ============ 选词操作条（贴底大按钮，好按） ============ -->
-<div id="empowerPill" role="toolbar" aria-label="选中文字的操作">
-  <div class="pill-sel"><span class="pill-tag">已选</span><b id="pillWord"></b></div>
-  <button id="btnDict" aria-label="查询这个词的词典释义">
-    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-    <span>查词</span>
-  </button>
-  <button id="btnEmpower" aria-label="把这个词存入表达库">
-    <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/></svg>
-    <span>empower</span>
-  </button>
+<div id="empowerPill" role="region" aria-label="笔记编辑操作">
+  <div class="pill-sel"><b id="pillWord" aria-live="polite"></b><button id="edClearSelection" type="button">取消选择</button></div>
+  <div class="ed-work-row" id="edSelectionActions" role="group" aria-label="选中内容的操作">
+    <button id="edCopy" type="button">复制</button><button id="edCut" type="button">剪切</button>
+    <button id="edStyle" type="button" aria-expanded="false" aria-controls="edStylePanel">样式</button>
+    <button id="edEmpower" type="button" aria-expanded="false" aria-controls="edEmpowerPanel">Empower</button>
+  </div>
+  <div id="edStylePanel" class="ed-work-panel" hidden>
+    <div><span>字体</span><div class="ed-style-options" id="edFonts"></div></div>
+    <div><span>字号</span><div class="ed-style-options" id="edSizes"></div></div>
+    <div><span>颜色</span><div class="ed-style-options" id="edColors"></div></div>
+  </div>
+  <div id="edEmpowerPanel" class="ed-work-row" hidden>
+    <button id="btnDict" type="button">查词</button><button id="btnEmpower" type="button">加入词库</button>
+    <button id="edSpeak" type="button">对话</button><button id="edWrite" type="button">写作</button>
+  </div>
+  <div id="edClipboardActions" class="ed-work-row" hidden>
+    <button id="btnClipPaste" type="button">粘贴</button><button id="edDrag" type="button">拖动</button>
+    <button id="edQuickUndo" type="button">撤销</button>
+  </div>
 </div>
 
 <!-- ============ 收起键盘（弹窗里输入时浮出，贴在可见区右上角） ============ -->
@@ -4091,10 +4091,11 @@ function renderFlash(){
 const titleEl=$('#noteTitle'), bodyEl=$('#noteBody'), editorWrap=$('#editorWrap');
 function renderEditor(){
   const n=state.notes.find(x=>x.id===ui.note);
-  if(!n||ui.mode!=='edit'){ editorWrap.classList.add('hidden'); closeNoteOrganize(); return; }
+  if(!n||ui.mode!=='edit'){ editorWrap.classList.add('hidden'); closeNoteOrganize(); resetEditorBar(); return; }
   editorWrap.classList.remove('hidden');
   $('#edBreadcrumb').textContent=folderName()+' / '+(n.title||'无标题');
   if(ui.lastNote!==ui.note){
+    resetEditorBar();
     titleEl.innerText=(n.title==='无标题')?'':n.title;
     bodyEl.innerHTML=n.content||'';
     ui.lastNote=ui.note;
@@ -4104,6 +4105,7 @@ function renderEditor(){
   }
   updatePlaceholders();
   syncEdHint();
+  syncEditorBar();
   if(typeof updateNoteInboxBar==='function')updateNoteInboxBar();
 }
 function noteLinkedWords(noteId){
@@ -4193,10 +4195,14 @@ function histSyncUndoBtn(){
 function histUndo(){
   if(!histStack.length){toast('没有可撤销的操作');return;}
   const snap=histStack.pop();
+  if(!state.notes.some(note=>note.id===snap.noteId)){
+    histSyncUndoBtn();editorUndoFeedback('');toast('原笔记已不存在，无法撤销这一步','warn');return;
+  }
   /* 快照属于另一篇笔记：先切过去（openNote 已不再清空历史），再恢复那篇的状态 */
   if(snap.noteId&&snap.noteId!==ui.note){
     try{ openNote(snap.noteId); }catch(_){ }
   }
+  resetEditorBar();
   titleEl.innerText=snap.title;
   bodyEl.innerHTML=snap.content;
   for(const {wordId,index,link} of snap.links||[]){
@@ -4372,7 +4378,7 @@ function bodyCleanHTML(){
   c.querySelectorAll('.en-word').forEach(e=>{
     e.removeAttribute('contenteditable');
     e.removeAttribute('spellcheck');
-    e.classList.remove('mv-lift');
+    e.classList.remove('mv-lift','sel-pick');
     if(!e.getAttribute('class')) e.removeAttribute('class');
   });
   c.querySelectorAll('.mv-hit').forEach(e=>e.classList.remove('mv-hit'));
@@ -4385,55 +4391,6 @@ function bodyCleanHTML(){
   });
   c.querySelectorAll('[class=""]').forEach(e=>e.removeAttribute('class'));
   return c.innerHTML;
-}
-/* ============ 局部字体：有选区只改选中部分；无选区改后续输入并记住为默认 ============ */
-const FONT_TF_CLASS={serif:'tf-serif',rounded:'tf-rounded',mono:'tf-mono'};
-function editorFontRange(){
-  const s=window.getSelection();
-  if(!s||s.rangeCount===0) return null;
-  const r=s.getRangeAt(0);
-  if(r.collapsed||!bodyEl.contains(r.commonAncestorContainer)) return null;
-  return r;
-}
-function wrapRangeWithFont(font){
-  const r=editorFontRange();
-  if(!r) return false;
-  const cls=FONT_TF_CLASS[font];
-  const span=document.createElement('span');
-  if(cls) span.className=cls;
-  try{
-    r.surroundContents(span);
-  }catch(_){
-    /* 选区跨多个节点时 surroundContents 会抛错，用 extract+insert 兜底 */
-    const frag=r.extractContents();
-    span.appendChild(frag);
-    r.insertNode(span);
-  }
-  const nr=document.createRange(); nr.selectNodeContents(span);
-  const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(nr);
-  return true;
-}
-function beginInputFont(font){
-  setFontChoice(font);                 /* 记住，作为下次开始的默认 */
-  const cls=FONT_TF_CLASS[font];
-  if(!cls) return;                     /* system：无需容器，回到默认字体 */
-  const s=window.getSelection();
-  const r=document.createRange();
-  if(s&&s.rangeCount&&bodyEl.contains(s.anchorNode)){ r.setStart(s.anchorNode,s.anchorOffset); r.collapse(true); }
-  else { r.selectNodeContents(bodyEl); r.collapse(false); }
-  const span=document.createElement('span');
-  span.className=cls;
-  span.appendChild(document.createTextNode('​'));  /* 零宽空格，防止空 span 被浏览器吞掉 */
-  r.insertNode(span);
-  const nr=document.createRange(); nr.setStart(span.firstChild,1); nr.collapse(true);
-  const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(nr);
-  bodyEl.focus();
-}
-function editorApplyFont(font){
-  if(FONT_CHOICES.indexOf(font)<0) return;
-  if(editorFontRange()) wrapRangeWithFont(font);
-  else beginInputFont(font);
-  save();
 }
 
 /* ============ 赋能词 = 一个整体：光标进不去，也改不了字母 ============ */
@@ -5012,8 +4969,20 @@ function clipClean(nodes){
   tmp.querySelectorAll('.mf,.mv-drop').forEach(e=>e.remove());
   tmp.querySelectorAll('.en-word').forEach(e=>{
     e.removeAttribute('contenteditable');e.removeAttribute('spellcheck');
+    e.classList.remove('sel-pick');
   });
   return tmp.innerHTML;
+}
+function clipCopyText(range,text,cut){
+  if(!range||range.collapsed||!bodyEl.contains(range.commonAncestorContainer))return false;
+  if(cut&&Array.from(bodyEl.querySelectorAll('.en-word')).some(span=>range.intersectsNode(span))){
+    toast('这段文字里有词卡。长按词卡可单独剪切。','warn');
+    return false;
+  }
+  const entry={kind:'inline',mode:cut?'cut':'copy',html:'<span>'+esc(text).replace(/\r?\n/g,'<br>')+'</span>',at:Date.now()};
+  if(!clipWriteAction(entry,[]))return false;
+  if(cut){range.deleteContents();persistEditor();}
+  return true;
 }
 /* 复制 / 剪切整节 */
 function clipCopySection(h,cut){
@@ -5058,53 +5027,50 @@ function clipParse(html){
   return Array.prototype.slice.call(tmp.children);
 }
 /* 粘贴到目标节（targetHead=null 表示文末）；复制可多次、剪切粘一次后清空 */
-function clipPaste(targetHead){
+function clipPaste(targetHead,caret=null){
   const c=clipGet();
-  if(!c){ toast('剪贴板是空的','warn');return; }
+  if(!c){ toast('剪贴板是空的','warn');return false; }
   const els=clipParse(c.html);
-  if(!els.length){ toast('剪贴板内容无效','warn');return; }
-  const anchor=targetHead?sectionEnd(targetHead):null;
+  if(!els.length){ toast('剪贴板内容无效','warn');return false; }
+  const atCaret=caret&&caret.collapsed&&bodyEl.contains(caret.startContainer);
+  const inline=atCaret&&(c.kind==='inline'||c.kind==='cards');
+  let anchor=targetHead?sectionEnd(targetHead):null;
+  if(atCaret&&!inline&&caret.startContainer!==bodyEl){
+    anchor=caret.startContainer;
+    while(anchor.parentNode!==bodyEl)anchor=anchor.parentNode;
+  }
   const noteId=ui.note;
   const note=state.notes.find(x=>x.id===noteId);
   const noteTitle=note?note.title:'无标题';
   const frag=document.createDocumentFragment();
-  els.forEach(el=>frag.appendChild(el));
   const words=clipWordsIn(els),cut=c.mode==='cut';
-  if(cut&&!clipClear()){ toast('剪贴板无法更新，请重试','warn');return; }
+  if(inline&&c.kind==='inline')frag.append(...els[0].childNodes);
+  else els.forEach((el,i)=>{
+    if(inline&&i>0)frag.append(' ');
+    frag.append(el);
+  });
+  const last=frag.lastChild;
+  if(cut&&!clipClear()){ toast('剪贴板无法更新，请重试','warn');return false; }
   histPush(cut?{before:c,after:null}:null,words);
   try{
-    if(anchor)anchor.parentNode.insertBefore(frag,anchor.nextSibling);
+    if(inline)caret.insertNode(frag);
+    else if(anchor)anchor.parentNode.insertBefore(frag,anchor.nextSibling);
+    else if(atCaret)bodyEl.insertBefore(frag,bodyEl.childNodes[caret.startOffset]||null);
     else bodyEl.appendChild(frag);
   }catch(_){
     if(cut) clipSet(c);
-    toast('粘贴失败','warn');return;
+    toast('粘贴失败','warn');return false;
+  }
+  if(last){
+    const next=document.createRange();next.setStartAfter(last);next.collapse(true);
+    const selection=window.getSelection();selection.removeAllRanges();selection.addRange(next);
   }
   /* 粘贴进来的词条：关联到当前目标笔记 */
   words.forEach(word=>linkWordToNote(word,noteId,noteTitle));
   lockWords(bodyEl); mvDecorate(); applyFolds(); persistEditor();
   try{ if(navigator.vibrate)navigator.vibrate(8); }catch(_){}
   toast(c.mode==='cut'?'已粘贴，剪贴板已清空':'已粘贴，可继续粘贴到别处');
-}
-/* 点「粘贴」按钮：先选放到哪一节（高亮各节），也可直接放文末 */
-let clipChoosing=false;
-function clipStartChoose(){
-  if(!clipGet()){ toast('剪贴板是空的，先在笔记里复制或剪切','warn');return; }
-  clipChoosing=true;
-  headList().forEach(h=>h.classList.add('mv-pick'));
-  /* 各节投放区 */
-  headList().forEach((h,i)=>{
-    if(!h.querySelector('.mv-drop')){
-      const b=document.createElement('span');
-      b.className='mv-drop';b.setAttribute('contenteditable','false');b.setAttribute('data-clipdrop',String(i));
-      h.appendChild(b);
-    }
-  });
-  document.body.classList.add('mv-lift');
-  toast('点某一节放进去，或点「文末」');
-}
-function clipCancelChoose(){
-  clipChoosing=false;
-  mvClearTargets();
+  return true;
 }
 function clipSyncBtn(){
   const b=$('#btnClipPaste');
@@ -5112,6 +5078,7 @@ function clipSyncBtn(){
   const has=!!clipGet();
   b.classList.toggle('disabled',!has);
   b.disabled=!has;
+  syncEditorBar();
 }
 /* ============ 系统剪切拦截：选区含词条时引导用应用内按钮，纯文字不拦 ============ */
 function selectionHasWord(){
@@ -5149,44 +5116,207 @@ function bindSystemClipGuard(){
 /* ============ 选词操作条 ============ */
 const pill=$('#empowerPill');
 const pillWord=$('#pillWord');
-let pillTimer=null, pillHoldAt=0, pillHideTimer=null;
+let pillTimer=null, pillHoldAt=0, editorUndoTimer=null;
+let editorTextRange=null, editorSelectedText='', editorCaret=null, editorPanel='', editorUndoLabel='';
 function scheduleCheck(){ clearTimeout(pillTimer); pillTimer=setTimeout(checkSelection,70); }
-/* 手指刚碰到操作条的那一秒内，别自己把自己藏掉（否则点击会落空） */
-function pillHeld(){ return Date.now()-pillHoldAt<900; }
-function rangeInEditor(sel){
-  if(!sel||sel.rangeCount===0) return false;
-  const node=sel.getRangeAt(0).commonAncestorContainer;
-  const host=node.nodeType===1?node:node.parentElement;
-  return !!(host&&editorWrap.contains(host));
-}
-/* 贴在“看得见的那块屏幕”的右下角：iOS 弹键盘时布局视口不变，只能用 visualViewport 算 */
 function placePill(){
   const vv=window.visualViewport;
-  const h=pill.offsetHeight||150;
-  if(!vv){ pill.style.top=''; pill.style.bottom='10px'; return; }
-  pill.style.top=Math.max(0,Math.round(vv.offsetTop+vv.height-h-10))+'px';
-  pill.style.bottom='auto';
+  pill.style.setProperty('--ed-viewport-inset',vv?Math.max(0,innerHeight-vv.offsetTop-vv.height)+'px':'0px');
+  pill.style.setProperty('--ed-visible-height',(vv?.height||innerHeight)+'px');
+}
+function editorBodyCaret(range){
+  if(!range?.collapsed||!bodyEl.contains(range.startContainer))return null;
+  const node=range.startContainer;
+  const element=node.nodeType===Node.ELEMENT_NODE?node:node.parentElement;
+  return element.closest('.en-word')?null:range.cloneRange();
 }
 function checkSelection(){
+  if(ui.mode!=='edit'||selActive||editorPanel)return;
   const sel=window.getSelection();
-  const dead=!sel||sel.isCollapsed||!rangeInEditor(sel);
-  const text=dead?'':sel.toString().replace(/\s+/g,' ').trim();
-  const bad=dead||!text||text.length>80||!/^[A-Za-z][A-Za-z'’\- ]*$/.test(text);
-  if(bad){
-    /* 选区被手指点收起时，别立刻把按钮抽走：留半秒，让那一下点击还落得到 */
-    if(pillHeld()){ setTimeout(()=>{ if(!pillHeld()) checkSelection(); },950); return; }
-    clearTimeout(pillHideTimer);
-    pillHideTimer=setTimeout(()=>{ if(!pillHeld()) hidePill(); },520);
-    return;
+  const range=sel?.rangeCount?sel.getRangeAt(0):null;
+  const inside=range&&bodyEl.contains(range.commonAncestorContainer);
+  const text=inside&&!range.collapsed?sel.toString():'';
+  if(text.trim()){
+    editorTextRange=range.cloneRange();
+    editorSelectedText=text;
+    editorCaret=null;
+  }else{
+    if(Date.now()-pillHoldAt<450)return;
+    clearEditorTextSelection();
+    if(inside)editorCaret=editorBodyCaret(range);
+    else if(document.activeElement===titleEl)editorCaret=null;
   }
-  clearTimeout(pillHideTimer);
-  ui.selectedRange=sel.getRangeAt(0).cloneRange();
-  ui.empowerText=text;
-  if(pillWord) pillWord.textContent=text.length>14?text.slice(0,14)+'…':text;
-  pill.classList.add('show');
+  syncEditorBar();
+}
+function clearEditorTextSelection(){
+  editorTextRange=null;
+  editorSelectedText='';
+  editorPanel='';
+}
+function resetEditorBar(){
+  clearEditorTextSelection();
+  editorCaret=null;
+  editorUndoLabel='';
+  clearTimeout(editorUndoTimer);
+  if(selActive)endSelect();
+  syncEditorBar();
+}
+function editorEmpowerTarget(){
+  const term=editorSelectedText.trim().replace(/\s+/g,' ');
+  const phrase=!selActive&&term.length<=80&&/^[A-Za-z][A-Za-z'’\- ]*$/.test(term)?term:'';
+  const words=selActive?[...new Set(selSpans.map(findWordOfSpan).filter(Boolean))]:
+    state.words.filter(word=>phrase&&word.term.toLowerCase()===phrase.toLowerCase());
+  return {phrase,words,ready:words.filter(word=>!aPending(word))};
+}
+function syncEditorBar(){
+  const clipboard=clipGet();
+  const hasText=!!editorTextRange&&bodyEl.contains(editorTextRange.commonAncestorContainer);
+  const hasCards=selActive&&selSpans.length>0;
+  const picked=hasText||hasCards;
+  const canPaste=!!clipboard&&!picked;
+  const show=ui.mode==='edit'&&!dragOn&&(picked||canPaste||!!editorUndoLabel);
+  pill.classList.toggle('show',show);
+  document.body.classList.toggle('editor-bar-open',show);
+  if(!show)return;
+  const {phrase,words,ready}=editorEmpowerTarget();
+  const canEmpower=!!phrase||words.length>0;
+  const showStyle=picked&&editorPanel==='style';
+  const showEmpower=picked&&canEmpower&&editorPanel==='empower';
+  const selectionLabel=hasCards?'已选 '+selSpans.length+' 张词卡：'+selSpans.map(span=>span.textContent.trim()).join('、'):
+    hasText?'已选：'+editorSelectedText.trim().replace(/\s+/g,' '):'';
+  const pasteLabel=clipboard?.mode==='cut'?'已剪切，点正文选择粘贴位置':'已复制，点正文选择粘贴位置';
+  pillWord.textContent=selectionLabel||editorUndoLabel||(canPaste?pasteLabel:'');
+  $('#edClearSelection').hidden=!picked;
+  $('#edSelectionActions').hidden=!picked;
+  $('#edEmpower').hidden=!canEmpower;
+  $('#edStyle').setAttribute('aria-expanded',String(showStyle));
+  $('#edEmpower').setAttribute('aria-expanded',String(showEmpower));
+  $('#edStylePanel').hidden=!showStyle;
+  $('#edEmpowerPanel').hidden=!showEmpower;
+  $('#btnDict').hidden=!(phrase||words.length===1);
+  $('#btnEmpower').hidden=!(phrase||words.length===1);
+  $('#btnEmpower').textContent=words.length?'查看词卡':'加入词库';
+  $('#edSpeak').hidden=!ready.length;
+  $('#edWrite').hidden=!ready.length;
+  $('#btnClipPaste').hidden=!canPaste;
+  $('#edDrag').hidden=!hasCards||showStyle||showEmpower;
+  $('#edQuickUndo').hidden=!editorUndoLabel;
+  $('#edClipboardActions').hidden=!canPaste&&!editorUndoLabel&&$('#edDrag').hidden;
   placePill();
 }
-function hidePill(){ pill.classList.remove('show'); }
+function editorUndoFeedback(message){
+  editorUndoLabel=message;
+  clearTimeout(editorUndoTimer);
+  if(message)editorUndoTimer=setTimeout(()=>editorUndoFeedback(''),5000);
+  syncEditorBar();
+}
+const EDITOR_STYLE_OPTIONS={
+  edFonts:{property:'font-family',items:[['默认','var(--editor-default-family)'],['衬线','Georgia, serif'],['圆润','ui-rounded, sans-serif'],['等宽','ui-monospace, monospace']]},
+  edSizes:{property:'font-size',items:[['小','calc(var(--fs-body) - 2px)'],['标准','var(--fs-body)'],['大','calc(var(--fs-body) + 4px)']]},
+  edColors:{property:'color',items:[['默认','var(--text-body)'],['主题色','var(--accent-fg)'],['绿','var(--ok)'],['橙','var(--warn)']]}
+};
+function applyEditorSelectionStyle(property,value){
+  const elements=selActive?selSpans.filter(span=>bodyEl.contains(span)):[];
+  const range=editorTextRange;
+  const runs=[];
+  if(!selActive&&range&&bodyEl.contains(range.commonAncestorContainer)){
+    const walker=document.createTreeWalker(bodyEl,NodeFilter.SHOW_TEXT);
+    for(let node=walker.nextNode();node;node=walker.nextNode()){
+      if(!range.intersectsNode(node)||node.parentElement.closest('.en-word,.mf,.mv-drop'))continue;
+      const start=node===range.startContainer?range.startOffset:0;
+      const end=node===range.endContainer?range.endOffset:node.length;
+      if(end>start)runs.push({node,start,end});
+    }
+  }
+  if(!elements.length&&!runs.length){toast('请选择要改样式的正文或词卡','warn');return;}
+  histPush();
+  for(const {node,start,end} of runs){
+    if(end<node.length)node.splitText(end);
+    const text=start?node.splitText(start):node;
+    const parent=text.parentElement;
+    if(parent.matches('[data-editor-style]')&&parent.childNodes.length===1){elements.push(parent);continue;}
+    const span=document.createElement('span');
+    span.dataset.editorStyle='';
+    text.replaceWith(span);
+    span.append(text);
+    elements.push(span);
+  }
+  elements.forEach(el=>el.style.setProperty(property,value));
+  if(runs.length){
+    const next=document.createRange();
+    next.setStartBefore(elements[0]);next.setEndAfter(elements[elements.length-1]);
+    editorTextRange=next;
+    const selection=window.getSelection();selection.removeAllRanges();selection.addRange(next);
+  }
+  persistEditor();
+  editorUndoFeedback('已更改样式');
+}
+function initEditorBar(){
+  for(const [id,{property,items}] of Object.entries(EDITOR_STYLE_OPTIONS)){
+    for(const [label,value] of items){
+      const button=document.createElement('button');
+      button.type='button';button.textContent=label;
+      if(property==='color')button.style.color=value;
+      button.addEventListener('click',()=>applyEditorSelectionStyle(property,value));
+      $('#'+id).append(button);
+    }
+  }
+  pill.addEventListener('pointerdown',e=>{
+    pillHoldAt=Date.now();
+    if(e.target.closest('button'))e.preventDefault();
+  });
+  document.addEventListener('pointerdown',e=>{
+    if(pill.contains(e.target))return;
+    pillHoldAt=0;
+    if(e.target.closest('#noteBody')&&!selActive){clearEditorTextSelection();editorCaret=null;}
+    else editorPanel='';
+    syncEditorBar();
+  });
+  window.visualViewport?.addEventListener('scroll',placePill);
+  $('#edClearSelection').onclick=()=>{
+    window.getSelection()?.removeAllRanges();
+    clearEditorTextSelection();
+    editorCaret=null;
+    if(selActive)endSelect();
+    syncEditorBar();
+  };
+  function copyOrCut(cut){
+    const ok=selActive?clipCopySelected(selSpans,cut):clipCopyText(editorTextRange,editorSelectedText,cut);
+    if(!ok)return;
+    $('#edClearSelection').click();
+    if(cut)editorUndoFeedback('已剪切。点正文选择粘贴位置');
+  }
+  $('#edCopy').onclick=()=>copyOrCut(false);
+  $('#edCut').onclick=()=>copyOrCut(true);
+  $('#btnClipPaste').onclick=()=>{
+    const selection=window.getSelection();
+    const caret=editorBodyCaret(selection?.rangeCount?selection.getRangeAt(0):null)||editorBodyCaret(editorCaret);
+    if(!caret){toast('先点正文，放好光标再粘贴','warn');return;}
+    if(clipPaste(null,caret)){pillHoldAt=0;checkSelection();editorUndoFeedback('已粘贴');}
+  };
+  $('#edQuickUndo').onclick=histUndo;
+  $('#edDrag').onclick=confirmSelect;
+  $('#edStyle').onclick=()=>{editorPanel=editorPanel==='style'?'':'style';syncEditorBar();};
+  $('#edEmpower').onclick=()=>{editorPanel=editorPanel==='empower'?'':'empower';syncEditorBar();};
+  $('#btnDict').onclick=()=>{
+    const {phrase,words}=editorEmpowerTarget();
+    $('#edClearSelection').click();openDict(phrase||words[0]?.term||'');
+  };
+  $('#btnEmpower').onclick=()=>{
+    const {phrase,words}=editorEmpowerTarget();
+    const word=words[0],range=editorTextRange,note=state.notes.find(n=>n.id===ui.note);
+    $('#edClearSelection').click();
+    if(word||phrase)openWordModal(word?.term||phrase,note?{id:note.id,title:note.title}:null,range,word||null);
+  };
+  $('#edSpeak').onclick=()=>{
+    const {ready}=editorEmpowerTarget();
+    $('#edClearSelection').click();if(ready.length)openAiPackPractice(ready);
+  };
+  $('#edWrite').onclick=()=>{
+    const {ready}=editorEmpowerTarget();
+    $('#edClearSelection').click();if(ready.length)aOpenWriteWith(ready.slice(0,8));
+  };
+}
 
 /* ============ 收起键盘 ============ */
 const kbChip=$('#kbChip');
@@ -8912,11 +9042,13 @@ function backupReminder(){
 const LOOK_COLOR_LABEL={sky:'晴空蓝',mint:'薄荷绿',amber:'暖琥珀',lilac:'丁香紫',pearl:'珍珠白',capsule:'胶囊'};
 const LOOK_FONT_LABEL={system:'系统默认',serif:'衬线',rounded:'圆润',mono:'等宽'};
 function initLookPop(){
-  const pop=$('#lookPop'),btn=$('#btnLook'),colorBox=$('#lookColors');
+  const pop=$('#lookPop'),btn=$('#btnLook'),colorBox=$('#lookColors'),fontBox=$('#fontChoices');
   colorBox.innerHTML=WORD_COLORS.map(c=>
     '<button type="button" class="look-color" data-c="'+c+'" aria-label="'+LOOK_COLOR_LABEL[c]+'"><span class="lc-dot lc-'+c+'"></span><small>'+LOOK_COLOR_LABEL[c]+'</small></button>').join('');
+  fontBox.innerHTML=FONT_CHOICES.map(f=>'<button type="button" class="look-font" data-f="'+f+'">'+LOOK_FONT_LABEL[f]+'</button>').join('');
   function syncLook(){
     const cc=getWordColor();
+    fontBox.querySelectorAll('[data-f]').forEach(b=>b.classList.toggle('on',b.dataset.f===getFontChoice()));
     colorBox.querySelectorAll('.look-color').forEach(b=>b.classList.toggle('on',b.getAttribute('data-c')===cc));
   }
   btn.addEventListener('click',e=>{
@@ -8924,45 +9056,21 @@ function initLookPop(){
     if(pop.hidden){ syncLook();pop.hidden=false; }else pop.hidden=true;
   });
   pop.addEventListener('click',e=>e.stopPropagation());
+  fontBox.addEventListener('click',e=>{
+    const b=e.target.closest('[data-f]');if(!b)return;
+    setFontChoice(b.dataset.f);syncLook();
+  });
   colorBox.addEventListener('click',e=>{
     const b=e.target.closest('.look-color');if(!b)return;
     setWordColor(b.getAttribute('data-c'));syncLook();
   });
   document.addEventListener('pointerdown',e=>{
-    if(!pop.hidden&&!pop.contains(e.target)&&e.target!==btn)pop.hidden=true;
-  });
-}
-/* 独立字体弹层：有选区只改选中部分，无选区改后续输入并记住为默认 */
-function initFontPop(){
-  const pop=$('#fontPop'),btn=$('#btnFont'),box=$('#fontChoices'),hint=$('#fontPopHint');
-  box.innerHTML=FONT_CHOICES.map(f=>
-    '<button type="button" class="look-font" data-f="'+f+'">'+LOOK_FONT_LABEL[f]+'</button>').join('');
-  function syncFont(){
-    const ff=getFontChoice();
-    box.querySelectorAll('.look-font').forEach(b=>b.classList.toggle('on',b.getAttribute('data-f')===ff));
-  }
-  btn.addEventListener('click',e=>{
-    e.stopPropagation();
-    if(pop.hidden){
-      syncFont();
-      hint.textContent=editorFontRange()?'已选中：只改选中部分的字体':'无选区：切换后续输入字体并记住';
-      pop.hidden=false;
-    }else pop.hidden=true;
-  });
-  pop.addEventListener('click',e=>e.stopPropagation());
-  box.addEventListener('click',e=>{
-    const b=e.target.closest('.look-font');if(!b)return;
-    editorApplyFont(b.getAttribute('data-f'));
-    syncFont();
-    pop.hidden=true;
-  });
-  document.addEventListener('pointerdown',e=>{
-    if(!pop.hidden&&!pop.contains(e.target)&&e.target!==btn)pop.hidden=true;
+    if(!pop.hidden&&!pop.contains(e.target)&&!btn.contains(e.target))pop.hidden=true;
   });
 }
 function bindEvents(){
   try{ initLookPop(); }catch(e){ console.error('外观面板初始化失败',e); }
-  try{ initFontPop(); }catch(e){ console.error('字体面板初始化失败',e); }
+  initEditorBar();
   /* 侧边栏 */
   $('#btnNewFolder').addEventListener('click',()=>{
     showConfirm({title:'新建文件夹',msg:'',okText:'创建',danger:false,onOk:null});
@@ -9229,7 +9337,6 @@ function bindEvents(){
   /* 编辑器 */
   $('#btnBack').addEventListener('click',backToList);
   $('#btnHistUndo').addEventListener('click',histUndo);
-  $('#btnClipPaste').addEventListener('click',clipStartChoose);
   $('#btnDelNote').addEventListener('click',()=>{ if(ui.note) deleteNote(ui.note); });
   $('#btnNoteOrganize').addEventListener('click',openNoteOrganize);
   $('#noteOrganizeClose').addEventListener('click',closeNoteOrganize);
@@ -9290,13 +9397,6 @@ function bindEvents(){
     const drop=e.target.closest&&e.target.closest('.mv-drop');
     if(drop&&bodyEl.contains(drop)){
       e.preventDefault(); e.stopPropagation();
-      /* 剪贴板选目标节 */
-      if(clipChoosing&&drop.hasAttribute('data-clipdrop')){
-        const h=drop.parentElement;
-        clipChoosing=false;
-        clipPaste(h);
-        return;
-      }
       const h=drop.parentElement, hi=headList().indexOf(h);
       if(mvState.kind==='word') mvDropWord(h||null);
       else if(mvState.kind==='section') mvDropSection(h);
@@ -9322,34 +9422,7 @@ function bindEvents(){
   let lpFired=false;
   editorWrap.addEventListener('mousedown',e=>{ if(e.target.closest('.en-word')) e.preventDefault(); });
   editorWrap.addEventListener('click',handleWordTap);
-  document.addEventListener('mousedown',e=>{ if(!e.target.closest('#empowerPill')) hidePill(); });
-  document.addEventListener('pointerdown',e=>{ if(!e.target.closest('#empowerPill')) hidePill(); },true);
-  document.addEventListener('scroll',()=>{ if(pill.classList.contains('show')) placePill(); },true);
   document.addEventListener('selectionchange',()=>{ if(ui.mode==='edit') scheduleCheck(); });
-  /* 手指按到操作条上：先记时间，别让“选区一收起就隐藏”把按钮吃掉 */
-  ['pointerdown','touchstart'].forEach(ev=>{
-    pill.addEventListener(ev,()=>{ pillHoldAt=Date.now(); },{passive:true,capture:true});
-  });
-  /* 按下就执行（不等 click）：键盘/布局一变化，click 可能落到别处 */
-  function bindPillAction(btn,fn){
-    let last=0;
-    const fire=()=>{ if(Date.now()-last<400) return; last=Date.now(); pillHoldAt=Date.now(); fn(); };
-    btn.addEventListener('pointerdown',e=>{ e.preventDefault(); fire(); });
-    btn.addEventListener('click',e=>{ e.preventDefault(); fire(); });
-    btn.addEventListener('touchend',e=>{ e.preventDefault(); fire(); });
-  }
-  bindPillAction($('#btnEmpower'),()=>{
-    const term=ui.empowerText,range=ui.selectedRange;
-    hidePill();
-    if(!term) return;
-    const n=state.notes.find(x=>x.id===ui.note);
-    openWordModal(term,n?{id:n.id,title:n.title}:null,range,null);
-  });
-  bindPillAction($('#btnDict'),()=>{
-    const term=ui.empowerText;
-    hidePill();
-    openDict(term||'');
-  });
   /* 单词卡片里的「移动」→ 拿起这个词 */
   const wmMoveBtn=$('#wmMove');
   if(wmMoveBtn) wmMoveBtn.addEventListener('click',()=>{
@@ -12025,7 +12098,7 @@ const COACH_TIPS={
   list:{title:'笔记',text:'点右上角 ＋ 新建笔记；相机按钮可以一次选多张截图，AI 自动识别。'},
   words:{title:'表达库',text:'点任意单词看例句和配图，喇叭图标可以练发音。'},
   flash:{title:'复习',text:'先自己开口说，再看答案；记不住的会安排以后再见。'},
-  edit:{title:'顶部这两个按钮',text:'撤销键：改错了点它回退；粘贴键：用应用内复制 / 剪切的内容，点它选位置粘贴。没有可操作内容时，它们是灰色的，按不动。'}
+  edit:{title:'选中内容就能编辑',text:'长按词卡或划选正文，底部就会出现操作。剪贴后，点正文放好光标，再点底部的粘贴；顶部可撤销。'}
 };
 function coachState(){
   try{const o=JSON.parse(localStorage.getItem(COACH_KEY)||'{}');if(o&&typeof o==='object')return Object.assign({seen:{},off:false},o);}catch(_){}
@@ -12616,7 +12689,7 @@ function initFeedback(){
 
 /* ---------------- 公共状态 ---------------- */
 const DRAG_PRESS_MS=450;
-let dragGhostEl=null, dragLineEl=null, dragSelBarEl=null;
+let dragGhostEl=null, dragLineEl=null;
 let pressTimer=0, pressSX=0, pressSY=0, pressKind='', pressNode=null, pressMoved=false, suppressClick=false;
 /* 选择态：待移动的词条集合 */
 let selActive=false, selSpans=[], dragNodes=[];
@@ -12634,26 +12707,13 @@ function ensureDragEls(){
     dragLineEl=document.createElement('div');dragLineEl.id='dragLine';dragLineEl.className='drag-line hidden';
     document.body.appendChild(dragLineEl);
   }
-  if(!dragSelBarEl){
-    dragSelBarEl=document.createElement('div');dragSelBarEl.id='dragSelBar';dragSelBarEl.className='drag-selbar hidden';
-    dragSelBarEl.innerHTML=
-      '<span class="dsel-count" id="dselCount">已选 1 个</span>'+
-      '<button class="dsel-btn ghost" id="dselCancel" type="button">取消</button>'+
-      '<button class="dsel-btn" id="dselCopy" type="button">复制</button>'+
-      '<button class="dsel-btn" id="dselCut" type="button">剪切</button>'+
-      '<button class="dsel-btn primary" id="dselMove" type="button">移动</button>';
-    document.body.appendChild(dragSelBarEl);
-    dragSelBarEl.querySelector('#dselCancel').onclick=cancelSelect;
-    dragSelBarEl.querySelector('#dselCopy').onclick=confirmCopy;
-    dragSelBarEl.querySelector('#dselCut').onclick=confirmCut;
-    dragSelBarEl.querySelector('#dselMove').onclick=confirmSelect;
-  }
 }
 
 /* ---------------- 长按检测 ---------------- */
 function initDragPress(){
   bodyEl.addEventListener('touchstart',e=>{
     clearTimeout(pressTimer);pressMoved=false;pressKind='';pressNode=null;
+    suppressClick=false;
     if(ui.mode!=='edit'||ui.sideOpen)return;
     if(document.querySelector('.modal.show,.ai-page.show,#shotViewer.show,#writeModal.show'))return;
     const tg=e.target;
@@ -12696,28 +12756,16 @@ function initDragPress(){
 }
 
 /* ---------------- 选择条：批量复制 / 剪切 ---------------- */
-function confirmCopy(){
-  if(!selSpans.length)return;
-  const spans=selSpans.slice();
-  endSelect();
-  clipCopySelected(spans,false);
-}
-function confirmCut(){
-  if(!selSpans.length)return;
-  const spans=selSpans.slice();
-  endSelect();
-  clipCopySelected(spans,true);
-}
 /* 批量复制 / 剪切选中词条（移动仍走跟手拖拽，不在这里） */
 function clipCopySelected(spans,cut){
-  const nodes=collectWordBlocks(spans);
-  if(!nodes.length){ toast('没有可复制的内容','warn');return; }
+  const nodes=[...bodyEl.querySelectorAll('.en-word')].filter(span=>spans.includes(span));
+  if(!nodes.length){ toast('没有可复制的内容','warn');return false; }
   const words=[...new Set(spans.map(findWordOfSpan).filter(Boolean))];
-  const entry={kind:'block',mode:cut?'cut':'copy',html:clipClean(nodes),at:Date.now()};
-  if(!clipWriteAction(entry,words)) return;
+  const entry={kind:'cards',mode:cut?'cut':'copy',html:clipClean(nodes),at:Date.now()};
+  if(!clipWriteAction(entry,words)) return false;
   if(cut){
     const srcId=ui.note;
-    spans.forEach(sp=>{
+    nodes.forEach(sp=>{
       if(!bodyEl.contains(sp))return;
       const block=sp.parentElement;
       sp.remove();
@@ -12726,7 +12774,7 @@ function clipCopySelected(spans,cut){
     words.forEach(word=>unlinkWordFromNote(word,srcId));
     applyFolds();mvDecorate();persistEditor();
   }
-  toast(cut?'已剪切 '+spans.length+' 个，到其它笔记点粘贴':'已复制 '+spans.length+' 个，到其它笔记点粘贴');
+  return true;
 }
 
 /* ---------------- 多词选择态 ---------------- */
@@ -12736,14 +12784,10 @@ function beginSelect(first){
   selSpans=list.filter((sp,i)=>sp&&bodyEl.contains(sp)&&list.indexOf(sp)===i);
   if(!selSpans.length){selActive=false;return;}
   selActive=true;
+  clearEditorTextSelection();
   document.body.classList.add('drag-select');
-  dragSelBarEl.classList.remove('hidden');
-  updateSelectCount();syncSelPicks();
+  syncSelPicks();syncEditorBar();
   /* 选择态下点其它词加入/取消；点空白处不做处理 */
-}
-function updateSelectCount(){
-  const c=dragSelBarEl.querySelector('#dselCount');
-  if(c)c.textContent='已选 '+selSpans.length+' 个';
 }
 function syncSelPicks(){
   bodyEl.querySelectorAll('.en-word.sel-pick').forEach(e=>e.classList.remove('sel-pick'));
@@ -12757,7 +12801,7 @@ function handleSelectTap(e){
   const i=selSpans.indexOf(sp);
   if(i>=0){if(selSpans.length>1)selSpans.splice(i,1);}
   else selSpans.push(sp);
-  updateSelectCount();syncSelPicks();
+  syncSelPicks();syncEditorBar();
 }
 function confirmSelect(){
   if(!selSpans.length)return;
@@ -12765,14 +12809,11 @@ function confirmSelect(){
   endSelect();
   beginDrag(nodes);
 }
-function cancelSelect(){
-  endSelect();toast('已取消，原样没动');
-}
 function endSelect(){
   selActive=false;selSpans=[];
   bodyEl.querySelectorAll('.en-word.sel-pick').forEach(e=>e.classList.remove('sel-pick'));
   document.body.classList.remove('drag-select');
-  dragSelBarEl.classList.add('hidden');
+  syncEditorBar();
 }
 /* 把选中的词条整理成要搬运的顶层块（保留各自所在块结构） */
 function collectWordBlocks(spans){
