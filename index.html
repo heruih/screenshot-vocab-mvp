@@ -590,6 +590,9 @@ body.typing .kb-btn{opacity:1;visibility:visible}
 .st-help b{color:var(--text)}
 .st-actions{display:flex;gap:10px;padding:18px 20px 20px;border-top:1px solid var(--sep);margin-top:18px}
 .st-actions .btn{flex:1}
+.st-feedback{margin:4px 20px 26px;padding:14px 14px 16px;background:var(--s2);border:1px solid var(--s4);border-radius:12px}
+.st-feedback b{color:var(--text);font-size:14px}
+.st-feedback .a-note{margin:6px 0 12px}
 
 /* 确认弹窗 */
 #confirmModal .modal-card{width:min(92vw,340px)}
@@ -1554,6 +1557,11 @@ html[data-font="system"]{--font-body:-apple-system,BlinkMacSystemFont,"SF Pro Te
 html[data-font="serif"]{--font-body:Georgia,"Iowan Old Style","Times New Roman","Songti SC",serif}
 html[data-font="rounded"]{--font-body:ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN","Microsoft YaHei",-apple-system,sans-serif}
 html[data-font="mono"]{--font-body:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+/* 局部字体：只作用于被标记的内容，可内联保存、随复制剪切带走；system 用默认无需类 */
+.tf-serif{font-family:Georgia,"Iowan Old Style","Times New Roman","Songti SC",serif}
+.tf-rounded{font-family:ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN","Microsoft YaHei",-apple-system,sans-serif}
+.tf-mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.font-pop-hint{font-size:12px;color:var(--text3);padding:0 14px 10px}
 
 /* ============ 手机端表达库：筛选收进底部抽屉（桌面端布局保持不变） ============ */
 .word-filter-trigger{display:none}
@@ -1808,13 +1816,13 @@ html[data-font="mono"]{--font-body:ui-monospace,"SF Mono",Menlo,Consolas,monospa
 
 .drag-selbar{
   position:fixed;z-index:398;left:0;right:0;bottom:0;
-  display:flex;align-items:center;gap:10px;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));
+  display:flex;align-items:center;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));
   background:var(--s1);border-top:1px solid var(--sep);
   box-shadow:0 -8px 26px rgba(0,0,0,.3);
 }
 .drag-selbar.hidden{display:none}
 .dsel-count{flex:1;font-size:14px;font-weight:700;color:var(--text);text-align:left}
-.dsel-btn{min-height:44px;border-radius:11px;padding:0 18px;font-size:15px;font-weight:600}
+.dsel-btn{min-height:44px;border-radius:11px;padding:0 13px;font-size:14px;font-weight:600;white-space:nowrap}
 .dsel-btn.ghost{background:var(--s3);border:1px solid var(--s5);color:var(--text)}
 .dsel-btn.primary{background:var(--accent);color:#fff;border-color:transparent}
 .dsel-btn:active{transform:scale(.97)}
@@ -1919,10 +1927,6 @@ body.drag-select #noteBody .en-word.sel-pick{
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
         <span class="nav-copy"><b class="nav-name">我的作文</b><small class="nav-desc">回看历史写作与批改</small></span>
       </button>
-      <button class="nav-item" data-nav="feedback">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9.5h8M8 13h5"/></svg>
-        <span class="nav-copy"><b class="nav-name">意见反馈</b><small class="nav-desc">不满意或建议，随时告诉我们</small></span>
-      </button>
       <div class="nav-divider">文件夹</div>
       <div id="folderList"></div>
     </nav>
@@ -1973,7 +1977,10 @@ body.drag-select #noteBody .en-word.sel-pick{
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
       </button>
       <span id="edBreadcrumb"></span>
-      <button class="icon-btn" id="btnLook" title="外观（配色 / 字体）" aria-label="外观">
+      <button class="icon-btn" id="btnFont" title="字体" aria-label="字体">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"/><path d="M4 7h11"/><path d="M11 19l5-12 5 12"/><path d="M13 15h6"/></svg>
+      </button>
+      <button class="icon-btn" id="btnLook" title="外观（配色）" aria-label="外观">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="9.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><path d="M12 21a3 3 0 0 1 0-6c2 0 3-1.5 3-3"/></svg>
       </button>
       <button class="note-organize-btn" id="btnNoteOrganize" type="button" title="整理这篇笔记">整理</button>
@@ -1991,10 +1998,13 @@ body.drag-select #noteBody .en-word.sel-pick{
         <div class="look-label">配色</div>
         <div class="look-colors" id="lookColors"></div>
       </div>
+    </div>
+    <div id="fontPop" class="look-pop" role="dialog" aria-label="字体设置" hidden>
       <div class="look-group">
         <div class="look-label">字体</div>
-        <div class="look-fonts" id="lookFonts"></div>
+        <div class="look-fonts" id="fontChoices"></div>
       </div>
+      <div class="font-pop-hint" id="fontPopHint">无选区：切换后续输入字体并记住</div>
     </div>
     <div id="editorWrap">
       <div id="noteInboxBar" class="note-inbox-bar hidden" role="button" tabindex="0" aria-label="处理这篇笔记的待处理截图">
@@ -2372,7 +2382,7 @@ body.drag-select #noteBody .en-word.sel-pick{
             <ul class="ag-list ag-faq">
               <li><b>填错会扣钱吗？</b>不会，填错只是连不上、会提示错误，不产生费用。</li>
               <li><b>官网打不开？</b>换个网络或稍后再试，可先跳过，不影响其它功能。</li>
-              <li><b>配图 Key 是什么？</b>Pixabay 免费图片密钥，选填，不填也有记忆卡兜底。</li>
+              <li><b>配图要配 Key 吗？</b>不用。配图默认自动用 Openverse 找图，找不到再用 Pixabay；Pixabay Key 只是选填，不填也能看图或改用截图。</li>
             </ul>
           </details>
           <div class="ag-safety">Key 只保存在本机、不会上传；请勿截图发到公开场合或发给别人。</div>
@@ -2434,9 +2444,9 @@ body.drag-select #noteBody .en-word.sel-pick{
         <div class="st-g-body">
       <div class="media-intro">这两项都不影响背单词的核心功能，不填也能用；填了发音更好听、配图更准。下面分别写清楚利弊，你按需接。</div>
       <div class="media-card">
-        <div class="media-card-head"><b>配图 Pixabay</b><span class="media-badge">推荐接 · 免费</span></div>
-        <p class="media-pros">利：免费真实照片，帮你看图记词；申请简单、不花钱。</p>
-        <p class="media-cons">弊：要花几分钟注册拿 Key；不填也有 Openverse 免费图和记忆卡兜底。</p>
+        <div class="media-card-head"><b>配图 Pixabay（选填）</b><span class="media-badge">免费 · 不配也能用</span></div>
+        <p class="media-pros">利：免费真实照片，配了自己的 Key 多一个图源，看图记词更稳。</p>
+        <p class="media-cons">弊：要花几分钟注册拿 Key；不填也默认用 Openverse 自动找图，找不到可改用截图。</p>
         <div class="st-field">
           <label for="stPixabay">Pixabay Key（选填）</label>
           <input id="stPixabay" type="password" placeholder="填了显示真实照片；不填也能用" autocomplete="off">
@@ -2478,15 +2488,6 @@ body.drag-select #noteBody .en-word.sel-pick{
           <button data-wc-val="lilac">丁香紫</button>
           <button data-wc-val="pearl">珍珠白</button>
           <button data-wc-val="capsule">复古胶囊</button>
-        </div>
-      </div>
-      <div class="st-field">
-        <label>正文字体</label>
-        <div class="seg seg-wide" id="stFont">
-          <button data-font-val="system">系统默认</button>
-          <button data-font-val="serif">优雅衬线</button>
-          <button data-font-val="rounded">圆润无衬线</button>
-          <button data-font-val="mono">等宽打字机</button>
         </div>
       </div>
         </div>
@@ -2564,18 +2565,24 @@ body.drag-select #noteBody .en-word.sel-pick{
       </div>
       </section>
       <div class="st-help">
-        <b>兼容说明：</b>支持任意 OpenAI 格式的接口。点上方按钮会自动填好地址和模型：DeepSeek（api.deepseek.com / deepseek-flash）、智谱（open.bigmodel.cn/api/paas/v4 / glm-4-flash，免费）、OpenAI（api.openai.com/v1 / gpt-4o-mini）。模型名以服务商控制台为准，下线了会报 HTTP 400。<br>
-        <b>隐私：</b>AI 密钥和同步凭据只存在本机浏览器（localStorage），只会直连你选的服务商 / 你自己的仓库，不经过我们的服务器。<br>
+        <b>兼容说明：</b>支持任意 OpenAI 格式的接口。点上方卡片会自动填好地址和模型：DeepSeek（api.deepseek.com / deepseek-flash，便宜稳定）、豆包（有免费额度、到量自动停）、ChatGPT（国内无法直连）。模型名以服务商控制台为准，下线了会报 HTTP 400。<br>
+        <b>隐私：</b>你自己的 AI 密钥和同步凭据只存在本机浏览器（localStorage），调用时直连你选的服务商 / 你自己的仓库，不会上传给我们。<br>
+        <b>自动配图：</b>配图无需你配置，默认由我们的中转服务完成：抽象词先转成具体可搜的词，再从 Openverse（已认证）找图，找不到再用 Pixabay；这一步不使用你的密钥，也可以随时忽略配图、只用截图。<br>
         <b>云同步：</b>填 GitHub Token（或自建地址）后，手机和电脑共用一份数据；按条目合并、删除也会同步，改完约 5 秒自动上传。<br>
         <b>AI 对话：</b>配置同一套接口后，单词弹窗里的「AI 对话」进入「情景口语」——选场景、开口翻译、AI 打分纠错、标准答案跟读。<br>
         <b>朗读：</b>单词用词典真人女声；英文句子与中文提示自动选系统里最自然的女声（设备不同会略有差异）。<br>
-        <b>未配置时：</b>empower 会使用免费词典接口查询释义；网络不可用时可直接手动填写。
+        <b>未配置时：</b>查词会使用免费词典接口，配图与截图照常可用；网络不可用时可直接手动填写。
       </div>
     </div>
     <div class="st-actions">
       <button class="btn" id="stClear">清除配置</button>
       <button class="btn" id="stTest">测试连接</button>
       <button class="btn primary" id="stSave">保存设置</button>
+    </div>
+    <div class="st-feedback">
+      <b>意见反馈</b>
+      <p class="a-note">哪里不好用、想加什么功能，写下来或截图告诉我们</p>
+      <button class="btn" id="stFeedbackBtn" type="button" style="width:100%;min-height:42px">写意见 / 提建议</button>
     </div>
   </div>
 </div>
@@ -2764,9 +2771,9 @@ body.drag-select #noteBody .en-word.sel-pick{
  <div class="modal-card a-guide-card"><div class="wm-head"><div><b>使用小手册</b><div class="a-note">每天做一小轮，慢慢把“看懂”变成“用得出”。</div></div><button class="modal-close" id="aGuideClose" aria-label="关闭使用小手册">×</button></div>
  <div class="wm-body a-guide-body">
   <div class="a-guide-step"><b>1. 截图收集</b><span>看全英视频或日常遇到好表达，点相机按钮选字幕截图，可一次选多张，AI 自动识别文字。</span></div>
-  <div class="a-guide-step"><b>2. 自己整理</b><span>选中要学的表达，写清中文功能、原句和自己的句子，归到一篇笔记后再加入学习。</span></div>
-  <div class="a-guide-step"><b>3. 回想复习</b><span>每天先完成待复习的词，先自己说、再看答案；主页面左右滑就能切换。</span></div>
-  <div class="a-guide-step"><b>4. 开口练</b><span>复习后按每组约 5 个词进入情景对话，单词页也能单独练发音和例句。</span></div>
+  <div class="a-guide-step"><b>2. 自己整理</b><span>选中要学的表达，写清中文功能、原句和自己的句子；编辑器工具栏可给内容切换字体，归到一篇笔记后再加入学习。</span></div>
+  <div class="a-guide-step"><b>3. 配图与截图</b><span>每个词自动配真实图片（抽象词会先转成具体画面），配图和你的截图叠在一起，点卡片边角或左滑就能切换；不想要配图可只用截图。</span></div>
+  <div class="a-guide-step"><b>4. 回想复习 · 开口练</b><span>每天先完成待复习的词，先自己说、再看答案；再按每组约 5 个词进入情景对话，单词页也能单独练发音。</span></div>
   <div class="a-guide-step"><b>5. 装到主屏幕 · 用完导出</b><span>装到主屏幕像 App 一样用、数据更稳；每次用完导出一份备份，清缓存或换设备才不会丢。</span></div>
   <div class="a-guide-tip">浏览器里的数据清缓存会消失，只有“装到主屏幕”的独立 App 能豁免；记得定期导出完整备份。</div>
  </div></div>
@@ -3058,7 +3065,8 @@ function setFontChoice(v){
 }
 function applyLookPrefs(){
   document.documentElement.setAttribute('data-word-color',getWordColor());
-  document.documentElement.setAttribute('data-font',getFontChoice());
+  /* 全局字体不再切换，固定系统默认；字体改为编辑器内局部/后续输入控制 */
+  document.documentElement.setAttribute('data-font','system');
 }
 let state=null;
 let ui={sideOpen:false,mode:'today',folder:'all',note:null,tag:null,lastNote:null,selectedRange:null,empowerText:'',wordFilter:'all',prevMode:'list',search:'',wordSort:'time',wordTag:'',selMode:false,sel:[],logTerm:'',tagEdit:false,tagNewOpen:false};
@@ -4297,7 +4305,62 @@ function bodyCleanHTML(){
   c.querySelectorAll('.mv-hit').forEach(e=>e.classList.remove('mv-hit'));
   c.querySelectorAll('[style=""]').forEach(e=>e.removeAttribute('style'));
   c.querySelectorAll('[class=""]').forEach(e=>e.removeAttribute('class'));
+  /* 局部字体：去掉用于占位的零宽空格，解包没有实际内容的空字体壳 */
+  c.querySelectorAll('.tf-serif,.tf-rounded,.tf-mono').forEach(e=>{
+    if(e.innerHTML.indexOf('​')>=0) e.innerHTML=e.innerHTML.split('​').join('');
+    if(!e.textContent && !e.querySelector('img,.en-word')){ while(e.firstChild) e.parentNode.insertBefore(e.firstChild,e); e.remove(); }
+  });
+  c.querySelectorAll('[class=""]').forEach(e=>e.removeAttribute('class'));
   return c.innerHTML;
+}
+/* ============ 局部字体：有选区只改选中部分；无选区改后续输入并记住为默认 ============ */
+const FONT_TF_CLASS={serif:'tf-serif',rounded:'tf-rounded',mono:'tf-mono'};
+function editorFontRange(){
+  const s=window.getSelection();
+  if(!s||s.rangeCount===0) return null;
+  const r=s.getRangeAt(0);
+  if(r.collapsed||!bodyEl.contains(r.commonAncestorContainer)) return null;
+  return r;
+}
+function wrapRangeWithFont(font){
+  const r=editorFontRange();
+  if(!r) return false;
+  const cls=FONT_TF_CLASS[font];
+  const span=document.createElement('span');
+  if(cls) span.className=cls;
+  try{
+    r.surroundContents(span);
+  }catch(_){
+    /* 选区跨多个节点时 surroundContents 会抛错，用 extract+insert 兜底 */
+    const frag=r.extractContents();
+    span.appendChild(frag);
+    r.insertNode(span);
+  }
+  const nr=document.createRange(); nr.selectNodeContents(span);
+  const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(nr);
+  return true;
+}
+function beginInputFont(font){
+  setFontChoice(font);                 /* 记住，作为下次开始的默认 */
+  const cls=FONT_TF_CLASS[font];
+  if(!cls) return;                     /* system：无需容器，回到默认字体 */
+  const s=window.getSelection();
+  const r=document.createRange();
+  if(s&&s.rangeCount&&bodyEl.contains(s.anchorNode)){ r.setStart(s.anchorNode,s.anchorOffset); r.collapse(true); }
+  else { r.selectNodeContents(bodyEl); r.collapse(false); }
+  const span=document.createElement('span');
+  span.className=cls;
+  span.appendChild(document.createTextNode('​'));  /* 零宽空格，防止空 span 被浏览器吞掉 */
+  r.insertNode(span);
+  const nr=document.createRange(); nr.setStart(span.firstChild,1); nr.collapse(true);
+  const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(nr);
+  bodyEl.focus();
+}
+function editorApplyFont(font){
+  if(FONT_CHOICES.indexOf(font)<0) return;
+  if(editorFontRange()) wrapRangeWithFont(font);
+  else beginInputFont(font);
+  save();
 }
 
 /* ============ 赋能词 = 一个整体：光标进不去，也改不了字母 ============ */
@@ -8058,7 +8121,6 @@ function syncSettingsUI(){
   $$('#stTheme [data-theme-val]').forEach(b=>b.classList.toggle('on',activeTheme===b.dataset.themeVal));
   $$('#stFs [data-fs-val]').forEach(b=>b.classList.toggle('on',(st.fs||'m')===b.dataset.fsVal));
   $$('#stWordColor [data-wc-val]').forEach(b=>b.classList.toggle('on',getWordColor()===b.dataset.wcVal));
-  $$('#stFont [data-font-val]').forEach(b=>b.classList.toggle('on',getFontChoice()===b.dataset.fontVal));
   const n=$('#stBackupNote');
   if(n){
     n.textContent=backupNoteText();
@@ -8177,7 +8239,7 @@ const GUIDE_STEPS={
       {kind:'recharge',text:'先充值余额，否则调用会被拒绝'},
       {kind:'create',text:'创建 API Key 并复制，粘回本 App 保存'}]},
   pixabay:{label:'Pixabay配图',url:'https://pixabay.com/api/docs/',warn:false,
-    note:'免费图片密钥，选填，不填也有记忆卡兜底',
+    note:'免费图片密钥，选填；不填也默认用 Openverse 自动找图，找不到可改用截图',
     steps:[
       {kind:'register',img:'pixabay-1.jpeg',text:'打开 Pixabay，点右上角 Log in 注册一个免费账号'},
       {kind:'verify',text:'去邮箱点确认链接，激活账号'},
@@ -8746,15 +8808,12 @@ function backupReminder(){
 const LOOK_COLOR_LABEL={sky:'晴空蓝',mint:'薄荷绿',amber:'暖琥珀',lilac:'丁香紫',pearl:'珍珠白',capsule:'胶囊'};
 const LOOK_FONT_LABEL={system:'系统默认',serif:'衬线',rounded:'圆润',mono:'等宽'};
 function initLookPop(){
-  const pop=$('#lookPop'),btn=$('#btnLook'),colorBox=$('#lookColors'),fontBox=$('#lookFonts');
+  const pop=$('#lookPop'),btn=$('#btnLook'),colorBox=$('#lookColors');
   colorBox.innerHTML=WORD_COLORS.map(c=>
     '<button type="button" class="look-color" data-c="'+c+'" aria-label="'+LOOK_COLOR_LABEL[c]+'"><span class="lc-dot lc-'+c+'"></span><small>'+LOOK_COLOR_LABEL[c]+'</small></button>').join('');
-  fontBox.innerHTML=FONT_CHOICES.map(f=>
-    '<button type="button" class="look-font" data-f="'+f+'">'+LOOK_FONT_LABEL[f]+'</button>').join('');
   function syncLook(){
-    const cc=getWordColor(),ff=getFontChoice();
+    const cc=getWordColor();
     colorBox.querySelectorAll('.look-color').forEach(b=>b.classList.toggle('on',b.getAttribute('data-c')===cc));
-    fontBox.querySelectorAll('.look-font').forEach(b=>b.classList.toggle('on',b.getAttribute('data-f')===ff));
   }
   btn.addEventListener('click',e=>{
     e.stopPropagation();
@@ -8765,9 +8824,33 @@ function initLookPop(){
     const b=e.target.closest('.look-color');if(!b)return;
     setWordColor(b.getAttribute('data-c'));syncLook();
   });
-  fontBox.addEventListener('click',e=>{
+  document.addEventListener('pointerdown',e=>{
+    if(!pop.hidden&&!pop.contains(e.target)&&e.target!==btn)pop.hidden=true;
+  });
+}
+/* 独立字体弹层：有选区只改选中部分，无选区改后续输入并记住为默认 */
+function initFontPop(){
+  const pop=$('#fontPop'),btn=$('#btnFont'),box=$('#fontChoices'),hint=$('#fontPopHint');
+  box.innerHTML=FONT_CHOICES.map(f=>
+    '<button type="button" class="look-font" data-f="'+f+'">'+LOOK_FONT_LABEL[f]+'</button>').join('');
+  function syncFont(){
+    const ff=getFontChoice();
+    box.querySelectorAll('.look-font').forEach(b=>b.classList.toggle('on',b.getAttribute('data-f')===ff));
+  }
+  btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(pop.hidden){
+      syncFont();
+      hint.textContent=editorFontRange()?'已选中：只改选中部分的字体':'无选区：切换后续输入字体并记住';
+      pop.hidden=false;
+    }else pop.hidden=true;
+  });
+  pop.addEventListener('click',e=>e.stopPropagation());
+  box.addEventListener('click',e=>{
     const b=e.target.closest('.look-font');if(!b)return;
-    setFontChoice(b.getAttribute('data-f'));syncLook();
+    editorApplyFont(b.getAttribute('data-f'));
+    syncFont();
+    pop.hidden=true;
   });
   document.addEventListener('pointerdown',e=>{
     if(!pop.hidden&&!pop.contains(e.target)&&e.target!==btn)pop.hidden=true;
@@ -8775,6 +8858,7 @@ function initLookPop(){
 }
 function bindEvents(){
   try{ initLookPop(); }catch(e){ console.error('外观面板初始化失败',e); }
+  try{ initFontPop(); }catch(e){ console.error('字体面板初始化失败',e); }
   /* 侧边栏 */
   $('#btnNewFolder').addEventListener('click',()=>{
     showConfirm({title:'新建文件夹',msg:'',okText:'创建',danger:false,onOk:null});
@@ -8839,9 +8923,6 @@ function bindEvents(){
   $$('#stWordColor [data-wc-val]').forEach(b=>b.addEventListener('click',()=>{
     setWordColor(b.dataset.wcVal); syncSettingsUI();
   }));
-  $$('#stFont [data-font-val]').forEach(b=>b.addEventListener('click',()=>{
-    setFontChoice(b.dataset.fontVal); syncSettingsUI();
-  }));
   $('#stAnki').addEventListener('click',exportAnki);
   /* 云同步 */
   $$('#stSyncProv [data-syncprov-val]').forEach(b=>b.addEventListener('click',()=>{
@@ -8896,7 +8977,6 @@ function bindEvents(){
     else if(k==='flash'){ ui.mode='flash'; ui.flash=null; }
     else if(k==='speak'){ ui.mode='speak'; }
     else if(k==='write-history'){ ui.sideOpen=false; render(); try{openWriteHistory();}catch(_){} return; }
-    else if(k==='feedback'){ ui.sideOpen=false; render(); try{openFeedback();}catch(_){} return; }
     if(ui.mode!=='words'){ ui.selMode=false; ui.sel=[]; }
     ui.note=null; ui.tag=null; ui.sideOpen=false;
     render();
@@ -11818,7 +11898,7 @@ function aInit(){
   $('#aApply').onclick=()=>{if(!aBridgeJob)return;try{const value=aValidateResult(aParseResult($('#aResult').value),aBridgeJob.prompt);const job=aBridgeJob;aBridgeJob=null;$('#aBridge').classList.remove('show');job.resolve(value);}catch(e){$('#aBridgeError').textContent='还不能使用：'+e.message;}};
   $('#aRecallClose').onclick=()=>{$('#aRecall').classList.remove('show');render();};const batchCloseBtn=$('#aBatchClose'),batchPanel=$('#aBatch');if(batchCloseBtn)batchCloseBtn.onclick=()=>batchClose();if(batchPanel)batchPanel.addEventListener('click',e=>{if(e.target.id==='aBatch')batchClose();});$('#aBackupClose').onclick=()=>$('#aBackup').classList.remove('show');$('#aExport').onclick=aDownloadBackup;$('#aImport').onchange=e=>{aImportFile(e.target.files[0]);e.target.value='';};
   ['aPurpose','aOwn','aOriginal','aSource','aTime'].forEach(id=>$('#'+id).addEventListener('input',()=>{if(wmState&&wmState.aMetaKey)aPut(wmState.aMetaKey,aFieldValues());}));
-  const cap=$('#wmIllusCap');if(cap&&!$('#aImageSwipeNote')){const note=document.createElement('span');note.id='aImageSwipeNote';note.className='illus-swipe-note';note.textContent='右滑查看截图';cap.append(note);}
+  const cap=$('#wmIllusCap');if(cap&&!$('#aImageSwipeNote')){const note=document.createElement('span');note.id='aImageSwipeNote';note.className='illus-swipe-note';note.textContent='点击边角或左滑查看截图';cap.append(note);}
   const confirm=$('#wmIllusConfirm');if(confirm){confirm.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();if(!wmState)return;const rec=aImageRecord(wmState.term),c=aImageCurrent(wmState.term);if(!c)return;rec.term=wmState.term;rec.confirmed=true;wmImgStore(wmState.term,rec);aImageSetConfirm(rec);toast('图片已确定，之后打开会保持这一张','ok');},{capture:true});}
   const more=$('#wmIllusMore');
   if(more)more.addEventListener('click',()=>{
@@ -12036,9 +12116,17 @@ if(OFFLINE_FILE_MODE){
 
 /* ============ 学习身份（独立 key，不碰主数据，可随时切换/回滚） ============ */
 const PERSONA_KEY='english-notes-persona-v1';
+const PERSONA_SEEN_KEY='english-notes-persona-seen-v1';
 const PERSONA_FREE='free';
 const PERSONA_EXAM='exam';
 let personaCache=null;
+/* 弹窗是否已自动展示过：哪怕用户没点选项就切走，也保证只自动弹这一次 */
+function personaWasSeen(){
+  try{ return localStorage.getItem(PERSONA_SEEN_KEY)==='1'; }catch(_){ return false; }
+}
+function personaMarkSeen(){
+  try{ aStore(PERSONA_SEEN_KEY,'1'); }catch(_){}
+}
 function personaReadRaw(){
   try{ return localStorage.getItem(PERSONA_KEY); }catch(_){ return null; }
 }
@@ -12066,11 +12154,13 @@ function personaIsFresh(){
 }
 function openPersona(){ personaSyncUI(); $('#personaModal').classList.add('show'); }
 function closePersona(){ $('#personaModal').classList.remove('show'); }
-/* 首次启动：全新用户且没选过才自动弹；老用户升级不打扰，只在设置里可见 */
+/* 首次启动：全新用户且没选过才自动弹，且只自动弹这一次；老用户升级不打扰，只在设置里可见 */
 function personaMaybeShow(){
   try{
-    if(personaGet()!==null)return;
-    if(!personaIsFresh())return;
+    if(personaGet()!==null)return;     /* 已明确选择，不再弹 */
+    if(personaWasSeen())return;        /* 已自动弹过一次（即便没点选项），不再打扰 */
+    if(!personaIsFresh())return;       /* 老用户不打扰 */
+    personaMarkSeen();                 /* 先标记再弹，确保只自动弹这一次 */
     openPersona();
   }catch(_){}
 }
@@ -12321,8 +12411,9 @@ function closeFeedback(){
   $('#feedbackModal').classList.remove('show');
 }
 function initFeedback(){
-  const fab=$('#fabFeedback');
-  if(fab)fab.addEventListener('click',openFeedback);
+  /* 反馈入口已移到设置页底部 */
+  const btn=$('#stFeedbackBtn');
+  if(btn)btn.addEventListener('click',openFeedback);
   const close=$('#feedbackClose');
   if(close)close.addEventListener('click',closeFeedback);
   const modal=$('#feedbackModal');
@@ -12330,15 +12421,16 @@ function initFeedback(){
   modal.addEventListener('click',e=>{ if(e.target===modal)closeFeedback(); });
 }
 /* ===== 13_drag.js · 备忘录式长按移动（自研触摸拖拽，与系统剪贴板分开） =====
-   长按单词/整节 → 小菜单「移动 / 复制 / 剪切」
-   - 复制 / 剪切：复用应用内剪贴板（保留/移除，单词绑定不丢）
-   - 移动：先进入多词选择（可加选），再浮起跟手拖拽，插入线 + 自动滚动；
-           拖到左边缘可跨笔记，全程不碰系统剪贴板。
+   长按单词 → 直接进入选择态（该词已选中，可继续加选/减选）；
+   长按整节标题 → 选中该节所有词，进入同一选择态。
+   底部操作条统一提供：
+   - 复制 / 剪切：批量作用，复用应用内剪贴板（保留/移除，单词绑定不丢）
+   - 移动：浮起跟手拖拽，插入线 + 自动滚动，拖到左边缘可跨笔记，全程不碰系统剪贴板。
    所有动作都走 histPush，配合全局撤销可逐步撤回。 */
 
 /* ---------------- 公共状态 ---------------- */
 const DRAG_PRESS_MS=450;
-let dragCtxEl=null, dragGhostEl=null, dragLineEl=null, dragSelBarEl=null;
+let dragGhostEl=null, dragLineEl=null, dragSelBarEl=null;
 let pressTimer=0, pressSX=0, pressSY=0, pressKind='', pressNode=null, pressMoved=false, suppressClick=false;
 /* 选择态：待移动的词条集合 */
 let selActive=false, selSpans=[], dragNodes=[];
@@ -12348,19 +12440,6 @@ let dragOn=false, dragPayload=null, dragAutoRAF=0, dragAutoDir=0, dragInsert=nul
 let crossPayload=null;
 
 function ensureDragEls(){
-  if(!dragCtxEl){
-    dragCtxEl=document.createElement('div');dragCtxEl.id='dragCtx';dragCtxEl.className='drag-ctx hidden';
-    dragCtxEl.innerHTML=
-      '<button class="drag-ctx-item" data-dact="move"><span class="dci-ico">✥</span>移动</button>'+
-      '<button class="drag-ctx-item" data-dact="copy"><span class="dci-ico">⧉</span>复制</button>'+
-      '<button class="drag-ctx-item" data-dact="cut"><span class="dci-ico">✂</span>剪切</button>';
-    document.body.appendChild(dragCtxEl);
-    dragCtxEl.addEventListener('click',e=>{
-      const b=e.target.closest('[data-dact]');if(!b)return;
-      const act=b.getAttribute('data-dact');
-      handleCtxAction(act);
-    });
-  }
   if(!dragGhostEl){
     dragGhostEl=document.createElement('div');dragGhostEl.id='dragGhost';dragGhostEl.className='drag-ghost hidden';
     document.body.appendChild(dragGhostEl);
@@ -12374,9 +12453,13 @@ function ensureDragEls(){
     dragSelBarEl.innerHTML=
       '<span class="dsel-count" id="dselCount">已选 1 个</span>'+
       '<button class="dsel-btn ghost" id="dselCancel" type="button">取消</button>'+
+      '<button class="dsel-btn" id="dselCopy" type="button">复制</button>'+
+      '<button class="dsel-btn" id="dselCut" type="button">剪切</button>'+
       '<button class="dsel-btn primary" id="dselMove" type="button">移动</button>';
     document.body.appendChild(dragSelBarEl);
     dragSelBarEl.querySelector('#dselCancel').onclick=cancelSelect;
+    dragSelBarEl.querySelector('#dselCopy').onclick=confirmCopy;
+    dragSelBarEl.querySelector('#dselCut').onclick=confirmCut;
     dragSelBarEl.querySelector('#dselMove').onclick=confirmSelect;
   }
 }
@@ -12399,11 +12482,18 @@ function initDragPress(){
       if(t.clientX-r.left<=32){pressKind='section';pressNode=head;}
     }
     if(!pressKind)return;
-    const node=pressNode;
+    const node=pressNode,kind=pressKind;
     pressTimer=setTimeout(()=>{
       if(pressMoved)return;
       suppressClick=true;
-      openContextMenu(pressKind,node,pressSX,pressSY);
+      if(kind==='section'){
+        /* 整节：选中该节所有词，进入统一选择态 */
+        const words=[];
+        secGroup(node).forEach(b=>b.querySelectorAll&&b.querySelectorAll('.en-word').forEach(w=>words.push(w)));
+        if(words.length)beginSelect(words);
+      }else{
+        beginSelect([node]);
+      }
       try{if(navigator.vibrate)navigator.vibrate(10);}catch(_){}
     },DRAG_PRESS_MS);
   },{passive:true});
@@ -12419,42 +12509,47 @@ function initDragPress(){
   },true);
 }
 
-/* ---------------- 上下文菜单 ---------------- */
-function openContextMenu(kind,node,x,y){
-  ensureDragEls();
-  dragCtxEl.classList.remove('hidden');
-  dragCtxEl.dataset.kind=kind;
-  /* 菜单定位在手指附近，避免超出屏幕 */
-  const w=dragCtxEl.offsetWidth||150,h=dragCtxEl.offsetHeight||140;
-  let left=x+14,top=y-h/2;
-  if(left+w>window.innerWidth-8)left=x-w-14;
-  left=Math.max(8,left);top=Math.max(8,Math.min(top,window.innerHeight-h-8));
-  dragCtxEl.style.left=left+'px';dragCtxEl.style.top=top+'px';
-  dragCtxEl._node=node;
+/* ---------------- 选择条：批量复制 / 剪切 ---------------- */
+function confirmCopy(){
+  if(!selSpans.length)return;
+  const spans=selSpans.slice();
+  endSelect();
+  clipCopySelected(spans,false);
 }
-function hideContextMenu(){if(dragCtxEl)dragCtxEl.classList.add('hidden');}
-function handleCtxAction(act){
-  const kind=dragCtxEl.dataset.kind,node=dragCtxEl._node;
-  hideContextMenu();
-  if(!node)return;
-  if(act==='copy'){
-    if(kind==='word')clipCopyWord(node,false);else clipCopySection(node,false);
-  }else if(act==='cut'){
-    if(kind==='word')clipCopyWord(node,true);else clipCopySection(node,true);
-  }else if(act==='move'){
-    if(kind==='section'){
-      /* 整节直接进入拖拽，无需多选 */
-      selSpans=[];
-      beginDrag(secGroup(node));
-    }else{
-      beginSelect(node);
-    }
+function confirmCut(){
+  if(!selSpans.length)return;
+  const spans=selSpans.slice();
+  endSelect();
+  clipCopySelected(spans,true);
+}
+/* 批量复制 / 剪切选中词条（移动仍走跟手拖拽，不在这里） */
+function clipCopySelected(spans,cut){
+  const nodes=collectWordBlocks(spans);
+  if(!nodes.length){ toast('没有可复制的内容','warn');return; }
+  histPush();
+  clipSet({kind:'block',mode:cut?'cut':'copy',html:clipClean(nodes),at:Date.now()});
+  if(cut){
+    const srcId=ui.note;
+    spans.forEach(sp=>{
+      if(!bodyEl.contains(sp))return;
+      const wm=findWordOfSpan(sp);
+      if(wm)unlinkWordFromNote(wm,srcId);
+      const block=sp.parentElement;
+      sp.remove();
+      if(block&&block!==bodyEl&&!(block.textContent.trim()||block.querySelector('.en-word')))block.remove();
+    });
+    applyFolds();mvDecorate();persistEditor();
   }
+  toast(cut?'已剪切 '+spans.length+' 个，到其它笔记点粘贴':'已复制 '+spans.length+' 个，到其它笔记点粘贴');
 }
 
 /* ---------------- 多词选择态 ---------------- */
 function beginSelect(first){
-  selActive=true;selSpans=[first];
+  const list=Array.isArray(first)?first:[first];
+  /* 去重，只保留正文里还存在的词 */
+  selSpans=list.filter((sp,i)=>sp&&bodyEl.contains(sp)&&list.indexOf(sp)===i);
+  if(!selSpans.length){selActive=false;return;}
+  selActive=true;
   document.body.classList.add('drag-select');
   dragSelBarEl.classList.remove('hidden');
   updateSelectCount();syncSelPicks();
