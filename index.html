@@ -1185,15 +1185,27 @@ body.mode-flash .global-search,body.mode-speak .global-search{display:none}
 .wm-draft-drop:active{opacity:.6}
 
 /* ============ 单词配图 ============ */
-.wm-illus{margin:0 0 14px}
+.wm-illus{margin:0 0 14px;padding:6px 14px 10px}
 .illus-box{
-  position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;
-  background:var(--s3);border:1px solid var(--sep);
+  position:relative;width:100%;aspect-ratio:16/9;
 }
-.illus-box img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .25s ease}
-.illus-box img.ok{opacity:1}
+.illus-card{
+  position:absolute;inset:0;border-radius:12px;overflow:hidden;
+  background:var(--s3);border:1px solid var(--sep);
+  box-shadow:0 6px 16px rgba(0,0,0,.14);
+  transition:transform .35s cubic-bezier(.22,.61,.36,1),z-index 0s linear .175s;
+  will-change:transform;
+}
+.illus-card img{width:100%;height:100%;object-fit:cover;display:block}
+.illus-card.hidden{display:none}
+.illus-card-shot{transform:translate(13px,9px) rotate(4deg);z-index:1}
+.illus-card-pic{transform:translate(0,0) rotate(0);z-index:2}
+.illus-box.flipped .illus-card-shot{transform:translate(0,0) rotate(0);z-index:2}
+.illus-box.flipped .illus-card-pic{transform:translate(-13px,9px) rotate(-4deg);z-index:1}
+#wmIllusImg{opacity:0;transition:opacity .25s ease}
+#wmIllusImg.ok{opacity:1}
 .illus-skel{
-  position:absolute;inset:0;z-index:1;
+  position:absolute;inset:0;z-index:3;border-radius:12px;overflow:hidden;
   background:linear-gradient(100deg,var(--s3) 20%,var(--s4) 40%,var(--s3) 60%);
   background-size:220% 100%;animation:illusShine 1.1s linear infinite;
 }
@@ -1357,9 +1369,20 @@ body.mode-flash .global-search,body.mode-speak .global-search{display:none}
 .shot-empty{ color:var(--text3); font-size:12.5px; line-height:1.7; }
 .wc-shot-row{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
 .word-shot{ width:56px; height:37px; object-fit:cover; border-radius:7px; border:1px solid var(--s4); background:var(--s2); flex:none; }
-.fb-shot{ display:flex; gap:6px; margin:8px 0 2px; flex-wrap:wrap; align-items:center; }
-.fb-shot .word-shot{ width:76px; height:50px; }
-.word-pic{ width:104px; height:72px; object-fit:cover; border-radius:8px; border:1px solid var(--s4); background:var(--s2); flex:none; }
+.fb-stack{ position:relative; width:72%; max-width:240px; aspect-ratio:16/9; margin:10px 0 4px; }
+.fb-stack.single{ width:62%; max-width:205px; }
+.fb-card{
+  position:absolute; inset:0; border-radius:10px; overflow:hidden;
+  background:var(--s2); border:1px solid var(--s4);
+  box-shadow:0 4px 12px rgba(0,0,0,.13);
+  transition:transform .35s cubic-bezier(.22,.61,.36,1),z-index 0s linear .175s;
+  will-change:transform;
+}
+.fb-card img{ width:100%; height:100%; object-fit:cover; display:block; }
+.fb-card-shot{ transform:translate(11px,8px) rotate(4deg); z-index:1; }
+.fb-card-pic{ transform:translate(0,0) rotate(0); z-index:2; }
+.fb-stack.flipped .fb-card-shot{ transform:translate(0,0) rotate(0); z-index:2; }
+.fb-stack.flipped .fb-card-pic{ transform:translate(-11px,8px) rotate(-4deg); z-index:1; }
 #shotViewer{ position:fixed; inset:0; z-index:300; background:rgba(0,0,0,.93); display:none; align-items:center; justify-content:center; }
 #shotViewer.show{ display:flex; }
 #shotViewer img{ max-width:94vw; max-height:86vh; border-radius:10px; }
@@ -2131,9 +2154,14 @@ body.drag-select #noteBody .en-word.sel-pick{
         <button class="memo-keyhint hidden" id="wmMemoKeyHint" type="button">配个图库 Key 会更好：真实图片记得更牢，点这里看怎么配</button>
       </div>
       <div class="wm-illus hidden" id="wmIllus">
-        <div class="illus-box">
+        <div class="illus-box" id="wmIllusBox">
           <div class="illus-skel" id="wmIllusSkel"></div>
-          <img id="wmIllusImg" alt="" decoding="async">
+          <div class="illus-card illus-card-shot hidden" id="wmShotCard">
+            <img id="wmShotImg" alt="原始截图" decoding="async">
+          </div>
+          <div class="illus-card illus-card-pic" id="wmPicCard">
+            <img id="wmIllusImg" alt="" decoding="async">
+          </div>
         </div>
         <div class="illus-cap">
           <a id="wmIllusCap" target="_blank" rel="noopener"></a>
@@ -3869,13 +3897,25 @@ function renderFlash(){
   const picRec=wmImgCached(w.term);
   const picCand=(picRec&&Array.isArray(picRec.cands)&&picRec.cands.length)?picRec.cands[Math.min(picRec.idx||0,picRec.cands.length-1)]:null;
   const picUrl=picCand?(picCand.thumb||picCand.src||''):'';
+  const shot0=shots.length?shots[0].dataUrl:'';
+  let fbMedia='';
+  if(picUrl&&shot0){
+    fbMedia='<div class="fb-stack" data-fbstack>'+
+      '<div class="fb-card fb-card-shot" data-fbflip><img src="'+esc(shot0)+'" alt="截图" data-fbshot="0" loading="lazy"></div>'+
+      '<div class="fb-card fb-card-pic" data-fbflip><img src="'+esc(picUrl)+'" alt="配图" data-fbpic="1" loading="lazy" referrerpolicy="no-referrer"></div>'+
+    '</div>';
+  }else if(picUrl){
+    fbMedia='<div class="fb-stack single"><div class="fb-card fb-card-pic"><img src="'+esc(picUrl)+'" alt="配图" data-fbpic="1" loading="lazy" referrerpolicy="no-referrer"></div></div>';
+  }else if(shot0){
+    fbMedia='<div class="fb-stack single"><div class="fb-card fb-card-shot"><img src="'+esc(shot0)+'" alt="截图" data-fbshot="0" loading="lazy"></div></div>';
+  }
   const backFace=
     '<div class="flash-face flash-back">'+
       (w.phonetic?'<div class="fb-phon">'+esc(w.phonetic)+'</div>':'')+
       '<div class="fb-def">'+esc(w.definition||'（暂无释义）')+'</div>'+
       (w.collocations&&w.collocations.length?'<div class="fb-coll">'+w.collocations.map(c=>'<span class="coll-chip">'+esc(c)+'</span>').join('')+'</div>':'')+
       (origEx?'<div class="fb-orig">原句：'+qwHTML(origEx.x.en,w.term,w.term,origEx.oi)+'</div>':'')+
-      (picUrl||shots.length?'<div class="fb-shot">'+(picUrl?'<img class="word-pic" src="'+esc(picUrl)+'" alt="配图" data-fbpic="1" loading="lazy" referrerpolicy="no-referrer">':'')+shots.map((sh,i)=>'<img class="word-shot" src="'+sh.dataUrl+'" alt="截图" data-fbshot="'+i+'">').join('')+'</div>':'')+
+      fbMedia+
       (examples.length?'<div class="fb-ex">'+examples.map((o,i)=>{const x=o.x;return '<div class="fb-ex-item"><div class="fb-ex-row"><div class="e" data-fbcn="'+i+'">“'+qwHTML(x.en,w.term,w.term,o.oi)+'”</div>'+speakBtn(x.en)+'</div>'+(x.cn?'<div class="c hided"><span class="cn-real">'+esc(x.cn)+'</span><span class="cn-tip">点这一行看中文</span></div>':'')+'</div>';}).join('')+'</div>':(origEx?'<div class="fb-tagline">原文句已在上方</div>':'<div class="fb-tagline">这个词还没有例句</div>'))+
       '<div class="fb-tagline">第 '+s.box+' 箱 · '+(s.due<=Date.now()?'今天到期':srsNextLabel(w))+'</div>'+
       (srcN?'<div class="fb-src">来自笔记：'+esc(srcN.title||'')+'</div>':'')+
@@ -3928,15 +3968,36 @@ function renderFlash(){
     if(b.getAttribute('data-play-kind')==='word') speakWord(b.getAttribute('data-play'));
     else speak(b.getAttribute('data-play'),b.getAttribute('data-play-lang')||'en-US');
   }));
-  $$('#flashCard [data-fbshot]').forEach(b=>b.addEventListener('click',e=>{
-    e.stopPropagation();
-    openShotViewerFor(w.term,Number(b.dataset.fbshot));
-  }));
-  /* 点配图 → 打开词卡（那里能换一张、看大图、触发搜索） */
-  $$('#flashCard [data-fbpic]').forEach(b=>b.addEventListener('click',e=>{
-    e.stopPropagation();
-    openWordModal(w.term,null,null,w);
-  }));
+  /* 叠放卡片：点下层露出边角先交换，点当前在上的主图执行原动作；左滑也可交换 */
+  const fbStack=$('#flashCard [data-fbstack]');
+  if(fbStack){
+    let fbLastFlip=0;
+    const doFlip=()=>{fbStack.classList.toggle('flipped');fbLastFlip=Date.now();};
+    let sx=0,sy=0;
+    fbStack.addEventListener('touchstart',e=>{const p=e.touches[0];sx=p.clientX;sy=p.clientY;},{passive:true});
+    fbStack.addEventListener('touchend',e=>{
+      const p=e.changedTouches[0],dx=p.clientX-sx,dy=p.clientY-sy;
+      if(Math.abs(dx)<45||Math.abs(dx)<Math.abs(dy)*1.2)return;
+      if(fbStack.classList.contains('single'))return;
+      e.stopPropagation();doFlip();
+    },{passive:true});
+    fbStack.addEventListener('click',e=>{
+      if(Date.now()-fbLastFlip<450)return;            /* 触摸滑动后的合成 click 忽略 */
+      const shotEl=e.target.closest('[data-fbshot]');
+      const picEl=e.target.closest('[data-fbpic]');
+      if(!shotEl&&!picEl)return;
+      e.stopPropagation();
+      const isSingle=fbStack.classList.contains('single');
+      const flipped=fbStack.classList.contains('flipped');
+      if(shotEl){
+        if(!isSingle&&!flipped){doFlip();return;}
+        openShotViewerFor(w.term,0);
+      }else{
+        if(!isSingle&&flipped){doFlip();return;}
+        openWordModal(w.term,null,null,w);
+      }
+    });
+  }
   $$('#flashCard [data-fbcn]').forEach(el=>el.addEventListener('click',e=>{
     e.stopPropagation();            /* 别让卡片跟着翻回去 */
     const it=el.closest('.fb-ex-item');
@@ -11462,38 +11523,85 @@ function aImageSetConfirm(rec){
   if(confirm) confirm.classList.toggle('hidden',!aImageCurrent(rec&&rec.term||'')||!!(rec&&rec.confirmed));
   if(more) more.classList.toggle('hidden',!!(rec&&rec.confirmed)||!rec||!Array.isArray(rec.cands)||rec.cands.length<2);
 }
+let aImageLastFlipAt=0;
+/* 同步截图卡：有截图就填充并显示，没有就隐藏并复位层级 */
+function aImageSyncShotCard(term){
+  const stack=$('#wmIllusBox'), shotCard=$('#wmShotCard'), shotImg=$('#wmShotImg');
+  if(!stack)return false;
+  const list=shotsGet(term);
+  if(list.length){
+    shotCard.classList.remove('hidden');
+    if(shotImg.getAttribute('src')!==list[0].dataUrl)shotImg.src=list[0].dataUrl;
+    return true;
+  }
+  shotCard.classList.add('hidden');
+  stack.classList.remove('flipped');
+  aImageSlide.kind='ai';
+  return false;
+}
+/* 交换两张卡片的层级（叠放方案 A 的核心动作） */
+function aImageFlip(){
+  const stack=$('#wmIllusBox');
+  if(!stack||!wmState)return;
+  const term=wmState.term;
+  if(!shotsGet(term).length)return;
+  stack.classList.toggle('flipped');
+  const flipped=stack.classList.contains('flipped');
+  aImageSlide={term:String(term||''),kind:flipped?'shot':'ai',touchX:0,touchY:0};
+  aImageLastFlipAt=Date.now();
+  const note=$('#aImageSwipeNote');
+  if(note)note.textContent=flipped?'点击边角或左滑回到配图':'点击边角或左滑查看截图';
+}
 function aImageRenderAi(term){
   const rec=aImageRecord(term), c=aImageCurrent(term);
+  const stack=$('#wmIllusBox');
+  if(stack)stack.classList.remove('flipped');
   aImageSlide={term:String(term||''),kind:'ai',touchX:0,touchY:0};
+  aImageSyncShotCard(term);
   if(c){
     wmIllusPaint({term:term,cands:rec.cands,idx:rec.idx||0,src:rec.prov||rec.src||'ai'});
     aImageSetConfirm(Object.assign({},rec,{term:term}));
-    const note=$('#aImageSwipeNote');if(note)note.textContent=shotsGet(term).length?'左滑查看截图':'当前没有截图';
+    const note=$('#aImageSwipeNote');if(note)note.textContent=shotsGet(term).length?'点击边角或左滑查看截图':'当前没有截图';
     return true;
   }
   return false;
 }
 function aImageRenderShot(term){
-  const list=shotsGet(term), img=$('#wmIllusImg'), box=$('#wmIllus'), skel=$('#wmIllusSkel'), cap=$('#wmIllusCap'), more=$('#wmIllusMore'), confirm=$('#wmIllusConfirm');
-  if(!list.length||!img||!box)return false;
+  if(!aImageSyncShotCard(term))return false;
+  const stack=$('#wmIllusBox');
+  if(stack)stack.classList.add('flipped');
   aImageSlide={term:String(term||''),kind:'shot',touchX:0,touchY:0};
-  wmMemoHide();box.classList.remove('hidden');if(skel)skel.classList.add('hidden');img.classList.add('ok');img.alt='原始截图';img.src=list[0].dataUrl;
-  if(cap){cap.textContent='原始截图 1 / '+list.length;cap.removeAttribute('href');}
-  if(more)more.classList.add('hidden');if(confirm)confirm.classList.add('hidden');
-  const note=$('#aImageSwipeNote');if(note)note.textContent='左滑回到 AI 图';
+  aImageLastFlipAt=Date.now();
+  const note=$('#aImageSwipeNote');if(note)note.textContent='点击边角或左滑回到配图';
   return true;
 }
-function aImageSwipe(dir){
-  if(!wmState||!wmState.term)return;
-  const term=wmState.term;
-  if(dir>0&&aImageSlide.kind==='ai'&&shotsGet(term).length){aImageRenderShot(term);return;}
-  if(dir<0&&aImageSlide.kind==='shot'){aImageRenderAi(term);return;}
-}
 function aImageBindSwipe(){
-  const box=$('#wmIllus');if(!box||box.dataset.aSwipeBound)return;box.dataset.aSwipeBound='1';
+  const stack=$('#wmIllusBox');
+  if(!stack)return;
+  if(wmState&&wmState.term)aImageSyncShotCard(wmState.term);
+  if(stack.dataset.aSwipeBound)return;stack.dataset.aSwipeBound='1';
   const start=e=>{const p=e.touches?e.touches[0]:e;aImageSlide.touchX=p.clientX;aImageSlide.touchY=p.clientY;};
-  const end=e=>{const p=e.changedTouches?e.changedTouches[0]:e,dx=p.clientX-aImageSlide.touchX,dy=p.clientY-aImageSlide.touchY;if(Math.abs(dx)<45||Math.abs(dx)<Math.abs(dy)*1.2)return;aImageSwipe(dx<0?-1:1);};
-  box.addEventListener('touchstart',start,{passive:true});box.addEventListener('touchend',end,{passive:true});
+  const end=e=>{
+    const p=e.changedTouches?e.changedTouches[0]:e,
+      dx=p.clientX-aImageSlide.touchX,dy=p.clientY-aImageSlide.touchY;
+    if(Math.abs(dx)<45||Math.abs(dx)<Math.abs(dy)*1.2)return;
+    if(wmState&&shotsGet(wmState.term).length)aImageFlip();
+  };
+  stack.addEventListener('touchstart',start,{passive:true});
+  stack.addEventListener('touchend',end,{passive:true});
+  /* 触摸滑动后的合成 click 会被时间戳守卫挡掉，避免一次操作翻转两次 */
+  const clickGuard=()=>Date.now()-aImageLastFlipAt<450;
+  const shotCard=$('#wmShotCard'),picCard=$('#wmPicCard');
+  if(shotCard)shotCard.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(clickGuard()||stack.classList.contains('flipped'))return;
+    aImageFlip();
+  });
+  if(picCard)picCard.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(clickGuard()||!stack.classList.contains('flipped'))return;
+    aImageFlip();
+  });
 }
 async function aGenerateImage(term,signal){
   if(aRoute()!=='api')return null;
