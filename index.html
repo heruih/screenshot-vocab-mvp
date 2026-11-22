@@ -4109,10 +4109,16 @@ function histSnapshot(){
   return {noteId:ui.note, title:titleEl.innerText.trim()||'无标题', content:bodyCleanHTML()};
 }
 /* 压入一个「可回到的过去状态」；与栈顶相同不重复压，超长度丢最旧 */
-function histPush(){
+function histPush(clipboardChange=null,affectedWords=[]){
   const snap=histSnapshot();
+  const words=[...new Set(affectedWords)];
+  snap.links=words.map(word=>{
+    const index=(word.notes||[]).findIndex(link=>link.noteId===snap.noteId);
+    return {wordId:word.id,index,link:index<0?null:{...word.notes[index]}};
+  });
+  snap.clipboardChange=clipboardChange;
   const top=histStack[histStack.length-1];
-  if(top&&top.title===snap.title&&top.content===snap.content)return;
+  if(!clipboardChange&&!words.length&&top&&top.noteId===snap.noteId&&top.title===snap.title&&top.content===snap.content)return;
   histStack.push(snap);
   if(histStack.length>HIST_MAX)histStack.shift();
   histSyncUndoBtn();
@@ -4138,13 +4144,25 @@ function histUndo(){
   }
   titleEl.innerText=snap.title;
   bodyEl.innerHTML=snap.content;
+  for(const {wordId,index,link} of snap.links||[]){
+    const word=state.words.find(item=>item.id===wordId);
+    if(!word) continue;
+    const notes=(word.notes||[]).filter(item=>item.noteId!==snap.noteId);
+    if(link) notes.splice(index,0,link);
+    word.notes=notes;
+  }
+  const change=snap.clipboardChange;
+  let clipboardRestored=true;
+  if(change&&JSON.stringify(clipGet())===JSON.stringify(change.after)){
+    clipboardRestored=change.before?clipSet(change.before):clipClear();
+  }
   try{ lockWords(bodyEl); }catch(_){ }
   try{ mvDecorate(); }catch(_){ }
   try{ applyFolds(); }catch(_){ }
   try{ persistEditor(); }catch(_){ }
   histSyncUndoBtn();
   try{ if(navigator.vibrate)navigator.vibrate(8); }catch(_){}
-  toast('已撤销');
+  toast(clipboardRestored?'已撤销':'正文已撤销，剪贴板恢复失败',clipboardRestored?'ok':'warn');
 }
 function onEditorInput(){
   try{ histArmInput(); }catch(_){ }
@@ -4903,18 +4921,34 @@ function linkWordToNote(word,noteId,noteTitle){
 }
 function unlinkWordFromNote(word,noteId){
   if(!word||!Array.isArray(word.notes))return;
+  if(Array.from(bodyEl.querySelectorAll('.en-word')).some(span=>findWordOfSpan(span)===word)) return;
   word.notes=word.notes.filter(l=>l.noteId!==noteId);
 }
 function clipGet(){
   try{ return JSON.parse(localStorage.getItem(CLIPBOARD_KEY))||null; }catch(_){ return null; }
 }
 function clipSet(obj){
-  try{ localStorage.setItem(CLIPBOARD_KEY,JSON.stringify(obj)); }catch(_){ }
+  try{ localStorage.setItem(CLIPBOARD_KEY,JSON.stringify(obj)); }catch(_){ return false; }
   clipSyncBtn();
+  return true;
 }
 function clipClear(){
-  try{ localStorage.removeItem(CLIPBOARD_KEY); }catch(_){ }
+  try{ localStorage.removeItem(CLIPBOARD_KEY); }catch(_){ return false; }
   clipSyncBtn();
+  return true;
+}
+function clipWriteAction(entry,words){
+  const before=clipGet();
+  if(!clipSet(entry)){
+    toast('剪贴板保存失败，请重试','warn');
+    return false;
+  }
+  if(entry.mode==='cut') histPush({before,after:entry},words);
+  return true;
+}
+function clipWordsIn(nodes){
+  const spans=nodes.flatMap(node=>node.matches('.en-word')?[node]:Array.from(node.querySelectorAll('.en-word')));
+  return [...new Set(spans.map(findWordOfSpan).filter(Boolean))];
 }
 /* 克隆一段 DOM 并清掉临时装饰/属性，得到可保存、可粘贴的干净 HTML */
 function clipClean(nodes){
@@ -4930,17 +4964,13 @@ function clipClean(nodes){
 function clipCopySection(h,cut){
   if(!h||!bodyEl.contains(h))return;
   const g=secGroup(h);
-  histPush();
-  clipSet({kind:'section',mode:cut?'cut':'copy',html:clipClean(g),at:Date.now()});
+  const words=clipWordsIn(g);
+  const entry={kind:'section',mode:cut?'cut':'copy',html:clipClean(g),at:Date.now()};
+  if(!clipWriteAction(entry,words)) return;
   if(cut){
     const srcId=ui.note;
-    g.forEach(el=>{
-      el.querySelectorAll('.en-word').forEach(sp=>{
-        const wm=findWordOfSpan(sp);
-        if(wm)unlinkWordFromNote(wm,srcId);
-      });
-    });
     g.forEach(el=>el.remove());
+    words.forEach(word=>unlinkWordFromNote(word,srcId));
     foldClear(); applyFolds(); mvDecorate(); persistEditor();
   }
   toast(cut?'已剪切整节，到其它笔记点粘贴':'已复制整节，到其它笔记点粘贴');
@@ -4948,13 +4978,13 @@ function clipCopySection(h,cut){
 /* 复制 / 剪切单个词条（.en-word 可能是词组，即“一段单词”） */
 function clipCopyWord(span,cut){
   if(!span||!bodyEl.contains(span)){ toast('词条不在正文里','warn');return; }
-  histPush();
-  clipSet({kind:'block',mode:cut?'cut':'copy',html:'<div>'+clipClean([span])+'</div>',at:Date.now()});
+  const word=findWordOfSpan(span);
+  const entry={kind:'block',mode:cut?'cut':'copy',html:'<div>'+clipClean([span])+'</div>',at:Date.now()};
+  if(!clipWriteAction(entry,word?[word]:[])) return;
   if(cut){
-    const srcId=ui.note, wm=findWordOfSpan(span);
-    if(wm)unlinkWordFromNote(wm,srcId);
     const block=span.parentElement;
     span.remove();
+    unlinkWordFromNote(word,ui.note);
     if(block&&block!==bodyEl&&!(block.textContent.trim()||block.querySelector('.en-word')))block.remove();
     applyFolds(); mvDecorate(); persistEditor();
   }
@@ -4976,7 +5006,6 @@ function clipParse(html){
 function clipPaste(targetHead){
   const c=clipGet();
   if(!c){ toast('剪贴板是空的','warn');return; }
-  histPush();
   const els=clipParse(c.html);
   if(!els.length){ toast('剪贴板内容无效','warn');return; }
   const anchor=targetHead?sectionEnd(targetHead):null;
@@ -4985,19 +5014,19 @@ function clipPaste(targetHead){
   const noteTitle=note?note.title:'无标题';
   const frag=document.createDocumentFragment();
   els.forEach(el=>frag.appendChild(el));
+  const words=clipWordsIn(els),cut=c.mode==='cut';
+  if(cut&&!clipClear()){ toast('剪贴板无法更新，请重试','warn');return; }
+  histPush(cut?{before:c,after:null}:null,words);
   try{
     if(anchor)anchor.parentNode.insertBefore(frag,anchor.nextSibling);
     else bodyEl.appendChild(frag);
-  }catch(_){ toast('粘贴失败','warn');return; }
+  }catch(_){
+    if(cut) clipSet(c);
+    toast('粘贴失败','warn');return;
+  }
   /* 粘贴进来的词条：关联到当前目标笔记 */
-  els.forEach(el=>{
-    el.querySelectorAll&&el.querySelectorAll('.en-word').forEach(sp=>{
-      const wm=findWordOfSpan(sp);
-      if(wm)linkWordToNote(wm,noteId,noteTitle);
-    });
-  });
+  words.forEach(word=>linkWordToNote(word,noteId,noteTitle));
   lockWords(bodyEl); mvDecorate(); applyFolds(); persistEditor();
-  if(c.mode==='cut')clipClear();
   try{ if(navigator.vibrate)navigator.vibrate(8); }catch(_){}
   toast(c.mode==='cut'?'已粘贴，剪贴板已清空':'已粘贴，可继续粘贴到别处');
 }
@@ -7553,6 +7582,24 @@ function startScene(sc){
     const retry=$('#aiRetry'); if(retry) retry.addEventListener('click',()=>startScene(sc));
   });
 }
+async function aiJudge(attempt){
+  const target=aiTargetTerm(aiState.currentTargetWord||aiState.term);
+  const context=aiState.lines.filter(line=>line.who!=='YOU').map(line=>line.en).join('\n');
+  const review=await aiCall([
+    {role:'system',content:'你是英语口语教练。'+toneSystem()+'只返回 JSON。给一个自然、符合中文提示并使用目标词的英文参考答案，简要解释用法，列出最多两个具体易错点。'},
+    {role:'user',content:JSON.stringify({
+      target,
+      context,
+      promptCn:aiState.attemptPromptCn,
+      attempt,
+      responseFormat:{standard:'英文参考答案',fit:'中文用法说明',pitfalls:['中文易错点']}
+    })}
+  ]);
+  if(typeof review?.standard!=='string'||!review.standard.trim()){
+    throw new Error('批改缺少参考答案，请重试');
+  }
+  return review;
+}
 async function submitAttempt(){
   if(aiState.phase!=='practice'||aiState.busy) return;
   if(aiPrefetchTimer){clearTimeout(aiPrefetchTimer);aiPrefetchTimer=null;}
@@ -7560,6 +7607,7 @@ async function submitAttempt(){
   const text=input.value.trim();
   if(!text){ toast('先把你的翻译说出来或写下来','warn'); return; }
   stopAiDictation();
+  const attemptState=aiState;
   aiState.busy=true;
   const youLines=aiState.lines.filter(l=>l.who==='YOU');
   const youLine=aiState.multiTurn?(youLines[aiState.turnIndex]||youLines[0]):youLines[0];
@@ -7579,10 +7627,11 @@ async function submitAttempt(){
     aiSchedulePrefetch(4000);
   }).catch(err=>{
     if(session!==aiSession||term!==aiState.term||mySeq!==aiState.seq) return;
+    if(!input.value) input.value=text;
     aiShowBody();
     aiSetChatbar('practice');
-    toast(String(err&&err.message||'批改失败，请重试'),'warn');
-  }).finally(()=>{ aiState.busy=false; });
+    toast(aiErrText(err),'warn');
+  }).finally(()=>{ attemptState.busy=false; });
 }
 function saveSpeakLog(d,attempt){
   const sc=aiState.scene||{};
@@ -10469,13 +10518,34 @@ function pickNoteForImport(){
     cancelBtn.onclick=()=>{cleanup();resolve(null);};
   });
 }
-async function ocrAttachShot(w,dataUrl){
-  const all=shotsAll(),k=shotsKeyOf(w.term),list=Array.isArray(all[k])?all[k]:[];
-  const attachCap=await shotCapacity();
-  if(list.length>=SHOT_MAX_PER_WORD||shotsTotal(all)>=attachCap)return false;
-  list.push({id:uid(),dataUrl,at:Date.now()});all[k]=list;return shotsFlush(all);
+let ocrShotQueue=Promise.resolve();
+let ocrMountBusy=false;
+const ocrInboxBusy=new Set();
+function ocrAttachShot(term,dataUrl){
+  const write=ocrShotQueue.then(async()=>{
+    const attachCap=await shotCapacity();
+    const all=shotsAll(),key=shotsKeyOf(term),list=all[key]||[];
+    if(list.some(shot=>shot.dataUrl===dataUrl)) return true;
+    if(list.length>=SHOT_MAX_PER_WORD||shotsTotal(all)>=attachCap) return false;
+    const next={...all,[key]:[...list,{id:uid(),dataUrl,at:Date.now()}]};
+    if(shotUseIdb){
+      const db=await idbOpen();
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction(IDB_STORE_SHOTS,'readwrite');
+        tx.oncomplete=resolve;
+        tx.onabort=()=>reject(tx.error||new Error('截图保存失败'));
+        tx.objectStore(IDB_STORE_SHOTS).put(next,'all');
+      });
+    }
+    else if(!aStore(SHOTS_KEY,JSON.stringify(next))) throw new Error('截图保存失败');
+    if(shotReady) shotCache=next;
+    return true;
+  });
+  ocrShotQueue=write.catch(()=>{});
+  return write;
 }
 async function ocrInboxConfirm(id){
+  if(ocrInboxBusy.has(id)) return;
   const list=ocrInboxRead(),item=list.find(x=>x.id===id);if(!item)return;
   const row=Array.from(document.querySelectorAll('[data-inbox-id]')).find(el=>el.dataset.inboxId===id);
   if(!row)return;
@@ -10485,26 +10555,55 @@ async function ocrInboxConfirm(id){
   const targets=[];const seen=new Set();
   candIds.forEach(cid=>{
     const w=state.words.find(x=>x.id===cid);
-    if(w&&!seen.has(w.id)){seen.add(w.id);targets.push({w,created:false});}
+    if(w&&!seen.has(ocrNorm(w.term))){seen.add(ocrNorm(w.term));targets.push(w.term);}
   });
   manualTerms.forEach(term=>{
-    let w=state.words.find(x=>ocrNorm(x.term)===ocrNorm(term));
-    let created=false;
-    if(!w){w=upsertWord({term,definition:'',examples:[],collocations:[],tags:[],source:'shot',notes:[],mastered:false});created=true;}
-    if(!seen.has(w.id)){seen.add(w.id);targets.push({w,created});}
+    const key=ocrNorm(term);
+    if(seen.has(key)) return;
+    seen.add(key);
+    const w=state.words.find(x=>ocrNorm(x.term)===key);
+    targets.push(w?w.term:term);
   });
   if(!targets.length){toast('先点候选词，或手动输入至少一个词','warn');return;}
-  /* 同一张图依次挂到所有目标词；某个词满了就跳过并记录 */
-  let ok=0;const failed=[],createdIds=[];
-  for(const t of targets){
-    if(await ocrAttachShot(t.w,item.dataUrl)){ok++;if(t.created)createdIds.push(t.w.id);}
-    else failed.push(t.w.term);
+  const controls=row.querySelectorAll('button');
+  ocrInboxBusy.add(id);
+  controls.forEach(button=>button.disabled=true);
+  try{
+    let saved=0;
+    const failed=[];
+    for(const term of targets){
+      if(!await ocrAttachShot(term,item.dataUrl)){
+        failed.push(term);
+        continue;
+      }
+      ocrEnsureWord(term);
+      saved++;
+    }
+    save();
+    if(failed.length){
+      toast('「'+failed.join('、')+'」截图已满，待匹配原图仍在收件箱','warn');
+      return;
+    }
+    await inboxRemoveItem(id);
+    render();ocrInboxRender();
+    toast('已挂到 '+saved+' 个词','ok');
+  }catch(_){
+    toast('截图保存未完成，原图仍在收件箱，可重试','warn');
+  }finally{
+    ocrInboxBusy.delete(id);
+    controls.forEach(button=>button.disabled=false);
   }
-  if(!ok){toast('这些词都没挂上（可能已满 4 张），截图保留在收件箱','warn');return;}
-  await inboxRemoveItem(id);
-  createdIds.forEach(cid=>aPut(cid,{stage:'pending'}));save();if(ui.mode==='words')renderWordsPane();render();ocrInboxRender();
-  let msg='已挂到 '+ok+' 个词';if(failed.length)msg+='，「'+failed.join('、')+'」已满跳过';
-  toast(msg,'ok');
+}
+function ocrEnsureWord(term){
+  const existing=state.words.find(w=>w.term.toLowerCase()===term.toLowerCase());
+  if(existing) return existing;
+  const word=upsertWord({term,definition:'',examples:[],collocations:[],tags:[],source:'shot',notes:[],mastered:false});
+  try{ aPut(word.id,{stage:'pending'}); }
+  catch(err){
+    state.words.splice(state.words.indexOf(word),1);
+    throw err;
+  }
+  return word;
 }
 async function ocrInboxDelete(id){await inboxRemoveItem(id);ocrInboxRender();toast('已删除这张截图','ok');}
 async function ocrImportBatch(files,noteId){
@@ -10730,39 +10829,36 @@ async function ocrImportImage(event){
   }
 }
 async function ocrMount(){
+  if(ocrMountBusy) return;
   const ed=$('#ocrEdit');
   const text=ed?ed.value.trim():'';
   if(!ocrDataUrl){ toast('先选一张截图','warn'); return; }
   if(!text){ toast('先点词框选中，或直接输入单词/短语','warn'); return; }
-  const key=text.toLowerCase();
-  const before=state.words.find(x=>x.term.toLowerCase()===key);
-  let w=before;
-  let created=0;
-  if(!w){
-    w=upsertWord({term:text,definition:'',examples:[],collocations:[],tags:[],source:'shot',notes:[],mastered:false});
-    created=1;
+  const dataUrl=ocrDataUrl,button=$('#ocrMount');
+  ocrMountBusy=true;
+  button.disabled=true;
+  try{
+    if(!await ocrAttachShot(text,dataUrl)){
+      toast('截图空间已满，本次选图已保留','warn');
+      return;
+    }
+    const word=ocrEnsureWord(text);
+    save();
+    if(ocrDataUrl!==dataUrl) return;
+    $('#ocrSheet').classList.remove('show');
+    ocrDataUrl=''; ocrSel=[]; ocrWords=[];
+    ed.value='';
+    $('#ocrBoxes').innerHTML=''; $('#ocrImg').src='';
+    $('#ocrImgWrap').classList.add('hidden'); $('#ocrSelected').classList.add('hidden');
+    render();
+    openWordModal(word.term,null,null,word);
+    toast('截图已保存到「'+word.term+'」','ok');
+  }catch(_){
+    toast('截图保存失败，请重试','warn');
+  }finally{
+    ocrMountBusy=false;
+    button.disabled=false;
   }
-  const all=shotsAll();
-  const k=shotsKeyOf(w.term);
-  const list=Array.isArray(all[k])?all[k]:[];
-  let linked=0;
-  const mountCap=await shotCapacity();
-  if(list.length<SHOT_MAX_PER_WORD&&shotsTotal(all)<mountCap){
-    list.push({id:uid(),dataUrl:ocrDataUrl,at:Date.now()});
-    all[k]=list; linked=1;
-  }
-  if(linked&&!shotsFlush(all)) return;
-  if(created) aPut(w.id,{stage:'pending'});
-  save();
-  $('#ocrSheet').classList.remove('show');
-  ocrDataUrl=''; ocrSel=[]; ocrWords=[];
-  if(ed) ed.value='';
-  $('#ocrBoxes').innerHTML=''; $('#ocrImg').src='';
-  $('#ocrImgWrap').classList.add('hidden'); $('#ocrSelected').classList.add('hidden');
-  if(ui.mode==='words') renderWordsPane();
-  render();
-  openWordModal(w.term,null,null,w);
-  toast('已保存「'+text+'」'+(created?'（新建词条）':'，匹配已有词条')+(linked?'，截图已挂上':'，截图空间已满')+'；去单词页点「截图」按钮可查看','ok');
 }
 
 /* A evolution: supplemental data is keyed by stable word ID; legacy content
@@ -10946,7 +11042,12 @@ function aiProviderRefreshFields(){
 }
 function aRoute(){return localStorage.getItem(A_PREF_KEY)==='chatgpt'?'chatgpt':'api';}
 function aiApiConfig(){return aiProviderCfg();}
-function aAiReady(){const cfg=aiProviderCfg();return aRoute()==='chatgpt'||!!(String(cfg.apiKey||'').trim()&&String(cfg.model||'').trim()&&String(cfg.baseUrl||'').trim());}
+function aAiReady(){
+  if(aRoute()==='chatgpt') return true;
+  const cfg=aiProviderCfg();
+  if(cfg.apiKey) return Boolean(cfg.model&&cfg.baseUrl);
+  return globalThis.APP_CONFIG?.product==='commercial'&&Boolean(textRelayConfig().relayUrl);
+}
 function aiImageConfig(){
   const saved=aRead(AI_IMAGE_KEY,{}),provider=aiProviderCfg(),useProvider=provider.name==='openai';
   return {baseUrl:String(saved.baseUrl||(useProvider?provider.baseUrl:'')).trim(),apiKey:String(saved.apiKey||(useProvider?provider.apiKey:'')).trim(),model:String(saved.model||'gpt-image-1').trim()};
@@ -12282,7 +12383,11 @@ async function textRelayFetch(messages,opts){
       });
       if(!res.ok){
         let t='';try{t=await res.text();}catch(_){}
-        const err=new Error(res.status===429?'用的人太多，稍后再试':('HTTP '+res.status+' '+(t||'').slice(0,100)));
+        const statusMessage={
+          402:'共用 AI 服务额度不足（HTTP 402），请稍后再试',
+          429:'用的人太多，稍后再试'
+        };
+        const err=new Error(statusMessage[res.status]||('HTTP '+res.status+' '+(t||'').slice(0,100)));
         err.status=res.status;
         throw err;
       }
@@ -12526,18 +12631,18 @@ function confirmCut(){
 function clipCopySelected(spans,cut){
   const nodes=collectWordBlocks(spans);
   if(!nodes.length){ toast('没有可复制的内容','warn');return; }
-  histPush();
-  clipSet({kind:'block',mode:cut?'cut':'copy',html:clipClean(nodes),at:Date.now()});
+  const words=[...new Set(spans.map(findWordOfSpan).filter(Boolean))];
+  const entry={kind:'block',mode:cut?'cut':'copy',html:clipClean(nodes),at:Date.now()};
+  if(!clipWriteAction(entry,words)) return;
   if(cut){
     const srcId=ui.note;
     spans.forEach(sp=>{
       if(!bodyEl.contains(sp))return;
-      const wm=findWordOfSpan(sp);
-      if(wm)unlinkWordFromNote(wm,srcId);
       const block=sp.parentElement;
       sp.remove();
       if(block&&block!==bodyEl&&!(block.textContent.trim()||block.querySelector('.en-word')))block.remove();
     });
+    words.forEach(word=>unlinkWordFromNote(word,srcId));
     applyFolds();mvDecorate();persistEditor();
   }
   toast(cut?'已剪切 '+spans.length+' 个，到其它笔记点粘贴':'已复制 '+spans.length+' 个，到其它笔记点粘贴');
