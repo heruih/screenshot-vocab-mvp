@@ -837,9 +837,18 @@ body.side-open #scrim{display:block}
 .ex-card .ex-en-text .t{font-size:16px}
 .st-field .btn{white-space:nowrap}
 .wc-ex-more{font-size:11.5px;color:var(--text3);margin-top:3px}
-.ocr-inbox-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--sep)}.ocr-inbox-item img{width:82px;height:62px;object-fit:cover;border-radius:8px;background:var(--s3);flex:none}.ocr-inbox-main{min-width:0;flex:1}.ocr-inbox-text{width:100%;display:block;font-size:13px;color:var(--text);line-height:1.4;margin-bottom:6px;padding:7px 9px;border:1px solid var(--sep);border-radius:9px;background:var(--s1);resize:vertical;min-height:42px;font-family:inherit}.ocr-inbox-main select,.ocr-inbox-main input{width:100%;min-height:34px;margin-bottom:6px}.ocr-inbox-actions{display:flex;gap:8px}.ocr-inbox-actions .mini-btn{padding:6px 11px}
+.ocr-inbox-item{display:flex;gap:10px;padding:11px;margin:8px 0;border:1px solid var(--sep);border-radius:12px;background:var(--s2)}
+.ocr-inbox-preview{width:82px;flex:none}.ocr-inbox-preview img{width:100%;height:64px;object-fit:contain;border-radius:8px;background:var(--s3)}
+.ocr-inbox-preview label{min-height:44px;display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);cursor:pointer}
+.ocr-inbox-preview input{flex:none;width:17px;height:17px;accent-color:var(--accent)}
+.ocr-inbox-main{min-width:0;flex:1}
+.ocr-match-label{display:block;margin:8px 0 4px;font-size:12px;font-weight:600;color:var(--text2)}
+#ocrSheet [data-ocr-text],#ocrSheet [data-ocr-term]{width:100%;display:block;min-height:44px;padding:8px;margin:5px 0 7px;border:1px solid var(--sep);border-radius:9px;background:var(--s1);color:var(--text);font:inherit;font-size:16px}
+#ocrSheet [data-ocr-text]{resize:vertical}
+.ocr-inbox-actions{display:flex;gap:8px}.ocr-inbox-actions .mini-btn{min-height:44px;padding:6px 11px}
+.ocr-batch-match{position:sticky;bottom:0;z-index:3;max-height:38vh;overflow:auto;padding:10px;margin:6px 0 12px;border:1px solid var(--sep);border-radius:12px;background:var(--s2)}
 .cand-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
-.cand-chip{padding:6px 12px;border-radius:999px;border:1px solid var(--s5);background:var(--s2);color:var(--text2);font-size:12.5px;font-weight:600;min-height:34px;line-height:1}
+.cand-chip{padding:6px 12px;border-radius:999px;border:1px solid var(--s5);background:var(--s2);color:var(--text2);font-size:12.5px;font-weight:600;min-height:44px;line-height:1.25;overflow-wrap:anywhere;max-width:100%}
 .cand-chip:active{transform:scale(.96)}
 .cand-chip.on{background:var(--accent);border-color:var(--accent);color:var(--s1)}
 .cand-empty{font-size:12px;color:var(--text3)}
@@ -1434,10 +1443,6 @@ body.mode-flash #fabFeedback,body.mode-flash #fabShot{ display:none; }
 .link-btn{border:none;background:none;color:var(--accent);font-size:inherit;font:inherit;padding:0 2px;cursor:pointer;text-decoration:underline}
 #ocrImgWrap{ position:relative; border-radius:12px; overflow:hidden; background:var(--s2); }
 #ocrImgWrap img{ width:100%; max-height:30vh; object-fit:contain; display:block; background:var(--s2); }
-#ocrBoxes{ position:absolute; inset:0; }
-.ocr-box{ position:absolute; border:2px solid rgba(255,196,0,.85); border-radius:4px; background:rgba(255,196,0,.10); }
-.ocr-box.on{ border-color:var(--ok); background:rgba(48,209,88,.18); }
-#ocrEdit{ width:100%; margin-top:8px; font-size:16px; }
 /* 截图大图查看器：导航 / 删除 / 计数 */
 #shotViewer .sv-nav{ position:absolute; top:50%; transform:translateY(-50%); width:42px; height:42px; border-radius:50%; background:rgba(255,255,255,.12); color:#fff; border:none; font-size:26px; line-height:1; }
 #shotViewer .sv-prev{ left:14px; }

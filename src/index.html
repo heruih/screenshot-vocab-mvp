@@ -823,7 +823,6 @@
     <div class="wm-head">
       <div class="wm-term-wrap">
         <div class="wm-term-box"><div style="font-size:20px;font-weight:700;line-height:1.2">截图导入单词</div></div>
-        <div style="font-size:12.5px;color:var(--text3);margin-top:4px">像 iPhone 文字识别：图片上的词自动框出，点一下选中（可多选）</div>
       </div>
       <button class="mini-btn" id="ocrInboxOpen" type="button">批量收件箱</button>
       <button class="modal-close" data-ocr-close aria-label="关闭">
@@ -831,11 +830,13 @@
       </button>
     </div>
     <div class="wm-body">
-      <div id="ocrImgWrap" class="hidden"><img id="ocrImg" alt="识别图"><div id="ocrBoxes"></div></div>
+      <div id="ocrImgWrap" class="hidden"><img id="ocrImg" alt="识别图"></div>
       <div id="ocrStatus" class="ocr-tip"></div>
-      <div id="ocrSelected" class="hidden">
-        <div class="wm-label" style="margin-top:14px">已选 / 可自由编辑</div>
-        <textarea id="ocrEdit" placeholder="点上面的词框添加，也可直接改或输入整个短语，如 emergency event" rows="2"></textarea>
+      <div id="ocrSelected" class="hidden" data-ocr-area>
+        <label class="ocr-match-label">识别原句<textarea id="ocrEdit" data-ocr-text placeholder="可补写识别文字" rows="2"></textarea></label>
+        <div data-ocr-matches></div>
+        <input id="ocrTerm" data-ocr-term aria-label="手动搜词或输入表达" placeholder="搜词或输入表达，多个用逗号分隔">
+        <div class="ocr-foot"><button class="btn primary" id="ocrMount" type="button">确认匹配</button></div>
       </div>
       <div id="ocrFolderPick" class="hidden">
         <div class="wm-label" style="margin-top:14px">这批截图归到哪篇笔记？</div>
@@ -867,8 +868,13 @@
         </div>
         <div class="wm-label" id="ocrBatchLabel" style="margin-top:14px">待匹配截图</div>
         <div id="ocrBatchList"></div>
+        <div id="ocrBatchMatch" class="ocr-batch-match" data-ocr-area hidden>
+          <label for="ocrBatchTerm" id="ocrBatchMatchCount" class="ocr-match-label"></label>
+          <input id="ocrBatchTerm" data-ocr-term placeholder="搜词或输入一个表达">
+          <div data-ocr-matches></div>
+          <button class="btn primary" id="ocrBatchConfirm" type="button">挂到同一个词条</button>
+        </div>
       </div>
-      <div class="ocr-foot"><button class="btn" id="ocrMount">挂载到表达库</button></div>
     </div>
   </div>
 </div>

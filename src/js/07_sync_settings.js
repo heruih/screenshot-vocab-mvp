@@ -1681,50 +1681,38 @@ function bindEvents(){
   $('#svPrev').addEventListener('click',e=>{ e.stopPropagation(); viewerStep(-1); });
   $('#svNext').addEventListener('click',e=>{ e.stopPropagation(); viewerStep(1); });
   $('#svDel').addEventListener('click',e=>{ e.stopPropagation(); viewerDel(); });
-  /* OCR 导入：词框点选 / 挂载 */
   $('#ocrSheet').addEventListener('click',e=>{
     if(e.target.closest('[data-ocr-close]')||e.target.id==='ocrSheet'){
       $('#ocrSheet').classList.remove('show');
-      ocrSel=[]; ocrDataUrl=''; ocrWords=[];
-      const ed=$('#ocrEdit'); if(ed) ed.value='';
-      $('#ocrBoxes').innerHTML=''; $('#ocrImg').src='';
-      $('#ocrImgWrap').classList.add('hidden'); $('#ocrSelected').classList.add('hidden');
+      ocrImportVersion++;
+      ocrResetSingle();
       $('#ocrBatch').classList.add('hidden');
+      return;
     }
-  });
-  $('#ocrBatchList').addEventListener('click',e=>{
-    const row=e.target.closest('[data-inbox-id]');if(!row)return;
+    const area=e.target.closest('[data-ocr-area]');
+    if(!area)return;
     const chip=e.target.closest('[data-cand]');
-    if(chip){ e.preventDefault(); chip.classList.toggle('on'); return; }
-    const id=row.dataset.inboxId;
-    if(e.target.closest('[data-inbox-confirm]'))ocrInboxConfirm(id);
-    if(e.target.closest('[data-inbox-delete]'))ocrInboxDelete(id);
+    if(chip){ocrToggleMatch(chip,area);return;}
+    if(e.target.closest('[data-inbox-confirm]'))ocrInboxConfirm(area);
+    if(e.target.closest('[data-inbox-delete]'))ocrInboxDelete(area);
   });
-  /* 识别文本手动修改后：更新文本、重算候选词并保存，再刷新该行下拉 */
-  $('#ocrBatchList').addEventListener('change',e=>{
-    const ta=e.target.closest('[data-inbox-text]');if(!ta)return;
-    const row=e.target.closest('[data-inbox-id]');if(!row)return;
-    const id=row.dataset.inboxId;
-    const list=ocrInboxRead(),item=list.find(x=>x.id===id);if(!item)return;
-    item.text=ta.value;
-    item.candidates=ocrCandidates(item.text);
-    ocrInboxFlush(list);
-    ocrInboxRender();
+  $('#ocrSheet').addEventListener('input',e=>{
+    if(!e.target.matches('[data-ocr-text],[data-ocr-term]'))return;
+    ocrRenderMatchArea(e.target.closest('[data-ocr-area]'));
   });
-  $('#ocrBoxes').addEventListener('click',e=>{
-    const b=e.target.closest('.ocr-box'); if(!b) return;
-    b.classList.toggle('on');
-    const idx=Number(b.dataset.wi);
-    const word=(ocrWords&&ocrWords[idx])||'';
-    const ed=$('#ocrEdit'); if(!ed) return;
-    if(b.classList.contains('on')){
-      const cur=ed.value.trim();
-      ed.value=cur?cur+' '+word:word;
-    }else{
-      ed.value=ed.value.trim().split(/\s+/).filter(t=>t.toLowerCase()!==word.toLowerCase()).join(' ');
-    }
+  $('#ocrBatchList').addEventListener('change',async e=>{
+    if(e.target.matches('[data-inbox-pick]')){ocrSyncBatchMatch();return;}
+    if(!e.target.matches('[data-ocr-text]'))return;
+    const row=e.target.closest('[data-inbox-id]');
+    const item=ocrInboxRead().find(entry=>entry.id===row.dataset.inboxId);
+    if(!item||ocrInboxBusy.has(item.id))return;
+    const text=e.target.value;
+    try{await inboxPutItem({...item,text,candidates:ocrCandidates(text)});}
+    catch(_){toast('识别原句未保存，原图仍保留','warn');}
   });
   $('#ocrMount').addEventListener('click',ocrMount);
+  $('#ocrBatchConfirm').addEventListener('click',ocrBatchConfirm);
+
 
   /* 写作练习 */
   $('#writeClose').addEventListener('click',closeWriteModal);
