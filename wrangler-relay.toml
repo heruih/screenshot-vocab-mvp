@@ -4,8 +4,11 @@ compatibility_date = "2026-11-10"
 
 [vars]
 ALLOWED_ORIGIN = "https://heruih.github.io"
-
-# 不设置 BILLING_MODE，默认 simulate：走模拟上游、不真扣钱；确认后再设为 live
+COSYVOICE_WORKSPACE_ID = "ws-49xs93melrmsi0jy"
+COSYVOICE_VOICE_ID = "cosyvoice-v3.5-flash-vd-bailian-dfc8f12f5ecc4df5af56a05cc8af3310"
+MAIL_FROM = "Simon的截图错题本 <noreply@simonnotes.xyz>"
+# 切 live：真实发邮件、转发真实 AI/语音上游并产生费用（有月度 100 提醒/150 封顶）；回滚改回 simulate 重新部署
+BILLING_MODE = "live"
 [[d1_databases]]
 binding = "DB"
 database_name = "english-notes-relay-db"
