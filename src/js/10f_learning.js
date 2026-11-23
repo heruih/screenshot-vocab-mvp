@@ -351,14 +351,18 @@ function ttsRefreshSettings(){
   if(relay&&document.activeElement!==relay)relay.value=cfg.relayUrl||'';
   if(rate&&document.activeElement!==rate)rate.value=String(cfg.speechRate||0);
   if(pitch&&document.activeElement!==pitch)pitch.value=String(cfg.pitchRate||0);
-  if(status)status.textContent=volcTtsLastError||(volcTtsReady()?'已配置，英文朗读时会生成并缓存':'还未配置');
+  const ready=speechPreviewEnabled?Boolean(String(cfg.apiKey||'').trim()):volcTtsReady();
+  if(status)status.textContent=volcTtsLastError||(ready?'已配置，英文朗读时会生成并缓存':'还未配置');
 }
 async function ttsTest(){
   const key=$('#stTtsKey'),speaker=$('#stTtsSpeaker'),relay=$('#stTtsRelay'),rate=$('#stTtsRate'),pitch=$('#stTtsPitch');
   const apiKey=String(key&&key.value||'').trim(),voice=String(speaker&&speaker.value||'').trim(),relayUrl=String(relay&&relay.value||'').trim();
-  if(!voice||(!apiKey&&!relayUrl)){toast('先填写豆包 API Key 或服务端中转地址，并填写音色 ID','warn');return;}
-  volcTtsSave({apiKey,speaker:voice,relayUrl:String(relay&&relay.value||'').trim(),speechRate:Number(rate&&rate.value)||0,pitchRate:Number(pitch&&pitch.value)||0});
-  const ok=await playVolcAudio('Could you say that again?','en-US');
+  if(!voice||(!apiKey&&(speechPreviewEnabled||!relayUrl))){
+    toast(speechPreviewEnabled?'先填写自己的豆包 API Key 和音色 ID':'先填写豆包 API Key 或服务端中转地址，并填写音色 ID','warn');
+    return;
+  }
+  const cfg=volcTtsSave({apiKey,speaker:voice,relayUrl,speechRate:Number(rate&&rate.value)||0,pitchRate:Number(pitch&&pitch.value)||0});
+  const ok=await playVolcAudio('Could you say that again?','en-US',undefined,speechPreviewEnabled?{...cfg,relayUrl:''}:cfg);
   if(ok)toast('豆包试听已开始，后续会复用缓存','ok');
   else if(volcTtsLastError)toast(volcTtsLastError,'warn');
   ttsRefreshSettings();
@@ -470,6 +474,12 @@ function aInit(){
   const tts=document.createElement('div');tts.className='adv-wrap';tts.id='stVolcTts';tts.innerHTML='<button class="adv-toggle" id="stTtsFold" type="button"><span>豆包语音（可选 · 更自然的真人发音）</span><b class="adv-chev">›</b></button><div class="adv-body" id="stTtsBody"><p class="bk-note">不填：用手机自带的免费朗读，零配置、不花钱，但音色偏机械、不同手机效果不一样。填了：豆包真人发音更自然、可挑温柔女声，但要单独配 Key 和音色 ID，可能产生少量费用。</p><input id="stTtsKey" type="password" placeholder="直连时粘贴豆包 API Key，中转模式可留空" autocomplete="off"><input id="stTtsSpeaker" placeholder="音色 ID，例如 zh_female_vv_uranus_bigtts（Vivi 2.0）" autocomplete="off"><input id="stTtsRelay" placeholder="可选：服务端中转地址，例如 https://你的域名/tts" autocomplete="off"><div class="st-inline"><input id="stTtsRate" type="number" min="-50" max="100" step="1" value="0" placeholder="语速"><input id="stTtsPitch" type="number" min="-12" max="12" step="1" value="0" placeholder="音调"><button class="btn" id="stTtsTest" type="button">试听</button></div><div class="bk-note" id="stTtsStatus">还未配置</div><p class="a-note">填写中转地址后，网页只请求中转服务，豆包 API Key 保存在服务端。未填写中转地址时继续直连豆包。</p></div>';
   const ttsMount=$('#stTtsMount');
   if(ttsMount)ttsMount.appendChild(tts);else aiBody.append(tts);
+  if(speechPreviewEnabled){
+    $('#stTtsRelay').hidden=true;
+    $('#stTtsKey').placeholder='填写你自己的豆包 API Key';
+    $('#stTtsBody .bk-note').textContent='选择「我的豆包 Key」时，使用你自己的凭据直接调用。';
+    $('#stTtsBody .a-note').hidden=true;
+  }
   $('#stTtsFold').addEventListener('click',()=>tts.classList.toggle('open'));
   ttsRefreshSettings();
   ['stTtsKey','stTtsSpeaker','stTtsRelay','stTtsRate','stTtsPitch'].forEach(id=>$('#'+id).addEventListener('input',()=>{const el=$('#'+id);volcTtsSave({apiKey:$('#stTtsKey').value.trim(),speaker:$('#stTtsSpeaker').value.trim(),relayUrl:$('#stTtsRelay').value.trim(),speechRate:Number($('#stTtsRate').value)||0,pitchRate:Number($('#stTtsPitch').value)||0});ttsRefreshSettings();}));

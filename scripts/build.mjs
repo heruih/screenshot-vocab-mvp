@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
-const publishPages = args.includes('--pages');
+const cosyVoicePreview = args.includes('--cosyvoice-preview');
+const publishPages = args.includes('--pages') || cosyVoicePreview;
 
 // 产品维度：默认 commercial；可选 personal
 const productArg = args.find((a) => a.startsWith('--product='));
@@ -12,9 +13,12 @@ const product = productArg ? productArg.split('=')[1] : 'commercial';
 if (!['commercial', 'personal'].includes(product)) {
   throw new Error(`未知产品 --product=${product}，只支持 commercial / personal`);
 }
+if (cosyVoicePreview && (product !== 'commercial' || args.includes('--pages'))) {
+  throw new Error('--cosyvoice-preview 只用于独立的商业版测试构建');
+}
 
 const source = path.join(project, 'src');
-const output = path.join(project, 'dist', publishPages ? 'pages' : '');
+const output = path.join(project, 'dist', cosyVoicePreview ? 'cosyvoice-preview' : publishPages ? 'pages' : '');
 const read = (file) => fs.readFile(path.join(source, file), 'utf8');
 
 const template = await read('index.html');
@@ -72,7 +76,8 @@ function buildPagesScript(sourceScript) {
 // 产品配置：注入到脚本最前面，成为全局 APP_CONFIG（在 pages 处理之后注入，不干扰行定位）
 const config = await read(path.join('products', `${product}.config.js`));
 const bodyScript = publishPages ? buildPagesScript(script) : script;
-const appScript = config + '\n' + bodyScript;
+const previewConfig = cosyVoicePreview ? '\nself.APP_CONFIG = Object.freeze({...self.APP_CONFIG, cosyVoicePreview:true});' : '';
+const appScript = config + previewConfig + '\n' + bodyScript;
 
 const html = template.replace('__EN_STYLE__', () => style).replace('__EN_SCRIPT__', () => appScript);
 await fs.mkdir(output, { recursive: true });

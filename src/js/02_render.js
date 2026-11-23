@@ -34,15 +34,30 @@ function applyReadingRate(audio){
   audio.defaultPlaybackRate=readingPlaybackRate;
   audio.playbackRate=readingPlaybackRate;
 }
+const speechPreviewEnabled=window.APP_CONFIG?.product==='commercial'&&window.APP_CONFIG?.cosyVoicePreview===true;
+const SPEECH_PREVIEW_SOURCE_KEY='en-tts-preview-source-v1';
+const speechPreviewSource=document.getElementById('stSpeechPreviewSource');
+const speechPreviewSample='Would you mind checking the total before we pay? Sure, let me take a look.';
+if(speechPreviewEnabled&&speechPreviewSource){
+  let savedSource='system';
+  try{savedSource=localStorage.getItem(SPEECH_PREVIEW_SOURCE_KEY)||'system';}catch(_){}
+  speechPreviewSource.value=['system','doubao','site'].includes(savedSource)?savedSource:'system';
+  speechPreviewSource.closest('.st-field').hidden=false;
+  speechPreviewSource.addEventListener('change',()=>{
+    stopSpeech();
+    try{localStorage.setItem(SPEECH_PREVIEW_SOURCE_KEY,speechPreviewSource.value);}catch(_){}
+  });
+  document.getElementById('stSpeechPreviewListen').addEventListener('click',()=>speak(speechPreviewSample,'en-US'));
+}
 const VOLC_TTS_KEY='en-tts-v1';
 const VOLC_TTS_DEFAULT={apiKey:'',speaker:'zh_female_vv_uranus_bigtts',resourceId:'seed-tts-2.0',speechRate:0,pitchRate:0,relayUrl:'https://english-notes-tts.english-notes.workers.dev'};
 let volcAudio=null,cancelVolcSpeech=null,volcTtsPlayPending=0,volcTtsLastError='',volcRecentAudio=null;
 function volcTtsConfig(){try{const raw=JSON.parse(localStorage.getItem(VOLC_TTS_KEY)||'{}');return Object.assign({},VOLC_TTS_DEFAULT,raw);}catch(_){return Object.assign({},VOLC_TTS_DEFAULT);}}
 function volcTtsSave(patch){const next=Object.assign(volcTtsConfig(),patch||{});try{localStorage.setItem(VOLC_TTS_KEY,JSON.stringify(next));}catch(_){}return next;}
 function volcTtsReady(){const cfg=volcTtsConfig();return !!(String(cfg.speaker||'').trim()&&(String(cfg.apiKey||'').trim()||String(cfg.relayUrl||'').trim()));}
-function volcTtsCacheKey(text,lang){const cfg=volcTtsConfig();return [cfg.relayUrl||'direct',cfg.resourceId,cfg.speaker,cfg.speechRate,cfg.pitchRate,lang||'en-US',String(text||'').trim()].join('|');}
-async function volcTtsRequest(text,signal){
-  const cfg=volcTtsConfig(),relay=String(cfg.relayUrl||'').trim(),body={req_params:{text:String(text||''),speaker:String(cfg.speaker||''),audio_params:{format:'mp3',sample_rate:24000,speech_rate:Number(cfg.speechRate)||0,pitch_rate:Number(cfg.pitchRate)||0}}};
+function volcTtsCacheKey(text,lang,cfg=volcTtsConfig()){return [cfg.relayUrl||'direct',cfg.resourceId,cfg.speaker,cfg.speechRate,cfg.pitchRate,lang||'en-US',String(text||'').trim()].join('|');}
+async function volcTtsRequest(text,signal,cfg=volcTtsConfig()){
+  const relay=String(cfg.relayUrl||'').trim(),body={req_params:{text:String(text||''),speaker:String(cfg.speaker||''),audio_params:{format:'mp3',sample_rate:24000,speech_rate:Number(cfg.speechRate)||0,pitch_rate:Number(cfg.pitchRate)||0}}};
   const headers={'Content-Type':'application/json'};
   if(!relay){headers['X-Api-Key']=String(cfg.apiKey||'').trim();headers['X-Api-Resource-Id']=String(cfg.resourceId||'seed-tts-2.0');}
   const res=await fetch(relay||'https://openspeech.bytedance.com/api/v3/tts/unidirectional',{method:'POST',headers,body:JSON.stringify(body),signal});
@@ -79,9 +94,32 @@ async function volcTtsPlay(src,onend){
     onend?.();
   },{once:true,signal:events.signal});
 }
-async function playVolcAudio(text,lang,onend){
+function playVolcAudio(text,lang,onend,cfg=volcTtsConfig()){
+  return playCachedCloudSpeech(text,lang,onend,volcTtsCacheKey(text,lang,cfg),signal=>volcTtsRequest(text,signal,cfg));
+}
+const siteSpeechPending=new Map();
+function playSitePreviewSpeech(text,lang,onend){
+  const key=JSON.stringify(['cosyvoice-site-preview-v1',lang,text]);
+  return playCachedCloudSpeech(text,lang,onend,key,()=>{
+    if(siteSpeechPending.has(key))return siteSpeechPending.get(key);
+    const pending=fetch(new URL('preview-tts',location.href),{
+      method:'POST',credentials:'same-origin',signal:AbortSignal.timeout(12000),
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({text})
+    }).then(async response=>{
+      const result=await response.json();
+      if(!response.ok||typeof result.audio!=='string'||!result.audio.startsWith('data:audio/mpeg;base64,')){
+        throw new Error(result.message||'站方语音暂不可用');
+      }
+      await ttsCacheSet(key,result.audio);
+      return result.audio;
+    }).finally(()=>siteSpeechPending.delete(key));
+    siteSpeechPending.set(key,pending);
+    return pending;
+  },true);
+}
+async function playCachedCloudSpeech(text,lang,onend,key,requestAudio,isSitePreview=false){
   stopSpeech();
-  const key=volcTtsCacheKey(text,lang),seq=volcTtsPlayPending;
+  const seq=volcTtsPlayPending;
   try{
     let src=volcRecentAudio?.key===key?volcRecentAudio.src:await ttsCacheGet(key);
     if(volcTtsPlayPending!==seq)return false;
@@ -89,27 +127,32 @@ async function playVolcAudio(text,lang,onend){
       const request=new AbortController();
       const timer=setTimeout(()=>request.abort(),12000);
       cancelVolcSpeech=()=>request.abort();
-      try{src=await volcTtsRequest(text,request.signal);}
+      try{src=await requestAudio(request.signal);}
       finally{clearTimeout(timer);}
       if(volcTtsPlayPending!==seq)return false;
-      ttsCacheSet(key,src);
+      if(!isSitePreview)ttsCacheSet(key,src);
     }
     volcRecentAudio={key,src};
     await volcTtsPlay(src,onend);
     if(volcTtsPlayPending!==seq)return false;
-    volcTtsLastError='';
+    if(!isSitePreview)volcTtsLastError='';
     return true;
   }catch(e){
     if(volcTtsPlayPending!==seq)return false;
     cancelVolcSpeech=null;
     if(e?.name==='NotAllowedError'){
-      volcTtsLastError='浏览器拦截了播放，请再点一次';
+      if(!isSitePreview)volcTtsLastError='浏览器拦截了播放，请再点一次';
       toast('音频已准备好，请再点一次喇叭','warn');
       onend?.();
       return false;
     }
-    volcTtsLastError=e?.name==='AbortError'?'豆包语音请求超时':(e?.message||'豆包语音请求失败');
     const value=String(text||'').trim();
+    if(isSitePreview){
+      toast((e?.message||'站方语音暂不可用')+'，已使用系统朗读','warn');
+      speakQueued(value,lang,onend);
+      return false;
+    }
+    volcTtsLastError=e?.name==='AbortError'?'豆包语音请求超时':(e?.message||'豆包语音请求失败');
     if(lang==='en-US'&&!/\s/.test(value))playYoudaoAudio(value,lang,onend);
     else speakQueued(value,lang,onend);
     return false;
@@ -123,9 +166,9 @@ function stopSpeech(){
   if(cancelDictionarySpeech)cancelDictionarySpeech();
   try{window.speechSynthesis?.cancel();}catch(_){}
 }
-function speakRaw(text,lang,onend,voice){
+function speakRaw(text,lang,onend,voice,interrupt=true){
   if(!text) return;
-  stopSpeech();
+  if(interrupt)stopSpeech();
   if(!window.speechSynthesis){toast('当前浏览器不支持语音朗读','warn');onend?.();return;}
   const utterance=new SpeechSynthesisUtterance(text);
   utterance.lang=lang;
@@ -166,11 +209,12 @@ function speakQueued(text,lang,onend,voice){
   const chunks=chunkSpeech(text,180);
   if(!chunks.length){ onend?.(); return; }
   if(chunks.length===1){ speakRaw(chunks[0],lang,onend,voice); return; }
-  const seq=++speechSeq; let i=0;
+  stopSpeech();
+  const seq=speechSeq; let i=0;
   const next=()=>{
     if(seq!==speechSeq) return;
     if(i>=chunks.length){ onend?.(); return; }
-    speakRaw(chunks[i++],lang,next,voice);
+    speakRaw(chunks[i++],lang,next,voice,false);
   };
   next();
 }
@@ -198,6 +242,22 @@ function playYoudaoAudio(text,lang,onend){
 function speak(text,lang,onend){
   const value=String(text||'').trim(),locale=lang||'en-US';
   if(!value)return;
+  if(speechPreviewEnabled&&locale.toLowerCase().startsWith('en')){
+    if(speechPreviewSource.value==='site'){
+      playSitePreviewSpeech(value,locale,onend);
+      return;
+    }
+    if(speechPreviewSource.value==='doubao'){
+      const cfg=volcTtsConfig();
+      if(String(cfg.apiKey||'').trim()){
+        playVolcAudio(value,locale,onend,{...cfg,relayUrl:''});
+        return;
+      }
+      toast('还未填写自己的豆包 Key，已使用系统朗读','warn');
+    }
+    speakQueued(value,locale,onend);
+    return;
+  }
   if(locale.toLowerCase().startsWith('en')&&volcTtsReady()){playVolcAudio(value,locale,onend);return;}
   let voice;
   try{voice=pickVoice(window.speechSynthesis?.getVoices(),locale);}catch(_){}
