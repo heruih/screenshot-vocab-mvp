@@ -1504,6 +1504,7 @@ body.mode-flash #fabFeedback,body.mode-flash #fabShot{ display:none; }
 .a-guide-hero .agh-copy{display:flex;flex-direction:column;gap:1px;min-width:0}
 .a-guide-hero b{font-size:14px;color:var(--text)}
 .a-guide-hero small{font-size:11.5px;color:var(--text2);line-height:1.3}
+.a-guide-hero small.agh-warn{font-size:12px;font-weight:700;color:var(--accent);line-height:1.35}
 .a-guide-hero:active{filter:brightness(.97)}
 .coach-bubble{position:fixed;left:12px;right:12px;bottom:calc(72px + env(safe-area-inset-bottom));z-index:1300;background:var(--s1);border:1px solid var(--s4);border-radius:16px;padding:14px 15px 13px;box-shadow:0 10px 34px rgba(0,0,0,.28);animation:coachIn .25s ease}
 @keyframes coachIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
@@ -2986,9 +2987,11 @@ function capBanner(){
 }
 capBanner();
 
-/* ============ 统一数据保护卡片（融合"装桌面"与"导出备份"，按用户倾向智能切换重点） ============ */
+/* ============ 半强制「安装到主屏幕」引导 + 侧边栏永久入口 ============ */
 const SAFETY_KEY='en-data-safety-v1', PWA_VISIT_KEY='en-pwa-visit-count-v1';
-let pwaDeferredPrompt=null, launchFingerprint='';
+/* 半强制流程独立 key（不碰旧数据、可回滚）：首次是否已弹、暂不次数、上次暂不日期、是否降频 */
+const INSTALL_UI_KEY='en-pwa-install-prompt-v1';
+let pwaDeferredPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); pwaDeferredPrompt=e; });
 window.addEventListener('appinstalled',()=>{ try{const s=readSafety();s.installed=true;writeSafety(s);}catch(_){} });
 function readSafety(){
@@ -3000,24 +3003,12 @@ function pwaPlatform(){
   const ua=navigator.userAgent||'';
   return { ios:/iphone|ipad|ipod/i.test(ua), android:/android/i.test(ua) };
 }
-/* 数据指纹：词/笔记/收件箱/截图数量，用来判断本次会话有没有新改动 */
-function dataFingerprint(){
-  try{
-    const words=(typeof state!=='undefined'&&state.words)?state.words.length:0;
-    const notes=(typeof state!=='undefined'&&state.notes)?state.notes.length:0;
-    const inbox=(typeof ocrInboxRead==='function')?ocrInboxRead().length:0;
-    const shots=(typeof shotsAll==='function')?shotsAll().length:0;
-    return words+':'+notes+':'+inbox+':'+shots;
-  }catch(_){ return ''; }
+function pwaInstallState(){
+  try{ return Object.assign({firstShown:false,deferCount:0,lastDeferDay:'',downgraded:false},JSON.parse(localStorage.getItem(INSTALL_UI_KEY)||'{}')); }
+  catch(_){ return {firstShown:false,deferCount:0,lastDeferDay:'',downgraded:false}; }
 }
-function doExport(){
-  try{
-    if(typeof aDownloadBackup==='function') aDownloadBackup();
-    else if(typeof exportData==='function') exportData();
-    const s=readSafety(); s.lastBackupAt=Date.now(); writeSafety(s);
-    launchFingerprint=dataFingerprint(); // 导出后重置基准，避免重复提醒
-  }catch(e){ if(typeof toast==='function') toast('导出失败：'+e.message,'warn'); }
-}
+function pwaInstallSave(p){ try{ localStorage.setItem(INSTALL_UI_KEY,JSON.stringify(p)); }catch(_){} }
+function pwaDayStr(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 function installStepsEl(ios){
   const d=document.createElement('div');
   d.className='pwa-steps';
@@ -3033,95 +3024,114 @@ async function androidInstall(){
     pwaDeferredPrompt=null;
   }
 }
-function showDataSafety(reason){
+/* 安装动作：安卓直接唤起系统安装并返回 true；iOS 在容器内展开分步引导（返回 false，不关闭） */
+async function pwaInstallAction(container){
+  const {ios,android}=pwaPlatform();
+  if(android){ await androidInstall(); return true; }
+  if(ios){
+    const existing=container.querySelector('.pwa-steps');
+    if(existing){ existing.remove(); return false; }
+    container.appendChild(installStepsEl(true));
+    return false;
+  }
+  return false;
+}
+/* 是否已经有任何数据（词/笔记/收件箱/截图） */
+function pwaHasData(){
+  try{
+    const words=(typeof state!=='undefined'&&state.words)?state.words.length:0;
+    const notes=(typeof state!=='undefined'&&state.notes)?state.notes.length:0;
+    const inbox=(typeof ocrInboxRead==='function')?ocrInboxRead().length:0;
+    // shotsAll() 返回按词分组的对象（非数组），总数用 shotsTotal 统计
+    const shots=(typeof shotsAll==='function'&&typeof shotsTotal==='function')?shotsTotal(shotsAll()):0;
+    return (Number(words)||0)+(Number(notes)||0)+(Number(inbox)||0)+(Number(shots)||0)>0;
+  }catch(_){ return false; }
+}
+/* 半强制卡片：无一键关闭，主按钮安装 + 弱化「暂不，下次提醒」，始终不阻断功能 */
+function showInstallPrompt(){
+  try{
+    if(CAP.standalone)return false;
+    const {ios,android}=pwaPlatform();
+    if(!ios&&!android)return false;
+    if(readSafety().installed)return false;
+    if(document.querySelector('.pwa-guide'))return false;
+    const card=document.createElement('div');
+    card.className='pwa-guide';card.setAttribute('role','dialog');
+    card.innerHTML=
+      '<div class="pwa-guide-head"><b>把 App 装到主屏幕</b></div>'+
+      '<p class="pwa-guide-sub">浏览器里的数据可能被系统自动清除；装到主屏幕后有独立存储、数据更安全，还能离线打开。</p>'+
+      '<div class="pwa-guide-act">'+
+        '<button type="button" class="pwa-btn primary" id="pwaInstallGo">添加到主屏幕</button>'+
+        '<button type="button" class="pwa-link" id="pwaInstallDefer">暂不安装，下次提醒</button>'+
+      '</div>';
+    document.body.appendChild(card);
+    const close=()=>card.remove();
+    card.querySelector('#pwaInstallGo').addEventListener('click',async()=>{
+      const done=await pwaInstallAction(card);
+      if(done)close();
+    });
+    card.querySelector('#pwaInstallDefer').addEventListener('click',()=>{
+      const p=pwaInstallState();
+      p.deferCount++;p.lastDeferDay=pwaDayStr();
+      if(p.deferCount>=3)p.downgraded=true;
+      pwaInstallSave(p);close();
+    });
+    return true;
+  }catch(_){ return false; }
+}
+/* 首次数据：第一次产生词/笔记/截图后立刻弹（render 后调用，只弹一次） */
+function pwaFirstDataMaybe(){
   try{
     if(CAP.standalone)return;
-    const {ios,android}=pwaPlatform();
-    if(!ios&&!android)return;
-    const s=readSafety();
-    if(s.installed)return;
-    if(reason==='resume' && dataFingerprint()===launchFingerprint)return; // 没新改动不打扰
-    if(document.querySelector('.pwa-guide'))return;
-
-    const preferExport=s.installIgnored>=2; // 两次忽略安装 → 判定不想装，主推导出
-    const card=document.createElement('div');
-    card.className='pwa-guide'; card.setAttribute('role','dialog');
-    card.innerHTML=
-      '<div class="pwa-guide-head"><b>保护你的学习数据</b>'+
-      '<button type="button" class="pwa-guide-x" aria-label="关闭">×</button></div>'+
-      '<p class="pwa-guide-sub">浏览器里的数据可能被系统定期清除；装到桌面有独立存储，或导出一份备份更稳妥。</p>'+
-      '<div class="pwa-guide-act"></div>';
-    const act=card.querySelector('.pwa-guide-act');
-    const close=()=>card.remove();
-    const ignore=()=>{ const z=readSafety(); z.installIgnored++; writeSafety(z); close(); };
-    card.querySelector('.pwa-guide-x').addEventListener('click',ignore);
-
-    const mkBtn=(txt,primary)=>{
-      const b=document.createElement('button');
-      b.type='button'; b.className='pwa-btn'+(primary?' primary':''); b.textContent=txt;
-      return b;
-    };
-    const mkLink=(txt)=>{
-      const b=document.createElement('button');
-      b.type='button'; b.className='pwa-link'; b.textContent=txt;
-      return b;
-    };
-    const installGuideBtn=mkBtn('装到桌面，数据不丢',true);
-    installGuideBtn.addEventListener('click',async()=>{
-      if(android){ await androidInstall(); close(); }
-      else{
-        const existing=card.querySelector('.pwa-steps');
-        if(existing){ existing.remove(); return; }
-        act.parentNode.insertBefore(installStepsEl(ios),act);
-      }
-    });
-
-    if(!preferExport){
-      // 主推安装 + 导出兜底
-      act.appendChild(installGuideBtn);
-      const row=document.createElement('div'); row.className='pwa-mini-row';
-      const exportMini=mkLink('先导出备份');
-      exportMini.addEventListener('click',()=>{ doExport(); close(); });
-      const okMini=mkLink('知道了');
-      okMini.addEventListener('click',ignore);
-      row.appendChild(exportMini); row.appendChild(okMini);
-      act.parentNode.insertBefore(row,act.nextSibling);
-    }else{
-      // 主推导出 + 安装降为小字链接
-      const exportBtn=mkBtn('立即导出备份',true);
-      exportBtn.addEventListener('click',()=>{ doExport(); close(); });
-      act.appendChild(exportBtn);
-      const link=mkLink('或装到桌面，一劳永逸');
-      link.addEventListener('click',async()=>{
-        if(android){ await androidInstall(); close(); }
-        else{
-          const existing=card.querySelector('.pwa-steps');
-          if(existing){ existing.remove(); return; }
-          act.parentNode.insertBefore(installStepsEl(ios),act);
-        }
-      });
-      const okMini=mkLink('知道了'); okMini.addEventListener('click',ignore);
-      const wrap=document.createElement('div'); wrap.className='pwa-link-row';
-      wrap.appendChild(link); wrap.appendChild(okMini);
-      act.parentNode.insertBefore(wrap,act.nextSibling);
-    }
-    document.body.appendChild(card);
+    const p=pwaInstallState();
+    if(p.firstShown)return;
+    if(!pwaHasData())return;
+    if(showInstallPrompt()){ p.firstShown=true; pwaInstallSave(p); }
   }catch(_){}
 }
-/* 启动：第 2 次启动才提示，先让用户体验；同时记录启动指纹 */
+/* 启动重试：首次弹过、点了暂不，隔天再弹；当天冷却、连续 3 次降频后不再主动弹 */
+function pwaDailyMaybe(){
+  try{
+    if(CAP.standalone)return;
+    const {ios,android}=pwaPlatform();if(!ios&&!android)return;
+    if(readSafety().installed)return;
+    const p=pwaInstallState();
+    if(!p.firstShown||p.downgraded)return;
+    if(p.lastDeferDay===pwaDayStr())return;
+    showInstallPrompt();
+  }catch(_){}
+}
+/* 侧边栏永久入口（带警告），与「使用小手册」并列；已安装则不显示 */
+function pwaInstallEntry(){
+  try{
+    const sideNav=document.getElementById('sideNav');
+    if(!sideNav||document.getElementById('pwaInstallEntry'))return;
+    if(CAP.standalone||readSafety().installed)return;
+    const {ios,android}=pwaPlatform();if(!ios&&!android)return;
+    const b=document.createElement('button');
+    b.type='button';b.id='pwaInstallEntry';b.className='a-guide-hero';
+    b.innerHTML=
+      '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'+
+      '<span class="agh-copy"><b>装到主屏幕</b><small class="agh-warn" id="pwaInstallWarn">网页数据会被系统清除，不装数据很可能丢失</small></span>';
+    b.addEventListener('click',async()=>{ await pwaInstallAction(b); });
+    const guide=document.getElementById('aGuideOpen');
+    if(guide&&guide.parentNode===sideNav)sideNav.insertBefore(b,guide.nextSibling);
+    else sideNav.insertBefore(b,sideNav.firstChild);
+  }catch(_){}
+}
+/* 启动（保留访问计数）：挂永久入口 + 当天重试；首次数据由 render 流程触发 */
 function dataSafetyLaunch(){
   try{
-    launchFingerprint=dataFingerprint();
     const visits=(Number(localStorage.getItem(PWA_VISIT_KEY))||0)+1;
     localStorage.setItem(PWA_VISIT_KEY,String(visits));
-    if(CAP.standalone) return;
-    if(visits<2) return;
-    showDataSafety('launch');
+    if(CAP.standalone)return;
+    pwaInstallEntry();
+    pwaDailyMaybe();
   }catch(_){}
 }
-/* 回到前台：本次有新改动且没装时，提醒"用完"备份 */
+/* 回到前台：补检首次数据（不重复主动弹窗，避免打扰） */
 document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible') showDataSafety('resume');
+  if(document.visibilityState==='visible')pwaFirstDataMaybe();
 });
 
 /* ===== 01_core.js · 工具函数 / 数据模型 / 间隔复习 / 迁移 / 保存 ===== */
@@ -12416,7 +12426,7 @@ function aInit(){
   $('#aGuideClose').onclick=()=>$('#aGuide').classList.remove('show');$('#aGuide').addEventListener('click',e=>{if(e.target.id==='aGuide')$('#aGuide').classList.remove('show');});
   /* 每次渲染后检查当前页面是否有待显示的首次气泡 */
   const _coachRender=render;
-  render=function(){_coachRender();try{coachMaybe();}catch(_){}};
+  render=function(){_coachRender();try{coachMaybe();}catch(_){}try{pwaFirstDataMaybe();}catch(_){}};
   /* 手机端表达库筛选抽屉：触发、遮罩、关闭 */
   $('#wordFilterTrigger').onclick=wfOpenSheet;
   $('#wordFilterClose').onclick=wfCloseSheet;
