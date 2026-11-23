@@ -51,3 +51,19 @@ export function cosyvoiceMicro(env, characters) {
   const yuan = (Number(characters) || 0) / 10_000 * p.per10kChars;
   return Math.max(0, Math.round(yuan * MICRO_PER_YUAN));
 }
+
+/* DeepSeek 单笔"最高可能成本"（微元），用于调用前原子预留。
+ * 输入按字符数保守上界（每字符最多 1 token），输出按 max_tokens 或默认 2048，
+ * 一律取高峰、输入未命中（最贵）口径。预留偏大，结算时按实际用量退回差额。 */
+const DEFAULT_MAX_OUTPUT_TOKENS = 2048;
+export function maxDeepseekMicro(env, input) {
+  const p = pricingFor(env).deepseek;
+  const chars = Array.from(JSON.stringify(input?.messages || '')).length;
+  const maxInTokens = chars;
+  const asked = Number(input?.max_tokens);
+  const maxOutTokens = asked > 0 ? asked : DEFAULT_MAX_OUTPUT_TOKENS;
+  const yuan =
+    (maxInTokens / 1_000_000) * p.inputMiss.peak +
+    (maxOutTokens / 1_000_000) * p.output.peak;
+  return Math.max(1, Math.round(yuan * MICRO_PER_YUAN));
+}

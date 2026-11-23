@@ -41,7 +41,23 @@ CREATE TABLE IF NOT EXISTS monthly_cost (
   month TEXT PRIMARY KEY,                  -- YYYY-MM（北京时间）
   deepseek_micro INTEGER NOT NULL DEFAULT 0,
   cosyvoice_micro INTEGER NOT NULL DEFAULT 0,
-  total_micro INTEGER NOT NULL DEFAULT 0,
+  total_micro INTEGER NOT NULL DEFAULT 0,  -- 已结算总成本
+  reserved_micro INTEGER NOT NULL DEFAULT 0, -- 在途已预留、未结算的预算（占用月度上限）
   alert_sent INTEGER NOT NULL DEFAULT 0,   -- 100 元提醒是否已发，避免重复提醒
   updated_at INTEGER NOT NULL
 );
+-- 旧库迁移（已存在 monthly_cost 但缺 reserved_micro 时执行；列已存在会报错，需手动跳过）：
+-- ALTER TABLE monthly_cost ADD COLUMN reserved_micro INTEGER NOT NULL DEFAULT 0;
+
+-- 预算待核对：上游结果不确定（超时/网络异常，可能已扣费）时挂起的预留，人工核对后再结算或释放
+CREATE TABLE IF NOT EXISTS budget_hold (
+  id TEXT PRIMARY KEY,                     -- 每次调用生成的预留 id
+  month TEXT NOT NULL,
+  service TEXT NOT NULL,                   -- text / tts
+  max_micro INTEGER NOT NULL,              -- 预留的最高成本
+  status TEXT NOT NULL DEFAULT 'held',     -- held=待核对 / settled=已转结算 / released=已释放
+  reason TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_budget_hold_lookup ON budget_hold(month, status);

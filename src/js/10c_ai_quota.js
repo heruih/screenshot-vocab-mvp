@@ -215,7 +215,9 @@ function aImageStatsFromStorage(storage){
   try{all=JSON.parse(storage&&storage[WM_IMG_KEY]||'{}')||{};}catch(_){ }
   return aImageCacheStats(all,words);
 }
-function aBackupKeys(){const out={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('english-notes-')&&k!==CLIPBOARD_KEY)out[k]=localStorage.getItem(k);}return out;}
+/* 登录凭证（含会话 token、邮箱）永不进备份，导出时一律剔除 */
+const SENSITIVE_BACKUP_KEYS=['english-notes-account-v1'];
+function aBackupKeys(){const out={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('english-notes-')&&k!==CLIPBOARD_KEY&&!SENSITIVE_BACKUP_KEYS.includes(k))out[k]=localStorage.getItem(k);}return out;}
 /* 落地配图备份 key：存 {单词小写: dataURL}，独立 key，不与旧缓存冲突 */
 const WM_IMG_BLOB_KEY='english-notes-wmimg-blob-v1';
 /* 把 images store 的 Blob 全部转 dataURL，组装成备份对象 */
@@ -307,7 +309,7 @@ function aPrepareImport(pack){
   const base=existing?JSON.parse(existing):{words:[],notes:[],folders:[],aiLog:[],grave:[],tagList:[]};
   const incoming=JSON.parse(storage[LS_KEY]);
   const merged=aMergeState(base,incoming),plan={[LS_KEY]:JSON.stringify(merged)};
-  Object.keys(storage).forEach(k=>{if(k===LS_KEY||!k.startsWith('english-notes-')||typeof storage[k]!=='string')return;plan[k]=aMergeExtra(k,localStorage.getItem(k),storage[k]);});
+  Object.keys(storage).forEach(k=>{if(k===LS_KEY||!k.startsWith('english-notes-')||typeof storage[k]!=='string'||SENSITIVE_BACKUP_KEYS.includes(k))return;plan[k]=aMergeExtra(k,localStorage.getItem(k),storage[k]);});
   /* 收件箱 key 不以 english-notes- 开头，单独合并 */
   if(typeof storage[SHOT_INBOX_KEY]==='string') plan[SHOT_INBOX_KEY]=aMergeExtra(SHOT_INBOX_KEY,localStorage.getItem(SHOT_INBOX_KEY),storage[SHOT_INBOX_KEY]);
   /* 落地配图不进 LS：取出原始 dataURL 包，从 plan 移除，稍后由 syncImportedBlobs 转 Blob 存 IDB */

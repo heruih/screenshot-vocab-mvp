@@ -9,6 +9,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import worker from '../relay/english-notes-relay-worker.js';
+import {
+  reserveBudget, releaseBudget, holdBudget, resolveHold, getStatus as billingGetStatus
+} from '../relay/entitlements/billing.mjs';
+import { notifyOwner } from '../relay/entitlements/notify.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const schemaSql = fs.readFileSync(path.join(root, 'relay/entitlements/schema.sql'), 'utf8');
@@ -68,6 +72,7 @@ function makeEnv({ simMicro } = {}) {
     RELAY_KV: createKV(),
     ADMIN_TOKEN: 'test-admin-secret',
     BILLING_MODE: 'simulate',
+    ALLOW_DEV_AUTH: '1',
     ALLOWED_ORIGIN: 'https://heruih.github.io'
   };
   if (simMicro !== undefined) env.SIMULATE_COST_MICRO = String(simMicro);
@@ -188,12 +193,12 @@ setBeijing(2026, 11, 30, 23);
 }
 
 /* =========================================================
- * 场景 4：封顶后回系统朗读（每次固定 8000 分，推过 15000）
+ * 场景 4：硬封顶后回系统朗读（每次固定 60 元，2 次过 100，第 3 次调用前被硬拦）
  * ======================================================= */
-section('场景4：封顶后回系统朗读');
+section('场景4：硬封顶后回系统朗读');
 setBeijing(2026, 11, 22, 10);
 {
-  const env = makeEnv({ simMicro: 80_000_000 }); // 每次固定 80 元，2 次过 100、逼近 150
+  const env = makeEnv({ simMicro: 60_000_000 }); // 每次固定 60 元：2 次过 100，第 3 次 60+120>150 被拦
   const token = await activeUser(env, 'cap@example.com');
 
   const r1 = await call(env, 'POST', '/v1/tts/synthesize', { text: 'first sentence' }, auth(token));
@@ -210,6 +215,142 @@ setBeijing(2026, 11, 22, 10);
   setBeijing(2026, 12, 2, 10); // 下月恢复
   const r4 = await call(env, 'POST', '/v1/tts/synthesize', { text: 'next month sentence' }, auth(token));
   check('下月 CosyVoice 自动恢复 200', r4.status === 200, 'got ' + r4.status);
+}
+
+/* =========================================================
+ * 场景 5：并发硬上限（复现 Codex 的"两笔同时放行"，3 笔各 80 元并发）
+ * ======================================================= */
+section('场景5：并发硬上限');
+setBeijing(2026, 11, 23, 10);
+{
+  const env = makeEnv({ simMicro: 80_000_000 });
+  const token = await activeUser(env, 'conc@example.com');
+  const rs = await Promise.all(Array.from({ length: 3 }, () =>
+    call(env, 'POST', '/v1/tts/synthesize', { text: 'one sentence here' }, auth(token))));
+  const ok = rs.filter(r => r.status === 200).length;
+  const blocked = rs.filter(r => r.status === 402).length;
+  check('3 笔并发仅 1 笔放行（80 元）、2 笔硬拦', ok === 1 && blocked === 2,
+    'ok=' + ok + ' blocked=' + blocked);
+  const st = await call(env, 'GET', '/v1/me/status', null, auth(token));
+  const m = st.data.entitlements.monthly;
+  check('账面 total 不超 150、在途预留归零', m.totalMicro === 80_000_000 &&
+    m.reservedMicro === 0 && m.totalMicro <= 150_000_000,
+    'total=' + m.totalMicro + ' reserved=' + m.reservedMicro);
+  check('无丢账：total 恰好等于放行笔数成本', m.totalMicro === 80_000_000,
+    'total=' + m.totalMicro);
+}
+
+/* =========================================================
+ * 场景 6：单笔跨线在调用前拦截，且不占用户名额、不留预留
+ * ======================================================= */
+section('场景6：单笔跨线');
+setBeijing(2026, 11, 24, 10);
+{
+  const env = makeEnv({ simMicro: 80_000_000 });
+  const token = await activeUser(env, 'cross@example.com');
+  const r1 = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
+  check('第 1 笔 80 元放行', r1.status === 200, 'got ' + r1.status);
+  const r2 = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
+  check('第 2 笔单笔跨线（80+80>150）调用前 402', r2.status === 402, 'got ' + r2.status);
+  const st = await call(env, 'GET', '/v1/me/status', null, auth(token));
+  check('被拦笔不占用户名额（used 仍为 1）', st.data.entitlements.limits.text.used === 1,
+    'used=' + st.data.entitlements.limits.text.used);
+  check('在途预留归零、total 仍为 80', st.data.entitlements.monthly.reservedMicro === 0 &&
+    st.data.entitlements.monthly.totalMicro === 80_000_000, '');
+}
+
+/* =========================================================
+ * 场景 7：DeepSeek 与 CosyVoice 并发，共用同一个 150 预算
+ * ======================================================= */
+section('场景7：两服务并发共用预算');
+setBeijing(2026, 11, 25, 10);
+{
+  const env = makeEnv({ simMicro: 60_000_000 });
+  const token = await activeUser(env, 'both@example.com');
+  const [t, v] = await Promise.all([
+    call(env, 'POST', '/v1/chat/completions', textBody(), auth(token)),
+    call(env, 'POST', '/v1/tts/synthesize', { text: 'shared budget speech' }, auth(token))
+  ]);
+  check('两服务各 60 元（合计 120<=150）同时放行', t.status === 200 && v.status === 200,
+    't=' + t.status + ' v=' + v.status);
+  const st = await call(env, 'GET', '/v1/me/status', null, auth(token));
+  check('共用一个预算 total=120', st.data.entitlements.monthly.totalMicro === 120_000_000,
+    'total=' + st.data.entitlements.monthly.totalMicro);
+  const [t2, v2] = await Promise.all([
+    call(env, 'POST', '/v1/chat/completions', textBody(), auth(token)),
+    call(env, 'POST', '/v1/tts/synthesize', { text: 'over budget now' }, auth(token))
+  ]);
+  check('剩余空间不足时两服务都被硬拦 402', t2.status === 402 && v2.status === 402,
+    't2=' + t2.status + ' v2=' + v2.status);
+}
+
+/* =========================================================
+ * 场景 8：确定失败释放 / 不确定挂起 / 人工核对闭环
+ * ======================================================= */
+section('场景8：失败释放、不确定挂起、人工核对');
+setBeijing(2026, 11, 26, 10);
+{
+  const env = makeEnv({ simMicro: 50_000_000 });
+  const token = await activeUser(env, 'fail@example.com');
+  const accId = (await call(env, 'GET', '/v1/me/status', null, auth(token))).data.account.id;
+
+  const b1 = await reserveBudget(env, 'text', 50_000_000);
+  check('预留成功', b1.ok === true);
+  await releaseBudget(env, 50_000_000);
+  const s1 = await billingGetStatus(env, accId);
+  check('确定失败释放后 reserved 归零、total 不变', s1.monthly.reservedMicro === 0 &&
+    s1.monthly.totalMicro === 0, 'reserved=' + s1.monthly.reservedMicro);
+
+  const b2 = await reserveBudget(env, 'tts', 50_000_000);
+  await holdBudget(env, b2.holdId, 'tts', 50_000_000, 'network timeout');
+  const s2 = await billingGetStatus(env, accId);
+  check('不确定挂起：reserved 保留 50、budget_hold 有 1 笔', s2.monthly.reservedMicro === 50_000_000 &&
+    s2.monthly.heldCount === 1, 'reserved=' + s2.monthly.reservedMicro + ' held=' + s2.monthly.heldCount);
+
+  const r = await resolveHold(env, b2.holdId, 'settled', 40_000_000);
+  check('人工核对 settled 成功', r.ok === true);
+  const s3 = await billingGetStatus(env, accId);
+  check('结算后 reserved=0、total 记实际 40、held 清零', s3.monthly.reservedMicro === 0 &&
+    s3.monthly.totalMicro === 40_000_000 && s3.monthly.heldCount === 0,
+    'total=' + s3.monthly.totalMicro);
+}
+
+/* =========================================================
+ * 场景 9：100 元提醒模拟发送 + 重复请求去重
+ * ======================================================= */
+section('场景9：提醒模拟发送与去重');
+setBeijing(2026, 11, 27, 10);
+{
+  const env = makeEnv();
+  const payload = { subject: 's', text: 't', html: '<p>t</p>' };
+  const n1 = await notifyOwner(env, 'cost-warn:2026-11', payload);
+  check('首次提醒模拟发送（simulated、未去重）', n1.ok && n1.simulated === true && n1.deduped === false,
+    JSON.stringify(n1));
+  const n2 = await notifyOwner(env, 'cost-warn:2026-11', payload);
+  check('重复请求去重（deduped=true）', n2.ok && n2.deduped === true, JSON.stringify(n2));
+  const n3 = await notifyOwner(env, 'cost-warn:2026-12', payload);
+  check('下月不同 key 可再次提醒', n3.deduped === false, JSON.stringify(n3));
+}
+
+/* =========================================================
+ * 场景 10：北京时间跨月，在途预算与封顶按新月独立
+ * ======================================================= */
+section('场景10：跨月预算独立');
+setBeijing(2026, 11, 30, 23);
+{
+  const env = makeEnv({ simMicro: 80_000_000 });
+  const token = await activeUser(env, 'mm@example.com');
+  const b = await reserveBudget(env, 'text', 80_000_000);
+  await holdBudget(env, b.holdId, 'text', 80_000_000, 'inconclusive before month end');
+  check('月末挂起 80 成功', b.ok === true);
+
+  setBeijing(2026, 12, 1, 10); // 跨月
+  const st = await call(env, 'GET', '/v1/me/status', null, auth(token));
+  check('新月 total/reserved 均归零、月份为 2026-12', st.data.entitlements.monthly.totalMicro === 0 &&
+    st.data.entitlements.monthly.reservedMicro === 0 && st.data.entitlements.month === '2026-12',
+    JSON.stringify(st.data.entitlements.monthly));
+  const r = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
+  check('新月预算独立、请求放行 200', r.status === 200, 'got ' + r.status);
 }
 
 /* ---------- 汇总 ---------- */

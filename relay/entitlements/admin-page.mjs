@@ -1,5 +1,7 @@
 /* ============ 极简管理员页面（GET /admin 返回） ============
  * 自包含、无外部依赖、手机优先。凭 ADMIN_TOKEN 调用 /v1/admin/*。
+ * 安全：邮箱一律用 textContent 当纯文本渲染（不拼 HTML）；所有按钮用 addEventListener
+ * 事件绑定（不用内联 onclick），避免邮箱内容打断脚本或注入标记。
  * ===================================================== */
 
 export function renderAdminPage() {
@@ -43,7 +45,7 @@ export function renderAdminPage() {
 <div class="card">
   <label>管理员密钥</label>
   <input id="token" type="password" autocomplete="off" placeholder="输入 ADMIN_TOKEN">
-  <button onclick="loadAccounts()">进入并刷新列表</button>
+  <button id="btnEnter" type="button">进入并刷新列表</button>
 </div>
 
 <div class="card">
@@ -61,7 +63,7 @@ export function renderAdminPage() {
     <div><label>数量</label><input id="gAmount" type="number" min="1" value="20"></div>
   </div>
   <label>备注（可选）</label><input id="gNote" type="text" placeholder="如：首批加练">
-  <button onclick="doGrant()">发放</button>
+  <button id="btnGrant" type="button">发放</button>
 </div>
 
 <div id="msg"></div>
@@ -84,16 +86,37 @@ async function loadAccounts(){
   try {
     var data = await api('/v1/admin/accounts', {});
     var box = document.getElementById('accounts');
-    if (!data.accounts.length) { box.innerHTML = '<div class="meta">暂无账号。</div>'; return; }
-    box.innerHTML = '';
+    box.textContent = '';
+    if (!data.accounts.length) {
+      var empty = document.createElement('div');
+      empty.className = 'meta';
+      empty.textContent = '暂无账号。';
+      box.appendChild(empty);
+      return;
+    }
     data.accounts.forEach(function(a){
       var row = document.createElement('div');
       row.className = 'row';
-      var left = '<div class="meta"><div>' + a.email + '</div>' +
-        '<span class="badge ' + a.status + '">' + a.status + '</span></div>';
-      var btn = a.status === 'active' ? '' :
-        '<button class="ghost" onclick="doActivate(\\'' + a.email + '\\')">开通</button>';
-      row.innerHTML = left + btn;
+
+      var left = document.createElement('div');
+      left.className = 'meta';
+      var emailDiv = document.createElement('div');
+      emailDiv.textContent = a.email;                 /* 邮箱：纯文本，不拼 HTML */
+      var badge = document.createElement('span');
+      badge.className = 'badge ' + a.status;
+      badge.textContent = a.status;
+      left.appendChild(emailDiv);
+      left.appendChild(badge);
+      row.appendChild(left);
+
+      if (a.status !== 'active') {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ghost';
+        btn.textContent = '开通';
+        btn.addEventListener('click', function(){ doActivate(a.email); }); /* 事件绑定 */
+        row.appendChild(btn);
+      }
       box.appendChild(row);
     });
     setMsg('共 ' + data.accounts.length + ' 个账号', true);
@@ -116,6 +139,9 @@ async function doGrant(){
     setMsg('加练包已发放', true); loadAccounts();
   } catch (e) { setMsg(e.message, false); }
 }
+
+document.getElementById('btnEnter').addEventListener('click', loadAccounts);
+document.getElementById('btnGrant').addEventListener('click', doGrant);
 </script>
 </body>
 </html>`;

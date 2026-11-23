@@ -48,8 +48,12 @@ export async function requestCode(env, email) {
     await sendCodeEmail(env, email, code);
     return { ok: true };
   }
-  /* 未配置发信密钥：本地/测试通道，直接回传验证码，不用于线上 */
-  return { ok: true, simulate: true, devCode: code };
+  /* 生产环境必须能真实发邮件；只有显式打开隔离测试开关 ALLOW_DEV_AUTH 时才回传验证码，
+   * 确保验证码不会在正式环境泄露到响应里。 */
+  if (String(env.ALLOW_DEV_AUTH) === '1') {
+    return { ok: true, simulate: true, devCode: code };
+  }
+  return { ok: false, status: 500, message: '邮件服务未配置，暂时无法发送验证码' };
 }
 
 /* 校验验证码，建立/取回账号并签发会话 */
