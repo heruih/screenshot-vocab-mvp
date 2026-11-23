@@ -603,9 +603,6 @@ body.typing .kb-btn{opacity:1;visibility:visible}
 .st-help b{color:var(--text)}
 .st-actions{display:flex;gap:10px;padding:18px 20px 20px;border-top:1px solid var(--sep);margin-top:18px}
 .st-actions .btn{flex:1}
-.st-feedback{margin:4px 20px 26px;padding:14px 14px 16px;background:var(--s2);border:1px solid var(--s4);border-radius:12px}
-.st-feedback b{color:var(--text);font-size:14px}
-.st-feedback .a-note{margin:6px 0 12px}
 
 /* 确认弹窗 */
 #confirmModal .modal-card{width:min(92vw,340px)}
@@ -1419,21 +1416,17 @@ body.mode-flash .global-search,body.mode-speak .global-search{display:none}
 #ocrFileInput{ position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
 #fabShot:focus-within{ outline:2px solid var(--text); outline-offset:3px; }
 #fabShot:active{ opacity:.8; }
-/* 意见反馈悬浮按钮：相机按钮正上方，描边卡片风，与相机按钮区分 */
-#fabFeedback{ position:fixed; right:16px; bottom:160px; width:52px; height:52px; border-radius:50%; background:var(--s1); color:var(--text); border:1px solid var(--sep); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(0,0,0,.35); z-index:90; padding:0; }
-#fabFeedback svg{ width:24px; height:24px; pointer-events:none; }
-#fabFeedback:focus-visible{ outline:2px solid var(--text); outline-offset:3px; }
-#fabFeedback:active{ opacity:.8; }
-body.mode-flash #fabFeedback,body.mode-flash #fabShot{ display:none; }
-/* 意见反馈弹层：表单占满卡片，iframe 透明背景融入 App */
-.feedback-card{ width:min(94vw,460px); height:min(86vh,760px); padding:0; display:flex; flex-direction:column; overflow:hidden; }
+body.mode-flash #fabShot{ display:none; }
+#moreFeedback{flex:none;min-height:44px;width:auto;margin:4px 8px 8px}
+#moreFeedback[hidden]{display:none}
+#feedbackModal[hidden]{display:none}
+.feedback-card{ width:min(94vw,460px); padding:0; display:flex; flex-direction:column; overflow:hidden; }
 .feedback-card .wm-head{ flex:none; padding:16px 16px 12px; }
-.feedback-body{ position:relative; flex:1; min-height:0; display:flex; }
-#feedbackFrame{ width:100%; height:100%; border:0; background:transparent; color-scheme:normal; }
-.feedback-empty{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:24px; text-align:center; }
-.feedback-empty .fe-emoji{ font-size:40px; }
-.feedback-empty p{ color:var(--text3); font-size:14px; margin:0; }
-@media (max-width:480px){ .feedback-card{ width:100%; height:100%; border-radius:0; max-width:none; } #feedbackModal{ padding:0; } }
+.feedback-body{ min-height:0; overflow:auto; display:grid; gap:12px; padding:0 16px 16px; }
+#feedbackMessage{width:100%;min-height:120px;resize:vertical;background:var(--s1);color:var(--text);font:inherit;border:1px solid var(--sep);border-radius:10px;padding:10px}
+.feedback-reply{display:flex;align-items:center;gap:8px;min-height:44px}
+#feedbackStatus{margin:0;min-height:1.4em}
+#feedbackSend{min-height:44px}
 /* OCR 图片框选（iPhone 文字识别样式） */
 .note-inbox-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 12px;padding:11px 14px;border-radius:12px;background:var(--s3);color:var(--text);cursor:pointer;border:1px solid var(--sep);font-size:14px}
 .note-inbox-bar:active{background:var(--s4)}
@@ -1983,6 +1976,10 @@ body.drag-select #noteBody .en-word.sel-pick{
       <div class="nav-divider">文件夹</div>
       <div id="folderList"></div>
     </nav>
+    <button class="nav-item" id="moreFeedback" type="button" hidden>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11a8.5 8.5 0 0 1-8.5 8.5H5l1.2-3.5A8.5 8.5 0 1 1 21 11Z"/><path d="M9 10h6m-6 4h4"/></svg>
+      <span class="nav-name">意见反馈</span>
+    </button>
     <div class="side-footer">
       <span id="statWords">已收录 0 个单词</span>
       <button class="icon-btn" id="btnSettings" title="设置（AI 配置）" aria-label="设置">
@@ -2516,6 +2513,16 @@ body.drag-select #noteBody .en-word.sel-pick{
           <option value="slow">慢读（0.85 倍）</option>
         </select>
       </div>
+      <div class="st-field" id="stCommercialSpeech" hidden>
+        <label for="stCommercialSpeechSource">英文朗读来源</label>
+        <select id="stCommercialSpeechSource" aria-describedby="stCommercialSpeechStatus">
+          <option value="auto">自配豆包 Key／系统朗读（默认）</option>
+          <option value="site" disabled>站方语音包 · CosyVoice</option>
+        </select>
+        <p class="a-note" id="stCommercialSpeechStatus" role="status"></p>
+        <button class="btn" id="stCommercialSpeechRefresh" type="button">刷新语音包状态</button>
+        <button class="btn" id="stCommercialSpeechListen" type="button">试听</button>
+      </div>
       <div class="st-field" hidden>
         <label for="stSpeechPreviewSource">英文朗读来源</label>
         <select id="stSpeechPreviewSource">
@@ -2639,22 +2646,17 @@ body.drag-select #noteBody .en-word.sel-pick{
       </section>
       <div class="st-help">
         <b>需要自己配 Key 吗？</b>不用。登录后 AI 回答、语音、配图都由我们的服务完成，你不用申请或管理任何 Key。<br>
-        <b>免费额度：</b>每天 AI 10 句、语音 15 句，日常轻度使用基本够用；当天用完还想继续练，可领手动加练包，不接在线支付、也不会催你。<br>
+        <b>免费额度：</b>AI 对话每天免费批改 10 句。生成场景不扣句数，已有加练包可继续批改。<br>
         <b>配图：</b>自动完成，抽象词先转成具体画面再找真实照片，不使用你的密钥；也可以随时忽略配图、只用截图。<br>
         <b>数据：</b>你的笔记和表达保存在本机浏览器，可随时用「完整备份/安全迁移」导出，清缓存前记得先备份。<br>
         <b>朗读：</b>优先用站方真人语音，万一失败自动回退到手机系统朗读，不影响继续使用。<br>
-        <b>老手：</b>有经验的用户也可以在「发音与配图」里填自己的豆包语音 Key，费用走自己的豆包。
+        <b>朗读：</b>默认用自配的豆包语音 Key 或免费系统朗读。站方语音包由管理员另行发放，发放后可在「发音与配图」选择。
       </div>
     </div>
     <div class="st-actions">
       <button class="btn" id="stClear">清除配置</button>
       <button class="btn" id="stTest">测试连接</button>
       <button class="btn primary" id="stSave">保存设置</button>
-    </div>
-    <div class="st-feedback">
-      <b>意见反馈</b>
-      <p class="a-note">哪里不好用、想加什么功能，写下来或截图告诉我们</p>
-      <button class="btn" id="stFeedbackBtn" type="button" style="width:100%;min-height:42px">写意见 / 提建议</button>
     </div>
   </div>
 </div>
@@ -2751,24 +2753,26 @@ body.drag-select #noteBody .en-word.sel-pick{
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
 </label>
 
-<!-- 意见反馈弹层：外壳沿用 App 风格，表单内容用 iframe 嵌入金数据 -->
-<div class="modal" id="feedbackModal" role="dialog" aria-modal="true" aria-label="意见反馈">
+<!-- 意见反馈 -->
+<div class="modal" id="feedbackModal" role="dialog" aria-modal="true" aria-label="意见反馈" hidden>
   <div class="modal-card feedback-card">
     <div class="wm-head">
       <div>
         <b>意见反馈</b>
-        <div class="a-note">哪里不好用、想加什么功能，写下来或截图告诉我们</div>
       </div>
       <button class="modal-close" id="feedbackClose" type="button" aria-label="关闭意见反馈">×</button>
     </div>
-    <div class="feedback-body">
-      <iframe id="feedbackFrame" title="意见反馈表单" allow="camera" hidden></iframe>
-      <div id="feedbackEmpty" class="feedback-empty" hidden>
-        <div class="fe-emoji">📮</div>
-        <p id="feedbackEmptyText">反馈通道正在准备中，稍后再来试试</p>
-        <a class="btn" id="feedbackOpenOut" href="#" target="_blank" rel="noopener" hidden>在新页面打开反馈表单</a>
+    <form class="feedback-body" id="feedbackForm">
+      <label for="feedbackMessage">哪里卡住了，或者你希望怎么改？</label>
+      <textarea id="feedbackMessage" rows="5" maxlength="1600" required placeholder="例如：在复习页点「提交答案」后一直加载"></textarea>
+      <label class="feedback-reply"><input type="checkbox" id="feedbackReply"> 附上我的登录邮箱，方便回复</label>
+      <div id="feedbackLogin" hidden>
+        <p class="a-note">提交前需要验证邮箱。暂时登不上时，可以回复收到邀请的私信。</p>
+        <button class="btn" id="feedbackLoginBtn" type="button">登录账号</button>
       </div>
-    </div>
+      <button class="btn primary" id="feedbackSend" type="submit">提交反馈</button>
+      <p class="a-note" id="feedbackStatus" role="status" aria-live="polite"></p>
+    </form>
   </div>
 </div>
 
@@ -2852,9 +2856,9 @@ body.drag-select #noteBody .en-word.sel-pick{
    <details class="a-guide-fold">
     <summary>API Key 与为什么要付费</summary>
     <div class="a-fold-body">
-     <p>还请理解：你每点一次 AI 回答、每听一句语音，背后都要真实付钱给上游。我们每天先为你备好免费额度：AI 10 句、语音 15 句，日常轻度使用基本够用，不用花一分钱。</p>
+     <p>AI 对话每天免费批改 10 句。每句成功批改后扣 1 句，生成场景、试听或批改失败都不扣。系统朗读免费，站方 CosyVoice 语音包单独发放。</p>
      <p>当天免费额度用完、还想继续练，可以领加练包；现阶段加练包由我们手动发放，不接在线支付，也不会主动催你。</p>
-     <p class="a-fold-note">有经验的用户也可以填自己的豆包语音 Key，费用走自己的豆包。</p>
+     <p class="a-fold-note">可以填自己的豆包语音 Key，费用走自己的豆包。收到站方语音包后，在「发音与配图」选择「站方语音包」。同一句已生成语音可在本机重播，重播不扣句数。</p>
     </div>
    </details>
    <details class="a-guide-fold">
@@ -3321,6 +3325,7 @@ function applyReadingRate(audio){
   audio.playbackRate=readingPlaybackRate;
 }
 const speechPreviewEnabled=window.APP_CONFIG?.product==='commercial'&&window.APP_CONFIG?.cosyVoicePreview===true;
+const commercialSpeechEnabled=window.APP_CONFIG?.product==='commercial'&&!speechPreviewEnabled;
 const siteSpeechCacheScope=window.APP_CONFIG?.siteSpeechCacheScope;
 const SPEECH_PREVIEW_SOURCE_KEY='en-tts-preview-source-v1';
 const speechPreviewSource=document.getElementById('stSpeechPreviewSource');
@@ -3339,24 +3344,72 @@ if(speechPreviewEnabled&&speechPreviewSource){
   if(livePreview)listen.textContent='试听新句';
   listen.addEventListener('click',()=>speak(sample,'en-US'));
 }
+const COMMERCIAL_SPEECH_SOURCE_KEY='en-tts-commercial-source-v1';
+const commercialSpeechSource=document.getElementById('stCommercialSpeechSource');
+let preferSiteSpeech=false;
+if(commercialSpeechEnabled&&commercialSpeechSource){
+  try{preferSiteSpeech=localStorage.getItem(COMMERCIAL_SPEECH_SOURCE_KEY)==='site';}catch(_){}
+  document.getElementById('stCommercialSpeech').hidden=false;
+  commercialSpeechSource.addEventListener('change',()=>{
+    preferSiteSpeech=commercialSpeechSource.value==='site';
+    try{localStorage.setItem(COMMERCIAL_SPEECH_SOURCE_KEY,preferSiteSpeech?'site':'auto');}catch(_){}
+    stopSpeech();
+  });
+  document.getElementById('stCommercialSpeechListen').addEventListener('click',()=>
+    speak('Could you save me a seat by the window?','en-US'));
+  document.getElementById('stCommercialSpeechRefresh').addEventListener('click',()=>accountRefresh());
+}
+
+function activeSiteVoicePack(){
+  const status=accountStatusCache;
+  if(!accountLoggedIn()||!status||status.account.email!==accountEmail()||status.account.status==='disabled')return null;
+  const pack=status.entitlements?.limits?.tts;
+  return pack?.hasPackage===true?pack:null;
+}
+
+function refreshCommercialSpeechSettings(){
+  if(!commercialSpeechEnabled||!commercialSpeechSource)return;
+  const pack=activeSiteVoicePack();
+  commercialSpeechSource.options[1].disabled=!pack;
+  commercialSpeechSource.value=pack&&preferSiteSpeech?'site':'auto';
+  document.getElementById('stCommercialSpeechRefresh').hidden=!accountLoggedIn();
+  const status=document.getElementById('stCommercialSpeechStatus');
+  status.textContent=pack
+    ? '站方语音包剩余 '+pack.grantRemaining+' 句'+(pack.grantRemaining===0?'。已生成的本机语音仍可重播。':'。')
+    : (accountLoggedIn()?'暂无可用的站方语音包。收到语音包后可刷新状态。':'登录后可使用管理员发放的站方语音包。');
+}
+
 const VOLC_TTS_KEY='en-tts-v1';
 const VOLC_TTS_DEFAULT={apiKey:'',speaker:'zh_female_vv_uranus_bigtts',resourceId:'seed-tts-2.0',speechRate:0,pitchRate:0,relayUrl:'https://english-notes-tts.english-notes.workers.dev'};
 let volcAudio=null,cancelVolcSpeech=null,volcTtsPlayPending=0,volcTtsLastError='',volcRecentAudio=null;
 function volcTtsConfig(){try{const raw=JSON.parse(localStorage.getItem(VOLC_TTS_KEY)||'{}');return Object.assign({},VOLC_TTS_DEFAULT,raw);}catch(_){return Object.assign({},VOLC_TTS_DEFAULT);}}
 function volcTtsSave(patch){const next=Object.assign(volcTtsConfig(),patch||{});try{localStorage.setItem(VOLC_TTS_KEY,JSON.stringify(next));}catch(_){}return next;}
 function volcTtsReady(){const cfg=volcTtsConfig();return !!(String(cfg.speaker||'').trim()&&(String(cfg.apiKey||'').trim()||String(cfg.relayUrl||'').trim()));}
-function volcTtsCacheKey(text,lang,cfg=volcTtsConfig()){return [cfg.relayUrl||'direct',cfg.resourceId,cfg.speaker,cfg.speechRate,cfg.pitchRate,lang||'en-US',String(text||'').trim()].join('|');}
+function ownVolcTtsConfig(cfg=volcTtsConfig()){
+  if(!String(cfg.apiKey||'').trim()||!String(cfg.speaker||'').trim())return null;
+  return {...cfg,relayUrl:'',ownKey:true};
+}
+function volcTtsCacheKey(text,lang,cfg=volcTtsConfig()){return [cfg.ownKey?'doubao-own-v1':(cfg.relayUrl||'direct'),cfg.resourceId,cfg.speaker,cfg.speechRate,cfg.pitchRate,lang||'en-US',String(text||'').trim()].join('|');}
 async function volcTtsRequest(text,signal,cfg=volcTtsConfig()){
   const relay=String(cfg.relayUrl||'').trim(),body={req_params:{text:String(text||''),speaker:String(cfg.speaker||''),audio_params:{format:'mp3',sample_rate:24000,speech_rate:Number(cfg.speechRate)||0,pitch_rate:Number(cfg.pitchRate)||0}}};
   const headers={'Content-Type':'application/json'};
-  if(!relay){headers['X-Api-Key']=String(cfg.apiKey||'').trim();headers['X-Api-Resource-Id']=String(cfg.resourceId||'seed-tts-2.0');}
-  const res=await fetch(relay||'https://openspeech.bytedance.com/api/v3/tts/unidirectional',{method:'POST',headers,body:JSON.stringify(body),signal});
+  if(cfg.ownKey){
+    headers['X-Doubao-Key']=String(cfg.apiKey||'').trim();
+    body.resourceId=String(cfg.resourceId||'seed-tts-2.0');
+  }else if(!relay){
+    headers['X-Api-Key']=String(cfg.apiKey||'').trim();
+    headers['X-Api-Resource-Id']=String(cfg.resourceId||'seed-tts-2.0');
+  }
+  const url=cfg.ownKey?TEXT_RELAY_DEFAULT+'/v1/tts/doubao-own':(relay||'https://openspeech.bytedance.com/api/v3/tts/unidirectional');
+  const res=await fetch(url,{method:'POST',headers,body:JSON.stringify(body),signal,redirect:'error'});
   if(!res.ok)throw new Error((relay?'豆包中转 HTTP ':'豆包语音 HTTP ')+res.status);
   const rawBody=await res.text();let data;
   try{data=JSON.parse(rawBody);}catch(_){
     const chunks=rawBody.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).map(x=>x.replace(/^data:\s*/,'')).map(x=>{try{return JSON.parse(x);}catch(_){return null;}}).filter(Boolean);
     if(!chunks.length)throw new Error('豆包语音返回格式无法解析');
-    data={code:chunks.find(x=>x.code!==undefined)?.code||0,message:chunks.find(x=>x.message)?.message||'',data:chunks.map(x=>String(x.data||'')).join('')};
+    const error=chunks.find(x=>Number(x.code||0)!==0);
+    const parts=chunks.map(x=>String(x.data||'')).filter(Boolean);
+    data=error||{code:0,data:cfg.ownKey&&parts.length>1?btoa(parts.map(atob).join('')):parts.join('')};
   }
   const apiCode=data&&data.code!==undefined?data.code:data&&data.header&&data.header.code;
   const apiMessage=data&&data.message||data&&data.header&&data.header.message;
@@ -3414,8 +3467,11 @@ function playSitePreviewSpeech(text,lang,onend){
 }
 /* 正式站方 CosyVoice：走账号权益接口，带 Authorization；过量/失败/封顶由 playCachedCloudSpeech 回系统朗读 */
 function playSiteSpeech(text,lang,onend){
+  const token=accountToken();
   const key=JSON.stringify(['cosyvoice-site-v1',accountEmail(),lang,text]);
   return playCachedCloudSpeech(text,lang,onend,key,()=>{
+    if(token!==accountToken()||!activeSiteVoicePack())throw new Error('站方语音包尚未开通');
+    if(activeSiteVoicePack().grantRemaining<=0)throw new Error('站方语音包句数已用完');
     if(siteSpeechPending.has(key))return siteSpeechPending.get(key);
     const pending=fetch(accountBase()+'/v1/tts/synthesize',{
       method:'POST',signal:AbortSignal.timeout(12000),
@@ -3423,6 +3479,8 @@ function playSiteSpeech(text,lang,onend){
       body:JSON.stringify({text})
     }).then(async response=>{
       const result=await response.json().catch(()=>({}));
+      if(token!==accountToken())throw new Error('登录状态已变化');
+      if(response.ok||[401,402,403].includes(response.status))accountRefresh();
       if(!response.ok||typeof result.audio!=='string'||!result.audio.startsWith('data:audio/mpeg;base64,')){
         throw new Error(result.message||'站方语音暂不可用');
       }
@@ -3432,11 +3490,6 @@ function playSiteSpeech(text,lang,onend){
     siteSpeechPending.set(key,pending);
     return pending;
   },true);
-}
-function siteSpeechAvailable(){
-  if(!accountLoggedIn())return false;
-  const st=accountStatusCache?.account?.status;
-  return st!=='pending'&&st!=='disabled';
 }
 async function playCachedCloudSpeech(text,lang,onend,key,requestAudio,isSitePreview=false){
   stopSpeech();
@@ -3475,7 +3528,7 @@ async function playCachedCloudSpeech(text,lang,onend,key,requestAudio,isSitePrev
       return false;
     }
     volcTtsLastError=e?.name==='AbortError'?'豆包语音请求超时':(e?.message||'豆包语音请求失败');
-    if(lang==='en-US'&&!/\s/.test(value))playYoudaoAudio(value,lang,onend);
+    if(!commercialSpeechEnabled&&lang==='en-US'&&!/\s/.test(value))playYoudaoAudio(value,lang,onend);
     else speakQueued(value,lang,onend);
     return false;
   }
@@ -3580,7 +3633,13 @@ function speak(text,lang,onend){
     speakQueued(value,locale,onend);
     return;
   }
-  if(locale.toLowerCase().startsWith('en')&&siteSpeechAvailable()){playSiteSpeech(value,locale,onend);return;}
+  if(locale.toLowerCase().startsWith('en')&&commercialSpeechEnabled){
+    if(preferSiteSpeech&&activeSiteVoicePack()){playSiteSpeech(value,locale,onend);return;}
+    const own=ownVolcTtsConfig();
+    if(own)playVolcAudio(value,locale,onend,own);
+    else speakQueued(value,locale,onend);
+    return;
+  }
   if(locale.toLowerCase().startsWith('en')&&volcTtsReady()){playVolcAudio(value,locale,onend);return;}
   let voice;
   try{voice=pickVoice(window.speechSynthesis?.getVoices(),locale);}catch(_){}
@@ -8007,16 +8066,21 @@ function startScene(sc){
     const retry=$('#aiRetry'); if(retry) retry.addEventListener('click',()=>startScene(sc));
   });
 }
-async function aiJudge(attempt){
+function usesSiteDialogueReview(){
+  return window.APP_CONFIG?.product==='commercial'&&!aiApiConfig().apiKey;
+}
+async function aiJudge(attempt,requestId){
   const target=aiTargetTerm(aiState.currentTargetWord||aiState.term);
   const context=aiState.lines.filter(line=>line.who!=='YOU').map(line=>line.en).join('\n');
+  const answer={target,context,promptCn:aiState.attemptPromptCn,attempt};
+  if(requestId){
+    const [review]=await dialogueReviewFetch([answer],requestId,state.settings.tone);
+    return review;
+  }
   const review=await aiCall([
     {role:'system',content:'你是英语口语教练。'+toneSystem()+'只返回 JSON。给一个自然、符合中文提示并使用目标词的英文参考答案，简要解释用法，列出最多两个具体易错点。'},
     {role:'user',content:JSON.stringify({
-      target,
-      context,
-      promptCn:aiState.attemptPromptCn,
-      attempt,
+      ...answer,
       responseFormat:{standard:'英文参考答案',fit:'中文用法说明',pitfalls:['中文易错点']}
     })}
   ]);
@@ -8031,19 +8095,34 @@ async function submitAttempt(){
   const input=$('#aiInput');
   const text=input.value.trim();
   if(!text){ toast('先把你的翻译说出来或写下来','warn'); return; }
+  const siteReview=usesSiteDialogueReview();
+  if(text.length>1200&&siteReview){
+    toast('这条练习答案太长，请缩短后再提交','warn'); return;
+  }
   stopAiDictation();
   const attemptState=aiState;
   aiState.busy=true;
   const youLines=aiState.lines.filter(l=>l.who==='YOU');
   const youLine=aiState.multiTurn?(youLines[aiState.turnIndex]||youLines[0]):youLines[0];
+  let requestId;
+  if(siteReview){
+    const previous=attemptState.pendingSubmission;
+    if(previous?.text===text&&previous.lines===aiState.lines&&previous.turn===aiState.turnIndex){
+      requestId=previous.id;
+    }else{
+      requestId=Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,'0')).join('');
+      attemptState.pendingSubmission={text,lines:aiState.lines,turn:aiState.turnIndex,id:requestId};
+    }
+  }
   aiState.attempt=text;
   aiState.attemptPromptCn=(youLine&&youLine.promptCn)||'';
   aiState.currentTargetWord=(youLine&&youLine.wordId)||aiState.term;
   input.value='';
   const session=aiSession,term=aiState.term,mySeq=++aiState.seq;
   aiShowLoading('正在批改你的句子…');
-  aiJudge(text).then(d=>{
+  aiJudge(text,requestId).then(d=>{
     if(session!==aiSession||term!==aiState.term||mySeq!==aiState.seq) return;
+    attemptState.pendingSubmission=null;
     aiState.phase='review';
     aiShowBody();
     aiSetChatbar('review');
@@ -11510,7 +11589,9 @@ function aImageStatsFromStorage(storage){
   try{all=JSON.parse(storage&&storage[WM_IMG_KEY]||'{}')||{};}catch(_){ }
   return aImageCacheStats(all,words);
 }
-function aBackupKeys(){const out={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('english-notes-')&&k!==CLIPBOARD_KEY)out[k]=localStorage.getItem(k);}return out;}
+/* 登录凭证（含会话 token、邮箱）永不进备份，导出时一律剔除 */
+const SENSITIVE_BACKUP_KEYS=['english-notes-account-v1'];
+function aBackupKeys(){const out={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('english-notes-')&&k!==CLIPBOARD_KEY&&!SENSITIVE_BACKUP_KEYS.includes(k))out[k]=localStorage.getItem(k);}return out;}
 /* 落地配图备份 key：存 {单词小写: dataURL}，独立 key，不与旧缓存冲突 */
 const WM_IMG_BLOB_KEY='english-notes-wmimg-blob-v1';
 /* 把 images store 的 Blob 全部转 dataURL，组装成备份对象 */
@@ -11602,7 +11683,7 @@ function aPrepareImport(pack){
   const base=existing?JSON.parse(existing):{words:[],notes:[],folders:[],aiLog:[],grave:[],tagList:[]};
   const incoming=JSON.parse(storage[LS_KEY]);
   const merged=aMergeState(base,incoming),plan={[LS_KEY]:JSON.stringify(merged)};
-  Object.keys(storage).forEach(k=>{if(k===LS_KEY||!k.startsWith('english-notes-')||typeof storage[k]!=='string')return;plan[k]=aMergeExtra(k,localStorage.getItem(k),storage[k]);});
+  Object.keys(storage).forEach(k=>{if(k===LS_KEY||!k.startsWith('english-notes-')||typeof storage[k]!=='string'||SENSITIVE_BACKUP_KEYS.includes(k))return;plan[k]=aMergeExtra(k,localStorage.getItem(k),storage[k]);});
   /* 收件箱 key 不以 english-notes- 开头，单独合并 */
   if(typeof storage[SHOT_INBOX_KEY]==='string') plan[SHOT_INBOX_KEY]=aMergeExtra(SHOT_INBOX_KEY,localStorage.getItem(SHOT_INBOX_KEY),storage[SHOT_INBOX_KEY]);
   /* 落地配图不进 LS：取出原始 dataURL 包，从 plan 移除，稍后由 syncImportedBlobs 转 Blob 存 IDB */
@@ -12346,24 +12427,26 @@ function ttsRefreshSettings(){
   if(relay&&document.activeElement!==relay)relay.value=cfg.relayUrl||'';
   if(rate&&document.activeElement!==rate)rate.value=String(cfg.speechRate||0);
   if(pitch&&document.activeElement!==pitch)pitch.value=String(cfg.pitchRate||0);
-  const ready=speechPreviewEnabled?Boolean(String(cfg.apiKey||'').trim()):volcTtsReady();
+  const ready=commercialSpeechEnabled||speechPreviewEnabled?Boolean(ownVolcTtsConfig(cfg)):volcTtsReady();
   if(status)status.textContent=volcTtsLastError||(ready?'已配置，英文朗读时会生成并缓存':'还未配置');
 }
 async function ttsTest(){
   const key=$('#stTtsKey'),speaker=$('#stTtsSpeaker'),relay=$('#stTtsRelay'),rate=$('#stTtsRate'),pitch=$('#stTtsPitch');
   const apiKey=String(key&&key.value||'').trim(),voice=String(speaker&&speaker.value||'').trim(),relayUrl=String(relay&&relay.value||'').trim();
-  if(!voice||(!apiKey&&(speechPreviewEnabled||!relayUrl))){
-    toast(speechPreviewEnabled?'先填写自己的豆包 API Key 和音色 ID':'先填写豆包 API Key 或服务端中转地址，并填写音色 ID','warn');
+  const useOwnKey=commercialSpeechEnabled||speechPreviewEnabled;
+  if(!voice||(!apiKey&&(useOwnKey||!relayUrl))){
+    toast(useOwnKey?'先填写自己的豆包 API Key 和音色 ID':'先填写豆包 API Key 或服务端中转地址，并填写音色 ID','warn');
     return;
   }
   const cfg=volcTtsSave({apiKey,speaker:voice,relayUrl,speechRate:Number(rate&&rate.value)||0,pitchRate:Number(pitch&&pitch.value)||0});
-  const ok=await playVolcAudio('Could you say that again?','en-US',undefined,speechPreviewEnabled?{...cfg,relayUrl:''}:cfg);
+  const testConfig=commercialSpeechEnabled?ownVolcTtsConfig(cfg):(speechPreviewEnabled?{...cfg,relayUrl:''}:cfg);
+  const ok=await playVolcAudio('Could you say that again?','en-US',undefined,testConfig);
   if(ok)toast('豆包试听已开始，后续会复用缓存','ok');
   else if(volcTtsLastError)toast(volcTtsLastError,'warn');
   ttsRefreshSettings();
 }
 const aOriginalSettings=openSettings;
-openSettings=function(){aOriginalSettings();aRefreshSettings();};
+openSettings=function(){aOriginalSettings();aRefreshSettings();if(commercialSpeechEnabled)accountRefresh();};
 const aOriginalSettingsUI=syncSettingsUI;
 syncSettingsUI=function(){aOriginalSettingsUI();aRefreshSettings();};
 testConn=async function(){if(aRoute()==='chatgpt'){toast('无需接口连接：复制任务到 ChatGPT，再粘回 JSON 即可');return;}if(!aAiReady()){toast('请保存 OpenAI 官方接口地址与 Key 后再试','warn');return;}try{const r=await aiCall([{role:'user',content:'仅输出 JSON：{"ok":true}'}]);toast(r.ok?'连接成功':'已收到响应');}catch(e){toast(e.message,'warn');}};
@@ -12469,10 +12552,12 @@ function aInit(){
   const tts=document.createElement('div');tts.className='adv-wrap';tts.id='stVolcTts';tts.innerHTML='<button class="adv-toggle" id="stTtsFold" type="button"><span>豆包语音（可选 · 更自然的真人发音）</span><b class="adv-chev">›</b></button><div class="adv-body" id="stTtsBody"><p class="bk-note">不填：用手机自带的免费朗读，零配置、不花钱，但音色偏机械、不同手机效果不一样。填了：豆包真人发音更自然、可挑温柔女声，但要单独配 Key 和音色 ID，可能产生少量费用。</p><input id="stTtsKey" type="password" placeholder="直连时粘贴豆包 API Key，中转模式可留空" autocomplete="off"><input id="stTtsSpeaker" placeholder="音色 ID，例如 zh_female_vv_uranus_bigtts（Vivi 2.0）" autocomplete="off"><input id="stTtsRelay" placeholder="可选：服务端中转地址，例如 https://你的域名/tts" autocomplete="off"><div class="st-inline"><input id="stTtsRate" type="number" min="-50" max="100" step="1" value="0" placeholder="语速"><input id="stTtsPitch" type="number" min="-12" max="12" step="1" value="0" placeholder="音调"><button class="btn" id="stTtsTest" type="button">试听</button></div><div class="bk-note" id="stTtsStatus">还未配置</div><p class="a-note">填写中转地址后，网页只请求中转服务，豆包 API Key 保存在服务端。未填写中转地址时继续直连豆包。</p></div>';
   const ttsMount=$('#stTtsMount');
   if(ttsMount)ttsMount.appendChild(tts);else aiBody.append(tts);
-  if(speechPreviewEnabled){
+  if(commercialSpeechEnabled||speechPreviewEnabled){
     $('#stTtsRelay').hidden=true;
     $('#stTtsKey').placeholder='填写你自己的豆包 API Key';
-    $('#stTtsBody .bk-note').textContent='选择「我的豆包 Key」时，使用你自己的凭据直接调用。';
+    $('#stTtsBody .bk-note').textContent=commercialSpeechEnabled
+      ? 'Key 保存在此浏览器，试听或朗读时经本站转给豆包，费用由你的豆包账号承担。'
+      : '选择「我的豆包 Key」时，使用你自己的凭据直接调用。';
     $('#stTtsBody .a-note').hidden=true;
   }
   $('#stTtsFold').addEventListener('click',()=>tts.classList.toggle('open'));
@@ -12827,14 +12912,7 @@ async function textRelayFetch(messages,opts){
         signal:ctrl.signal
       });
       if(!res.ok){
-        let t='';try{t=await res.text();}catch(_){}
-        const statusMessage={
-          402:'共用 AI 服务额度不足（HTTP 402），请稍后再试',
-          429:'用的人太多，稍后再试'
-        };
-        const err=new Error(statusMessage[res.status]||('HTTP '+res.status+' '+(t||'').slice(0,100)));
-        err.status=res.status;
-        throw err;
+        throw await textRelayError(res);
       }
       const data=await res.json();
       const message=data&&data.choices&&data.choices[0]&&data.choices[0].message||{};
@@ -12846,6 +12924,38 @@ async function textRelayFetch(messages,opts){
   }catch(err){
     if(err&&err.status===400)return await once(false);
     throw err;
+  }
+}
+async function textRelayError(res){
+  const data=await res.json().catch(()=>null);
+  const message=typeof data?.message==='string'?data.message.trim():'';
+  const err=new Error(message||('HTTP '+res.status));
+  err.status=res.status;
+  return err;
+}
+async function dialogueReviewFetch(answers,requestId,tone){
+  const relay=textRelayConfig().relayUrl.replace(/\/+$/,'');
+  if(!relay)throw new Error('没有可用的免 Key 中转地址');
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),35000);
+  const token=accountToken();
+  try{
+    const res=await fetch(relay+'/v1/dialogue/review',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',...accountAuthHeader()},
+      body:JSON.stringify({requestId,tone,answers}),
+      signal:ctrl.signal
+    });
+    if(!res.ok)throw await textRelayError(res);
+    const data=await res.json();
+    if(!Array.isArray(data?.reviews)||data.reviews.length!==answers.length||
+      data.reviews.some(review=>typeof review?.standard!=='string'||!review.standard.trim())){
+      throw new Error('未收到完整批改，请原样重试');
+    }
+    return data.reviews;
+  }finally{
+    clearTimeout(timer);
+    if(token&&token===accountToken())accountRefresh();
   }
 }
 /* 图片中转：本地先判抽象，Worker 内抽象词 LLM 改写后走 Openverse(认证)→Pixabay。返回 {source,candidates,usage}。 */
@@ -12932,43 +13042,86 @@ function isAbstractTerm(term){
   if(words.some(w=>ABSTRACT_SUFFIX.some(suf=>w.endsWith(suf)))) return true;
   return false;                                                // 多词仍判不出：默认具体
 }
-/* ============ 12_feedback.js · 意见反馈（金数据表单，零后端） ============
-   用法：在金数据建一个含「多行文字 + 图片（可选）」字段的表单，
-   把表单链接里的 token 填到下方 FEEDBACK_FORM_TOKEN，重新构建即可。
-   表单通过 iframe 嵌入，提交与图片上传由金数据处理，不暴露任何密钥。 */
-const FEEDBACK_FORM_TOKEN='';
-function feedbackFormUrl(){
-  const tok=String(FEEDBACK_FORM_TOKEN||'').trim();
-  if(!tok)return '';
-  return 'https://jinshuju.net/f/'+tok+
-    '?background=transparent&banner=hide&embedded=true&inner_redirect=true';
-}
-let feedbackLoaded=false;
-function openFeedback(){
-  const modal=$('#feedbackModal'),frame=$('#feedbackFrame'),empty=$('#feedbackEmpty');
-  const url=feedbackFormUrl();
-  if(!url){
-    /* 表单还没配置：显示准备中，不加载 iframe */
-    frame.hidden=true;empty.hidden=false;
-  }else{
-    empty.hidden=true;frame.hidden=false;
-    /* 懒加载：第一次打开才设 src，不拖慢首屏 */
-    if(!feedbackLoaded){ frame.src=url; feedbackLoaded=true; }
-  }
-  modal.classList.add('show');
-}
-function closeFeedback(){
-  $('#feedbackModal').classList.remove('show');
-}
+/* 商业版内测反馈。提交成功前保留用户输入，同一条原样重试沿用编号。 */
 function initFeedback(){
-  /* 反馈入口已移到设置页底部 */
-  const btn=$('#stFeedbackBtn');
-  if(btn)btn.addEventListener('click',openFeedback);
-  const close=$('#feedbackClose');
-  if(close)close.addEventListener('click',closeFeedback);
-  const modal=$('#feedbackModal');
-  /* 点遮罩关闭（点卡片本身不关闭） */
-  modal.addEventListener('click',e=>{ if(e.target===modal)closeFeedback(); });
+  if(window.APP_CONFIG?.product!=='commercial')return;
+  const entry=$('#moreFeedback'),modal=$('#feedbackModal'),form=$('#feedbackForm');
+  const message=$('#feedbackMessage'),reply=$('#feedbackReply'),login=$('#feedbackLogin');
+  const status=$('#feedbackStatus'),send=$('#feedbackSend');
+  let pending=null,busy=false,expiredToken=null;
+
+  function syncAccess(){
+    login.hidden=accountLoggedIn()&&accountToken()!==expiredToken;
+    send.disabled=busy||!login.hidden;
+  }
+
+  function close(){
+    modal.classList.remove('show');
+    modal.hidden=true;
+    entry.focus();
+  }
+
+  entry.hidden=false;
+  entry.addEventListener('click',()=>{
+    syncAccess();
+    modal.hidden=false;
+    modal.classList.add('show');
+    $('#feedbackClose').focus();
+  });
+  $('#feedbackClose').addEventListener('click',close);
+  modal.addEventListener('click',event=>{if(event.target===modal)close();});
+  modal.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&modal.classList.contains('show')){
+      event.stopPropagation();
+      close();
+    }
+  });
+  $('#feedbackLoginBtn').addEventListener('click',()=>{
+    close();
+    openLogin();
+  });
+
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const text=message.value.trim(),allowReply=reply.checked;
+    if(busy||!login.hidden)return;
+    if(!text){status.textContent='先写下你的反馈，再提交。';return;}
+    if(pending?.message!==text||pending?.allowReply!==allowReply||pending?.email!==accountEmail()){
+      const requestId=Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,'0')).join('');
+      pending={requestId,message:text,allowReply,email:accountEmail()};
+    }
+
+    busy=true;
+    syncAccess();
+    status.textContent='正在提交…';
+    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),12000);
+    try{
+      const {requestId}=pending;
+      const token=accountToken();
+      const result=await fetch(accountBase()+'/v1/feedback',{
+        method:'POST',headers:{'Content-Type':'application/json',...accountAuthHeader()},
+        body:JSON.stringify({requestId,message:text,allowReply}),signal:ctrl.signal
+      });
+      const data=await result.json().catch(()=>null);
+      if(!result.ok||!data?.ok){
+        if(result.status===401&&token===accountToken()){
+          expiredToken=token;
+          accountRefresh();
+        }
+        status.textContent=data?.message||'提交失败，已保留原文，请稍后重试。';
+        return;
+      }
+      pending=null;
+      if(message.value.trim()===text&&reply.checked===allowReply)form.reset();
+      status.textContent='反馈已收到，感谢你告诉我们。';
+    }catch(_){
+      status.textContent='暂时连不上，已保留原文，可以直接重试。';
+    }finally{
+      clearTimeout(timer);
+      busy=false;
+      syncAccess();
+    }
+  });
 }
 /* ===== 13_drag.js · 备忘录式长按移动（自研触摸拖拽，与系统剪贴板分开） =====
    长按单词 → 直接进入选择态（该词已选中，可继续加选/减选）；
@@ -13378,6 +13531,7 @@ async function accountApi(p, body, withAuth) {
 
 let pendingEmail = '';
 let accountStatusCache = null;
+let accountRefreshRequest = 0;
 
 /* ---------------- 登录弹窗 ---------------- */
 
@@ -13426,7 +13580,9 @@ function ensureLoginModal() {
     msg('验证中…');
     const r = await accountApi('/v1/auth/verify', { email: pendingEmail, code }, false);
     if (r.status !== 200) { msg(r.data.message || '验证失败'); return; }
+    accountStatusCache = null;
     accountWrite({ token: r.data.token, email: pendingEmail });
+    accountRenderGroup();
     closeLogin();
     accountRefresh();
     toast('登录成功');
@@ -13465,6 +13621,7 @@ function ensureAccountGroup() {
 }
 
 function accountRenderGroup() {
+  refreshCommercialSpeechSettings();
   const body = $('#stgAccountBody');
   if (!body) return;
   $('#stgSumAccount').textContent = accountLoggedIn()
@@ -13472,7 +13629,7 @@ function accountRenderGroup() {
     : '未登录';
 
   if (!accountLoggedIn()) {
-    body.innerHTML = '<p class="a-note">登录后可使用站方 AI 与语音免费额度。</p>' +
+    body.innerHTML = '<p class="a-note">登录后可以开通站方 AI 额度或领取单独发放的语音包。</p>' +
       '<button class="btn primary" id="stAccountLogin" type="button">登录 / 注册</button>';
     $('#stAccountLogin').onclick = openLogin;
     return;
@@ -13483,24 +13640,29 @@ function accountRenderGroup() {
   const L = s.entitlements.limits;
   const M = s.entitlements.monthly;
   const yuan = micro => (micro / 1_000_000).toFixed(2);
+  const status = ['active','pending','disabled'].includes(s.account.status) ? s.account.status : 'disabled';
+  const voiceBalance = status !== 'disabled' && L.tts.hasPackage
+    ? '站方语音包剩余 ' + Number(L.tts.grantRemaining) + ' 句'
+    : '暂无可用的站方语音包';
 
   body.innerHTML =
-    '<div class="st-field"><div class="meta"><b>' + s.account.email + '</b> ' +
-      '<span class="badge ' + s.account.status + '">' + statusLabel(s.account.status) + '</span></div></div>' +
+    '<div class="st-field"><div class="meta"><b id="stAccountEmail"></b> ' +
+      '<span class="badge ' + status + '">' + statusLabel(status) + '</span></div></div>' +
     '<div class="st-field"><label>今日剩余（已用 / 每日免费）</label>' +
-      '<p class="a-note">AI 句子：' + L.text.freeLeft + ' 句（今日已用 ' + L.text.used + ' / ' + L.text.freeDaily + '）' +
-      (L.text.grantRemaining ? '，加练包剩 ' + L.text.grantRemaining : '') + '</p>' +
-      '<p class="a-note">站方语音：' + L.tts.freeLeft + ' 句（今日已用 ' + L.tts.used + ' / ' + L.tts.freeDaily + '）' +
-      (L.tts.grantRemaining ? '，加练包剩 ' + L.tts.grantRemaining : '') + '</p></div>' +
+      '<p class="a-note">AI 对话免费批改剩余 ' + L.text.freeLeft + ' 句（今日已用 ' + L.text.used + ' / ' + L.text.freeDaily + '）' +
+      (L.text.grantRemaining ? '，加练包剩 ' + L.text.grantRemaining + ' 句' : '') + '</p>' +
+      '<p class="a-note">' + voiceBalance + '</p></div>' +
     '<div class="st-field"><label>本月站方成本（100 元提醒 / 150 元封顶）</label>' +
       '<p class="a-note">已累计 ¥' + yuan(M.totalMicro) + '，跨月自动重置。</p></div>' +
     '<button class="btn" id="stAccountRefresh" type="button">刷新状态</button>' +
     '<button class="btn" id="stAccountLogout" type="button">退出登录</button>';
 
+  $('#stAccountEmail').textContent = s.account.email;
   $('#stAccountRefresh').onclick = accountRefresh;
   $('#stAccountLogout').onclick = () => {
     try { localStorage.removeItem(ACCOUNT_KEY); } catch (_) {}
     accountStatusCache = null;
+    stopSpeech();
     accountRenderGroup();
     toast('已退出登录');
   };
@@ -13511,16 +13673,21 @@ function statusLabel(status) {
 }
 
 async function accountRefresh() {
-  if (!accountLoggedIn()) return;
+  const token = accountToken();
+  if (!token) return;
+  const seq = ++accountRefreshRequest;
   try {
     const r = await accountApi('/v1/me/status', {}, true);
+    if (seq !== accountRefreshRequest || token !== accountToken()) return;
     if (r.status === 200) {
       accountStatusCache = r.data;
     } else if (r.status === 401) {
       try { localStorage.removeItem(ACCOUNT_KEY); } catch (_) {}
+      accountStatusCache = null;
+      stopSpeech();
     }
   } catch (_) {}
-  accountRenderGroup();
+  if (seq === accountRefreshRequest) accountRenderGroup();
 }
 
 /* 需要登录的操作：未登录则弹窗并返回 false */
