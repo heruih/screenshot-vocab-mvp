@@ -453,7 +453,7 @@ async function handleAdminStatus(request, env, headers) {
 
 /* ---------- 旧匿名 DeepSeek（无 D1 时） ---------- */
 
-/* ================= 图片 relay：Openverse → Pixabay → Seedream 接力 ================= */
+/* ================= 图片 relay：Openverse → Pixabay ================= */
 const IMG_TIMEOUT = 8000;
 function imgSignal() {
   const ctrl = new AbortController();
@@ -496,33 +496,6 @@ async function wPixabay(term, key) {
     })).filter(x => x.thumb);
   } catch (_) { return []; }
 }
-async function wSeedream(term, context, env) {
-  try {
-    const prompt = '为英语表达「' + term + '」生成一张帮助记忆的学习插图。语境：' + (context || '日常真实使用场景') +
-      '。只表现一个自然动作和一个关键物件，画面干净具体，不要出现任何文字、字幕、水印。';
-    const ctrl = new AbortController();
-    setTimeout(() => ctrl.abort(), 20000);
-    const res = await fetch('https://ark.cn-beijing.volces.com/api/v3/images/generations', {
-      method: 'POST',
-      signal: ctrl.signal,
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + env.ARK_API_KEY },
-      body: JSON.stringify({
-        model: env.SEEDREAM_MODEL || 'doubao-seedream-5-0-flash-260915',
-        prompt, size: '1024x1024', watermark: false, response_format: 'url'
-      })
-    });
-    const txt = await res.text();
-    if (!res.ok) return { __error: 'seedream HTTP ' + res.status + ' => ' + txt.slice(0, 600) };
-    const data = JSON.parse(txt);
-    const items = (data.data || []).map(it => ({
-      thumb: it.url || '', src: it.url || '', big: it.url || '',
-      credit: 'AI 生成 · Seedream', ai: true
-    })).filter(x => x.src);
-    return { items };
-  } catch (e) {
-    return { __error: 'seedream exception: ' + (e.name || '') + ' ' + (e.message || '') };
-  }
-}
 async function handleImage(request, env, ctx, headers) {
   const input = await readJson(request);
   const term = String(input && input.term || '').trim();
@@ -540,16 +513,8 @@ async function handleImage(request, env, ctx, headers) {
     candidates = await wPixabay(term, env.PIXABAY_KEY);
     if (candidates.length) source = 'pixabay';
   }
-  let seedreamError = '';
-  if (!candidates.length && env.ARK_API_KEY) {
-    const sr = await wSeedream(term, String(input.context || ''), env);
-    if (sr && sr.__error) seedreamError = sr.__error;
-    else if (sr && Array.isArray(sr.items) && sr.items.length) {
-      candidates = sr.items; source = 'seedream';
-    }
-  }
   if (!candidates.length) {
-    return jerr(404, '所有配图源都没返回图' + (seedreamError ? '；' + seedreamError : ''), headers);
+    return jerr(404, '未找到匹配的真实配图', headers);
   }
   const out = {
     source, term,

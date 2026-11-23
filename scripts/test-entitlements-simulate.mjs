@@ -35,7 +35,10 @@ function setBeijing(yyyy, mm, dd, hh = 10, mi = 0) {
 function createKV() {
   const m = new Map();
   return {
-    get: async k => (m.has(k) ? m.get(k) : null),
+    get: async (k, options) => {
+      const value = m.get(k) ?? null;
+      return value !== null && options?.type === 'json' ? JSON.parse(value) : value;
+    },
     put: async (k, v) => m.set(k, String(v)),
     delete: async k => m.delete(k)
   };
@@ -474,6 +477,43 @@ section('场景13：提醒发送失败后可人工重试');
   check('工作日 17:30 计入 DeepSeek 高峰', isPeakHour());
   setBeijing(2026, 12, 1, 18);
   check('工作日 18:00 起为闲时', !isPeakHour());
+}
+
+section('场景14：配图只使用真实图片');
+{
+  const env = makeEnv();
+  env.PIXABAY_KEY = 'test-key';
+  env.ARK_API_KEY = 'stale-test-key';
+  const upstream = globalThis.fetch;
+  const requests = [];
+  let source = 'openverse';
+  globalThis.fetch = async url => {
+    const host = new URL(url).hostname;
+    requests.push(host);
+    if (host === 'api.openverse.org') {
+      return Response.json({ results: source === 'openverse' ? [{ url: 'https://example.test/open.jpg' }] : [] });
+    }
+    if (host === 'pixabay.com') {
+      return Response.json({ hits: source === 'pixabay' ? [{ webformatURL: 'https://example.test/pixabay.jpg' }] : [] });
+    }
+    throw new Error('Unexpected image provider');
+  };
+  try {
+    const endpoint = '/v1/images/generations';
+    const openverse = await call(env, 'POST', endpoint, { term: 'window' });
+    check('Openverse 命中时只访问 Openverse', openverse.data.source === 'openverse' &&
+      requests.splice(0).join() === 'api.openverse.org');
+    source = 'pixabay';
+    const pixabay = await call(env, 'POST', endpoint, { term: 'window' });
+    check('Openverse 缺图时回落 Pixabay', pixabay.data.source === 'pixabay' &&
+      requests.splice(0).join() === 'api.openverse.org,pixabay.com');
+    source = '';
+    const noPhoto = await call(env, 'POST', endpoint, { term: 'window' });
+    check('真实图都缺失时返回 404，旧 Key 不触发生图', noPhoto.status === 404 &&
+      requests.join() === 'api.openverse.org,pixabay.com');
+  } finally {
+    globalThis.fetch = upstream;
+  }
 }
 
 /* ---------- 汇总 ---------- */
