@@ -13503,6 +13503,7 @@ function initDrag(){
  * ===================================================================== */
 
 const ACCOUNT_KEY = 'english-notes-account-v1';
+const ACCOUNT_REQUEST_TIMEOUT_MS = 12000;
 
 function accountRead() { try { return JSON.parse(localStorage.getItem(ACCOUNT_KEY)) || {}; } catch (_) { return {}; } }
 function accountWrite(v) { try { localStorage.setItem(ACCOUNT_KEY, JSON.stringify(v)); } catch (_) {} }
@@ -13518,19 +13519,32 @@ function accountBase() { return textRelayConfig().relayUrl.replace(/\/+$/, ''); 
 async function accountApi(p, body, withAuth) {
   const headers = { 'Content-Type': 'application/json' };
   if (withAuth) Object.assign(headers, accountAuthHeader());
-  const res = await fetch(accountBase() + p, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body || {})
-  });
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = {}; }
-  return { status: res.status, data };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ACCOUNT_REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(accountBase() + p, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body || {}),
+      signal: ctrl.signal
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch (_) { data = {}; }
+    return { status: res.status, data: data && typeof data === 'object' ? data : {} };
+  } catch (_) {
+    const message = ctrl.signal.aborted
+      ? '连接账号服务超时，请换个网络再试。'
+      : '暂时连不上账号服务，请检查网络后重试。';
+    return { status: 0, data: { message } };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 let pendingEmail = '';
 let accountStatusCache = null;
+let accountStatusError = '';
 let accountRefreshRequest = 0;
 
 /* ---------------- 登录弹窗 ---------------- */
@@ -13547,47 +13561,83 @@ function ensureLoginModal() {
         '<p class="a-note">输入邮箱获取 6 位验证码。登录后权益跟邮箱走，换手机或多设备都能用。</p>' +
         '<input id="almEmail" type="email" inputmode="email" placeholder="you@example.com" autocomplete="email">' +
         '<button class="btn primary" id="almSendCode" type="button">获取验证码</button>' +
+        '<button class="btn" id="almUseCode" type="button">输入已有验证码</button>' +
       '</div>' +
       '<div id="almCodeStep" hidden>' +
-        '<p class="a-note">验证码已发送到 <b id="almEmailShow"></b>，10 分钟内有效。</p>' +
+        '<p class="a-note">输入 <b id="almEmailShow"></b> 收到的 6 位验证码，验证码 10 分钟内有效。</p>' +
         '<input id="almCode" inputmode="numeric" maxlength="6" placeholder="6 位验证码" autocomplete="one-time-code">' +
         '<button class="btn primary" id="almDoVerify" type="button">验证并登录</button>' +
         '<button class="btn" id="almBack" type="button">返回换邮箱</button>' +
       '</div>' +
-      '<div id="almMsg" class="a-note" style="color:#d83939"></div>' +
+      '<div id="almMsg" class="a-note" role="status" aria-live="polite" style="color:#d83939"></div>' +
     '</div>';
   document.body.appendChild(m);
 
   const msg = t => { $('#almMsg').textContent = t; };
+  const send = $('#almSendCode'), useCode = $('#almUseCode'), verify = $('#almDoVerify'), back = $('#almBack');
+  function emailFromInput() {
+    const email = $('#almEmail').value.trim().toLowerCase();
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return email;
+    msg('邮箱格式不正确');
+    return '';
+  }
+  function showCodeStep(email, hint = '') {
+    pendingEmail = email;
+    $('#almEmailShow').textContent = email;
+    $('#almCode').value = '';
+    $('#almEmailStep').hidden = true;
+    $('#almCodeStep').hidden = false;
+    msg(hint);
+  }
   $('#almClose').onclick = closeLogin;
   m.addEventListener('click', e => { if (e.target === m) closeLogin(); });
 
-  $('#almSendCode').onclick = async () => {
-    const email = $('#almEmail').value.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { msg('邮箱格式不正确'); return; }
+  send.onclick = async () => {
+    if (send.disabled) return;
+    const email = emailFromInput();
+    if (!email) return;
+    send.disabled = useCode.disabled = true;
     msg('发送中…');
-    const r = await accountApi('/v1/auth/request-code', { email }, false);
-    if (r.status !== 200) { msg(r.data.message || '发送失败，请稍后再试'); return; }
-    pendingEmail = email;
-    $('#almEmailShow').textContent = email;
-    $('#almEmailStep').hidden = true;
-    $('#almCodeStep').hidden = false;
-    msg(r.data.devCode ? '测试模式未配发信，验证码：' + r.data.devCode : '');
+    try {
+      const r = await accountApi('/v1/auth/request-code', { email }, false);
+      if (r.status === 200 && r.data.ok === true) {
+        showCodeStep(email, r.data.devCode ? '测试验证码：' + r.data.devCode : '');
+      } else {
+        msg((r.data.message || '发送失败，请稍后再试。') +
+          (r.status === 0 || r.status === 429 ? '邮件已收到的话，可以直接输入已有验证码。' : ''));
+      }
+    } finally {
+      send.disabled = useCode.disabled = false;
+    }
   };
-
-  $('#almDoVerify').onclick = async () => {
+  useCode.onclick = () => {
+    const email = emailFromInput();
+    if (email) showCodeStep(email);
+  };
+  verify.onclick = async () => {
+    if (verify.disabled) return;
     const code = $('#almCode').value.trim();
+    if (!/^\d{6}$/.test(code)) { msg('请输入 6 位验证码'); return; }
+    verify.disabled = back.disabled = true;
     msg('验证中…');
-    const r = await accountApi('/v1/auth/verify', { email: pendingEmail, code }, false);
-    if (r.status !== 200) { msg(r.data.message || '验证失败'); return; }
-    accountStatusCache = null;
-    accountWrite({ token: r.data.token, email: pendingEmail });
-    accountRenderGroup();
-    closeLogin();
-    accountRefresh();
-    toast('登录成功');
+    try {
+      const r = await accountApi('/v1/auth/verify', { email: pendingEmail, code }, false);
+      if (r.status !== 200 || typeof r.data.token !== 'string' || !r.data.token) {
+        msg(r.data.message || '验证失败，请稍后再试');
+        return;
+      }
+      accountStatusCache = null;
+      accountStatusError = '';
+      accountWrite({ token: r.data.token, email: pendingEmail });
+      accountRenderGroup();
+      closeLogin();
+      accountRefresh();
+      toast('登录成功');
+    } finally {
+      verify.disabled = back.disabled = false;
+    }
   };
-  $('#almBack').onclick = () => {
+  back.onclick = () => {
     $('#almCodeStep').hidden = true;
     $('#almEmailStep').hidden = false;
     msg('');
@@ -13636,7 +13686,19 @@ function accountRenderGroup() {
   }
 
   const s = accountStatusCache;
-  if (!s) { body.innerHTML = '<p class="a-note">正在读取账号状态…</p>'; return; }
+  if (!s) {
+    body.innerHTML = '<p class="a-note" id="stAccountState">正在读取账号状态…</p>';
+    if (accountStatusError) {
+      $('#stAccountState').textContent = accountStatusError;
+      const retry = document.createElement('button');
+      retry.className = 'btn';
+      retry.type = 'button';
+      retry.textContent = '重新读取账号';
+      retry.onclick = accountRefresh;
+      body.appendChild(retry);
+    }
+    return;
+  }
   const L = s.entitlements.limits;
   const M = s.entitlements.monthly;
   const yuan = micro => (micro / 1_000_000).toFixed(2);
@@ -13679,12 +13741,16 @@ async function accountRefresh() {
   try {
     const r = await accountApi('/v1/me/status', {}, true);
     if (seq !== accountRefreshRequest || token !== accountToken()) return;
-    if (r.status === 200) {
+    if (r.status === 200 && r.data.account && r.data.entitlements) {
       accountStatusCache = r.data;
+      accountStatusError = '';
     } else if (r.status === 401) {
       try { localStorage.removeItem(ACCOUNT_KEY); } catch (_) {}
       accountStatusCache = null;
+      accountStatusError = '';
       stopSpeech();
+    } else {
+      accountStatusError = r.data.message || '暂时读不到账号状态，请重试。';
     }
   } catch (_) {}
   if (seq === accountRefreshRequest) accountRenderGroup();
