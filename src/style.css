@@ -1474,6 +1474,23 @@ body.mode-flash #fabFeedback,body.mode-flash #fabShot{ display:none; }
 .a-callout h3{font-size:18px;margin:0 0 8px}.a-callout p{font-size:14px;line-height:1.6;margin:8px 0 14px}.a-actions{display:flex;flex-wrap:wrap;gap:8px}.a-stack{display:flex;flex-direction:column;gap:8px}.a-stack textarea{min-height:120px}.a-stack .a-prompt{min-height:150px;font-size:14px}
 #aBridge{z-index:1600}#aRecall{z-index:1450}#aBackup{z-index:1500}.a-stack pre{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text2);font:14px/1.7 inherit}
 #aGuide{z-index:1400}.a-guide-card{width:min(430px,calc(100vw - 28px));max-height:min(620px,calc(100vh - 48px));}.a-guide-body{gap:10px;padding:16px}.a-guide-step{display:flex;flex-direction:column;gap:4px;padding:11px 12px;border:1px solid var(--s4);border-radius:12px;background:var(--s2);line-height:1.55}.a-guide-step b{color:var(--text)}.a-guide-step span{font-size:13px;color:var(--text2)}.a-guide-tip{font-size:12px;color:var(--text3);line-height:1.6;padding:4px 2px 0}.a-guide-open{width:100%;justify-content:flex-start;gap:8px;padding:8px 10px;font-size:13px;color:var(--text2)}
+/* 小手册三层结构：分区标题、流程、详解折叠、收费 */
+.a-guide-section-title{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:4px 2px 0}
+.a-guide-flow{display:flex;flex-direction:column;gap:8px}
+.a-guide-flow-step{display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--s4);border-radius:12px;background:var(--s2);line-height:1.5}
+.a-guide-flow-step b{color:var(--text);font-size:14px}
+.a-guide-flow-step span{font-size:12.5px;color:var(--text2)}
+.a-guide-detail{display:flex;flex-direction:column;gap:8px}
+.a-guide-fold{border:1px solid var(--s4);border-radius:12px;background:var(--s2);padding:0 12px;overflow:hidden}
+.a-guide-fold summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--text);min-height:44px;display:flex;align-items:center;gap:8px}
+.a-guide-fold summary::-webkit-details-marker{color:var(--accent)}
+.a-guide-fold[open] summary{margin-bottom:2px}
+.a-guide-fold p{font-size:12.5px;line-height:1.6;color:var(--text2);padding:0 0 12px}
+.a-guide-billing{display:flex;flex-direction:column;gap:10px}
+.a-bill-block{border:1px solid var(--s4);border-radius:12px;background:var(--s2);padding:12px 14px}
+.a-bill-block>b{display:block;font-size:13.5px;color:var(--text);margin-bottom:8px}
+.a-bill-block ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.a-bill-block li{font-size:12.5px;line-height:1.55;color:var(--text2)}
 /* 侧边栏顶部醒目小手册入口（浅色块，在深色侧边栏里突出） */
 .a-guide-hero{display:flex;align-items:center;gap:10px;width:calc(100% - 16px);margin:2px 8px 8px;padding:10px 12px;border-radius:14px;border:1px solid var(--accent-soft);background:linear-gradient(135deg,var(--s2),var(--s3));color:var(--accent);text-align:left;min-height:44px}
 .a-guide-hero .icon{width:22px;height:22px;flex:none}

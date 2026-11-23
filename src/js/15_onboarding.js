@@ -5,23 +5,23 @@ const ONBOARDING_KEY='english-notes-onboarding-v1';
 const ONBOARDING_STEPS=[
   {
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
-    title:'截图收集',
-    text:'点右下角相机，从相册选字幕截图，可以一次多选。'
+    title:'截图录入',
+    text:'点右下角相机，看剧截图、错题都能录，一次可选多张。'
   },
   {
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>',
-    title:'AI 识别',
-    text:'AI 自动识别图中英文，点选你要学的表达。'
+    title:'自动识别',
+    text:'图里的英文自动认出来，点你想学的词或句子。'
   },
   {
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
-    title:'整理入库',
-    text:'补一句中文意思，归到笔记、加入学习，之后自动安排复习。'
+    title:'empower 自由整理',
+    text:'到笔记页，选中内容就能改、补中文，整理好加入学习。'
   },
   {
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
     title:'复习开口',
-    text:'每天先回想复习，再用情景对话练开口，把词真正用出来。'
+    text:'先自己说、再看答案，还能进情景对话练着用。'
   }
 ];
 let _obIndex=0,_obEl=null;
