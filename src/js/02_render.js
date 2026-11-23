@@ -18,6 +18,22 @@ function pickVoice(voices,lang){
   const score=v=>voiceQuality(v)*10+(preferred.test(v.name)?2:0)+(v.default?1:0);
   return available.sort((a,b)=>score(b)-score(a))[0]||null;
 }
+const READING_SPEED_KEY='en-tts-playback-speed-v1';
+let readingPlaybackRate=1;
+const readingSpeedSelect=document.getElementById('stReadingSpeed');
+if(window.APP_CONFIG?.product==='commercial'&&readingSpeedSelect){
+  try{if(localStorage.getItem(READING_SPEED_KEY)==='slow')readingPlaybackRate=0.85;}catch(_){}
+  readingSpeedSelect.value=readingPlaybackRate===0.85?'slow':'normal';
+  readingSpeedSelect.closest('.st-field').hidden=false;
+  readingSpeedSelect.addEventListener('change',()=>{
+    readingPlaybackRate=readingSpeedSelect.value==='slow'?0.85:1;
+    try{localStorage.setItem(READING_SPEED_KEY,readingSpeedSelect.value);}catch(_){}
+  });
+}
+function applyReadingRate(audio){
+  audio.defaultPlaybackRate=readingPlaybackRate;
+  audio.playbackRate=readingPlaybackRate;
+}
 const VOLC_TTS_KEY='en-tts-v1';
 const VOLC_TTS_DEFAULT={apiKey:'',speaker:'zh_female_vv_uranus_bigtts',resourceId:'seed-tts-2.0',speechRate:0,pitchRate:0,relayUrl:'https://english-notes-tts.english-notes.workers.dev'};
 let volcAudio=null,cancelVolcSpeech=null,volcTtsPlayPending=0,volcTtsLastError='',volcRecentAudio=null;
@@ -53,6 +69,7 @@ async function volcTtsPlay(src,onend){
   cancelVolcSpeech=cancel;
   audio.addEventListener('ended',()=>{clear();onend?.();},{once:true,signal:events.signal});
   audio.src=src;
+  applyReadingRate(audio);
   try{await audio.play();}
   catch(e){if(cancelVolcSpeech===cancel)cancel();throw e;}
   if(events.signal.aborted)return;
@@ -112,7 +129,7 @@ function speakRaw(text,lang,onend,voice){
   if(!window.speechSynthesis){toast('当前浏览器不支持语音朗读','warn');onend?.();return;}
   const utterance=new SpeechSynthesisUtterance(text);
   utterance.lang=lang;
-  utterance.rate=lang.toLowerCase().startsWith('en')?0.96:0.95;
+  utterance.rate=lang.toLowerCase().startsWith('en')?0.96*readingPlaybackRate:0.95;
   try{utterance.voice=voice||pickVoice(speechSynthesis.getVoices(),lang);}catch(_){}
   if(onend){
     utterance.onend=onend;
@@ -160,6 +177,7 @@ function speakQueued(text,lang,onend,voice){
 function playYoudaoAudio(text,lang,onend){
   stopSpeech();
   const audio=new Audio('https://dict.youdao.com/dictvoice?audio='+encodeURIComponent(text)+'&type=2');
+  applyReadingRate(audio);
   let done=false;
   const finish=()=>{
     if(done)return false;
