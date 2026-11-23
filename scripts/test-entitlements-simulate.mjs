@@ -412,12 +412,17 @@ section('场景11：旧 D1 表升级');
   const reviewMigration = fs.readFileSync(path.join(root, 'relay/entitlements/migrations/002-dialogue-review-receipts.sql'), 'utf8');
   legacy.exec(reviewMigration);
   legacy.exec(reviewMigration);
+  const feedbackMigration = fs.readFileSync(path.join(root, 'relay/entitlements/migrations/003-feedback-inbox.sql'), 'utf8');
+  legacy.exec(feedbackMigration);
+  legacy.exec(feedbackMigration);
   const env = { DB: createD1(legacy) };
   const stored = await billingGetStatus(env, 1);
   check('旧费用和加练包保留，新预留为 0', stored.monthly.totalMicro === 40_000_000 &&
     stored.monthly.reservedMicro === 0 && stored.limits.text.grantRemaining === 2);
   check('旧库重复执行批改迁移无破坏', legacy.prepare('SELECT COUNT(*) AS count FROM dialogue_review_request')
     .get().count === 0 && legacy.prepare('SELECT email FROM accounts WHERE id = 1').get().email === 'keep@example.test');
+  check('旧库重复执行反馈迁移无破坏', legacy.prepare('SELECT COUNT(*) AS count FROM feedback_message')
+    .get().count === 0 && stored.limits.text.grantRemaining === 2);
   const budget = await reserveBudget(env, 'text', 10_000_000);
   await settleBudget(env, budget, 5_000_000);
   const latest = await billingGetStatus(env, 1);
@@ -723,6 +728,58 @@ setBeijing(2026, 11, 24, 10);
   } finally {
     globalThis.fetch = upstream;
   }
+}
+
+
+section('场景19：商业版反馈提交、去重和管理员收件箱');
+setBeijing(2026, 11, 24, 10);
+{
+  const env = makeEnv({ simMicro: 10_000_000 });
+  const email = 'feedback-user@example.test';
+  const token = await login(env, email); // 已验证，尚未开通 AI
+  const admin = { 'X-Admin-Token': env.ADMIN_TOKEN };
+  const submit = (body, headers = auth(token)) => call(env, 'POST', '/v1/feedback', body, headers);
+  const feedback = (message, allowReply = false) => ({
+    requestId: crypto.randomUUID().replaceAll('-', ''), message, allowReply
+  });
+  const anonymous = feedback('这条不该投进收件箱');
+  const noLogin = await submit(anonymous, {});
+  const wrongOrigin = await submit(anonymous, { ...auth(token), Origin: 'https://another.example' });
+  const badMethod = await call(env, 'GET', '/v1/feedback', null, auth(token));
+  check('反馈仅允许已验证账号从站内提交', noLogin.status === 401 && wrongOrigin.status === 403 && badMethod.status === 405);
+  const blank = await submit(feedback('   '));
+  const long = await submit(feedback('字'.repeat(1601)));
+  check('空白反馈和超长内容不入库', blank.status === 400 && long.status === 400);
+  const original = feedback('在复习页加载慢\n<b>保留原文展示</b>');
+  const repeat = await Promise.all([submit(original), submit(original)]);
+  const edited = await submit({ ...original, message: '不同内容' });
+  check('原样并发提交只入库一次，同编号变更原文被拒绝', repeat.map(r => r.status).sort().join() === '200,201' &&
+    repeat.every(r => r.data.ok) && edited.status === 409);
+  const withEmail = await submit(feedback('可以邮件联系我', true));
+  const parallel = await Promise.all(Array.from({ length: 5 }, () => submit(feedback('稍晚的反馈'))));
+  check('滚动 24 小时最多 5 条，原样重试仍能找回回执',
+    withEmail.status === 201 && parallel.filter(r => r.status === 201).length === 3 &&
+    parallel.filter(r => r.status === 429).length === 2 && (await submit(original)).status === 200);
+
+  const publicList = await call(env, 'POST', '/v1/admin/feedback', {}, auth(token));
+  const adminList = await call(env, 'POST', '/v1/admin/feedback', {}, admin);
+  const entries = adminList.data.entries || [];
+  check('只有管理员能读取真实入库的文字，最新优先', publicList.status === 403 &&
+    adminList.status === 200 && adminList.headers.get('Cache-Control') === 'no-store' && entries.length === 5 &&
+    entries[0].id > entries.at(-1).id && entries.at(-1).message === original.message);
+  check('邮箱仅在主动勾选的单条反馈中返回', entries.filter(entry => entry.replyEmail).length === 1 &&
+    entries.find(entry => entry.replyEmail)?.replyEmail === email && entries.at(-1).replyEmail === null);
+  const status = await call(env, 'POST', '/v1/me/status', {}, auth(token));
+  check('已验证待开通用户能反馈，无 AI 扣费且不消耗额度', status.data.account.status === 'pending' &&
+    status.data.entitlements.monthly.totalMicro === 0 && status.data.entitlements.limits.text.freeLeft === 10);
+  await call(env, 'POST', '/v1/admin/status', { email, status: 'disabled' }, admin);
+  const disabled = await submit(feedback('停用后不可发送'));
+  check('停用账号不能提交反馈', disabled.status === 403);
+
+  const page = await call(env, 'GET', '/admin');
+  const adminScript = page.data.match(/<script>([\s\S]*)<\/script>/)?.[1] || '';
+  check('管理页有收件箱，反馈内容由纯文本写入', Boolean(new Script(adminScript)) &&
+    adminScript.includes('body.textContent = entry.message') && !/onclick\s*=/.test(page.data));
 }
 
 /* ---------- 汇总 ---------- */

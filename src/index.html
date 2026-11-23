@@ -43,6 +43,10 @@
       <div class="nav-divider">文件夹</div>
       <div id="folderList"></div>
     </nav>
+    <button class="nav-item" id="moreFeedback" type="button" hidden>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11a8.5 8.5 0 0 1-8.5 8.5H5l1.2-3.5A8.5 8.5 0 1 1 21 11Z"/><path d="M9 10h6m-6 4h4"/></svg>
+      <span class="nav-name">意见反馈</span>
+    </button>
     <div class="side-footer">
       <span id="statWords">已收录 0 个单词</span>
       <button class="icon-btn" id="btnSettings" title="设置（AI 配置）" aria-label="设置">
@@ -721,11 +725,6 @@
       <button class="btn" id="stTest">测试连接</button>
       <button class="btn primary" id="stSave">保存设置</button>
     </div>
-    <div class="st-feedback">
-      <b>意见反馈</b>
-      <p class="a-note">哪里不好用、想加什么功能，写下来或截图告诉我们</p>
-      <button class="btn" id="stFeedbackBtn" type="button" style="width:100%;min-height:42px">写意见 / 提建议</button>
-    </div>
   </div>
 </div>
 
@@ -821,24 +820,26 @@
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
 </label>
 
-<!-- 意见反馈弹层：外壳沿用 App 风格，表单内容用 iframe 嵌入金数据 -->
-<div class="modal" id="feedbackModal" role="dialog" aria-modal="true" aria-label="意见反馈">
+<!-- 意见反馈 -->
+<div class="modal" id="feedbackModal" role="dialog" aria-modal="true" aria-label="意见反馈" hidden>
   <div class="modal-card feedback-card">
     <div class="wm-head">
       <div>
         <b>意见反馈</b>
-        <div class="a-note">哪里不好用、想加什么功能，写下来或截图告诉我们</div>
       </div>
       <button class="modal-close" id="feedbackClose" type="button" aria-label="关闭意见反馈">×</button>
     </div>
-    <div class="feedback-body">
-      <iframe id="feedbackFrame" title="意见反馈表单" allow="camera" hidden></iframe>
-      <div id="feedbackEmpty" class="feedback-empty" hidden>
-        <div class="fe-emoji">📮</div>
-        <p id="feedbackEmptyText">反馈通道正在准备中，稍后再来试试</p>
-        <a class="btn" id="feedbackOpenOut" href="#" target="_blank" rel="noopener" hidden>在新页面打开反馈表单</a>
+    <form class="feedback-body" id="feedbackForm">
+      <label for="feedbackMessage">哪里卡住了，或者你希望怎么改？</label>
+      <textarea id="feedbackMessage" rows="5" maxlength="1600" required placeholder="例如：在复习页点「提交答案」后一直加载"></textarea>
+      <label class="feedback-reply"><input type="checkbox" id="feedbackReply"> 附上我的登录邮箱，方便回复</label>
+      <div id="feedbackLogin" hidden>
+        <p class="a-note">提交前需要验证邮箱。暂时登不上时，可以回复收到邀请的私信。</p>
+        <button class="btn" id="feedbackLoginBtn" type="button">登录账号</button>
       </div>
-    </div>
+      <button class="btn primary" id="feedbackSend" type="submit">提交反馈</button>
+      <p class="a-note" id="feedbackStatus" role="status" aria-live="polite"></p>
+    </form>
   </div>
 </div>
 

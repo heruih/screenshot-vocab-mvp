@@ -17,6 +17,7 @@ import { notifyOwner } from './entitlements/notify.mjs';
 import { simulateText, simulateTts } from './entitlements/simulate.mjs';
 import { isAdmin, listAccounts, activate, grant, setStatus } from './entitlements/admin.mjs';
 import { renderAdminPage } from './entitlements/admin-page.mjs';
+import { submitFeedback, listFeedback } from './entitlements/feedback.mjs';
 import { isPeakHour } from './entitlements/time.mjs';
 import {
   readDialogueReview, validateDialogueResult, claimDialogueReview, reserveDialogueUnits,
@@ -163,12 +164,18 @@ export default {
       ctx.waitUntil(review.then(() => undefined, () => undefined));
       return review;
     }
+    if (path === '/v1/feedback') {
+      const privateHeaders = { ...headers, 'Cache-Control': 'no-store' };
+      if (origin && origin !== allowed) return jerr(403, '请从截图词库网页提交反馈', privateHeaders);
+      return handleFeedback(request, env, privateHeaders);
+    }
 
     /* 管理员（需 D1） */
     if (path === '/v1/admin/accounts') return handleAdminAccounts(request, env, headers);
     if (path === '/v1/admin/activate') return handleAdminActivate(request, env, headers);
     if (path === '/v1/admin/grant') return handleAdminGrant(request, env, headers);
     if (path === '/v1/admin/status') return handleAdminStatus(request, env, headers);
+    if (path === '/v1/admin/feedback') return handleFeedbackInbox(request, env, { ...headers, 'Cache-Control': 'no-store' });
     if (path === '/v1/admin/budget-holds' || path === '/v1/admin/budget-holds/resolve') {
       return handleAdminBudget(request, env, headers, ctx, path.endsWith('/resolve'));
     }
@@ -215,6 +222,36 @@ function publicAccount(acc) {
     id: acc.id, email: acc.email, status: acc.status,
     createdAt: acc.created_at, verifiedAt: acc.verified_at, activatedAt: acc.activated_at
   };
+}
+
+/* ---------- 意见反馈 ---------- */
+
+async function handleFeedback(request, env, headers) {
+  if (request.method !== 'POST') return jerr(405, '请使用 POST', headers);
+  if (!env.DB || !env.RELAY_KV) return jerr(503, '反馈暂时无法提交，请稍后重试', headers);
+  const account = await getSession(env, bearerToken(request));
+  if (!account) return jerr(401, '请先登录再提交反馈', headers);
+  if (account.status === 'disabled') return jerr(403, '当前账号无法提交反馈', headers);
+  if (Number(request.headers.get('Content-Length')) > 10_000) return jerr(413, '反馈内容过长', headers);
+  try {
+    const result = await submitFeedback(env.DB, account.id, await readJson(request));
+    if (result.message) return jerr(result.status, result.message, headers);
+    return jbody(result.status, { ok: true }, headers);
+  } catch (_) {
+    return jerr(503, '反馈暂时无法提交，请稍后重试', headers);
+  }
+}
+
+async function handleFeedbackInbox(request, env, headers) {
+  if (request.method !== 'POST') return jerr(405, '请使用 POST', headers);
+  if (!isAdmin(env, adminTokenOf(request))) return jerr(403, '管理员密钥无效', headers);
+  if (!env.DB) return jerr(503, '反馈收件箱暂不可用', headers);
+  try {
+    const input = await readJson(request);
+    return jbody(200, await listFeedback(env.DB, input?.before), headers);
+  } catch (_) {
+    return jerr(503, '反馈收件箱暂不可用', headers);
+  }
 }
 
 /* ---------- 账号权益：DeepSeek 文本 ---------- */

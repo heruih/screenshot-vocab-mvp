@@ -37,6 +37,8 @@ export function renderAdminPage() {
   #msg { font-size:13px; min-height:18px; margin-top:8px; }
   .ok { color:#2ba471; } .err { color:#d83939; }
   .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .feedback-entry { border-bottom:1px solid #f0f1f3; padding:10px 0; }
+  .feedback-entry p { margin:6px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
 </style>
 </head>
 <body>
@@ -67,6 +69,14 @@ export function renderAdminPage() {
 </div>
 
 <div id="msg"></div>
+
+<div class="card">
+  <h2 style="margin-top:0">意见反馈收件箱</h2>
+  <button id="btnFeedbackList" type="button">刷新反馈</button>
+  <div id="feedbackInbox"></div>
+  <p id="feedbackInboxMsg" class="meta" role="status"></p>
+  <button id="btnFeedbackMore" type="button" hidden>加载更早的反馈</button>
+</div>
 
 <div class="card">
   <h2 style="margin-top:0">站方费用</h2>
@@ -157,6 +167,37 @@ async function doGrant(){
 
 function budgetMsg(text){ document.getElementById('budgetMessage').textContent = text; }
 
+var feedbackCursor = null;
+var feedbackLoading = false;
+async function loadFeedbackInbox(append){
+  if (feedbackLoading || (append && !feedbackCursor)) return;
+  feedbackLoading = true;
+  var list = document.getElementById('feedbackInbox');
+  var msg = document.getElementById('feedbackInboxMsg');
+  var more = document.getElementById('btnFeedbackMore');
+  msg.textContent = '正在读取反馈…';
+  try {
+    var data = await api('/v1/admin/feedback', { before: append ? feedbackCursor : null });
+    if (!append) list.textContent = '';
+    data.entries.forEach(function(entry){
+      var row = document.createElement('article');
+      row.className = 'feedback-entry';
+      var label = document.createElement('div');
+      label.className = 'meta';
+      label.textContent = new Date(entry.createdAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'}) +
+        (entry.replyEmail ? ' · 回复邮箱 ' + entry.replyEmail : '');
+      var body = document.createElement('p');
+      body.textContent = entry.message;
+      row.append(label, body);
+      list.appendChild(row);
+    });
+    feedbackCursor = data.next;
+    more.hidden = !feedbackCursor;
+    msg.textContent = list.children.length ? '' : '还没有收到反馈。';
+  } catch (e) { msg.textContent = e.message; }
+  finally { feedbackLoading = false; }
+}
+
 async function loadBudgetHolds(){
   try {
     var data = await api('/v1/admin/budget-holds');
@@ -205,6 +246,8 @@ async function retryBudgetAlert(){
 
 document.getElementById('btnEnter').addEventListener('click', loadAccounts);
 document.getElementById('btnGrant').addEventListener('click', doGrant);
+document.getElementById('btnFeedbackList').addEventListener('click', function(){ loadFeedbackInbox(false); });
+document.getElementById('btnFeedbackMore').addEventListener('click', function(){ loadFeedbackInbox(true); });
 document.getElementById('btnBudgetList').addEventListener('click', loadBudgetHolds);
 document.getElementById('btnResolveBudget').addEventListener('click', resolveBudgetHold);
 document.getElementById('btnRetryAlert').addEventListener('click', retryBudgetAlert);
