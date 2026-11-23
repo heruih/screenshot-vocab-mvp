@@ -431,7 +431,7 @@ function aInit(){
   $('#aGuideClose').onclick=()=>$('#aGuide').classList.remove('show');$('#aGuide').addEventListener('click',e=>{if(e.target.id==='aGuide')$('#aGuide').classList.remove('show');});
   /* 每次渲染后检查当前页面是否有待显示的首次气泡 */
   const _coachRender=render;
-  render=function(){_coachRender();try{coachMaybe();}catch(_){}};
+  render=function(){_coachRender();try{coachMaybe();}catch(_){}try{pwaFirstDataMaybe();}catch(_){}};
   /* 手机端表达库筛选抽屉：触发、遮罩、关闭 */
   $('#wordFilterTrigger').onclick=wfOpenSheet;
   $('#wordFilterClose').onclick=wfCloseSheet;
