@@ -750,6 +750,8 @@ function wmGenExamples(){
     wmState.aiDef=String(p.definition||'').trim();
     wmState.source='ai';
     if(!$('#wmPhonetic').textContent&&p.phonetic) $('#wmPhonetic').textContent=String(p.phonetic).trim();
+    /* empower 后 AI 自动补中文释义（仅当释义框为空，不覆盖你已写的），可直接在框里手动改 */
+    if(wmState.aiDef&&!$('#wmDefinition').value.trim()) $('#wmDefinition').value=wmState.aiDef;
     renderExCards();
     scheduleWmDraft(200);
     if(!uniq.length) toast('AI 没挑到例句，点「换一批例句」再试','warn');

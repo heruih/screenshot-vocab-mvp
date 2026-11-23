@@ -9,7 +9,7 @@ if(OFFLINE_FILE_MODE){
     const id=$('#bAudioWord').value;if(!id){toast('先选择一个表达');return;}
     const reader=new FileReader();reader.onload=()=>{try{const all=aRead('english-notes-audio-v2',{});all[id]={...(all[id]||{}),[kind]:reader.result,updatedAt:Date.now()};aStore('english-notes-audio-v2',JSON.stringify(all));bLoadAudio();$('#bAudioHint').textContent='已保存在本机；导出完整备份可迁移文字数据。';}catch(_){toast('片段保存失败','warn');}};reader.onerror=()=>toast('片段读取失败','warn');reader.readAsDataURL(file);
   };
-  const _offlineBInit=bInit;bInit=function(){_offlineBInit();const h=$('#settingsModal .st-help');if(h)h.innerHTML='<b>离线文件：</b>表达、笔记、复习和编辑保存在当前手机浏览器。<br><b>AI：</b>需要联网时可复制任务到 ChatGPT，再把 JSON 粘回；没有网络时可继续整理和复习。<br><b>迁移：</b>用“完整备份／迁移”导出文件，再把备份文件带到另一台设备导入。';};
+  const _offlineBInit=bInit;bInit=function(){_offlineBInit();/* 帮助文字以 index.html 静态 .st-help 为准，不再用离线旧文案覆盖 */};
   document.title='英语学习笔记 · 离线文件版';
 }
 

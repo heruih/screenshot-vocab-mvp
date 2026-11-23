@@ -1935,3 +1935,5 @@ body.drag-select #noteBody .en-word.sel-pick{
 
 /* 商业化口径：隐藏「AI 接口」用户自带 Key 分组（保留 DOM、逻辑与已填 Key，可回滚）；豆包语音在「发音与配图」分组，不受影响 */
 #stgAi{display:none !important}
+/* 隐藏用户自配 Pixabay Key 卡片：配图已由 relay 中转自动完成（保留 DOM 与已填 Key，可回滚） */
+#stPixabayCard{display:none !important}

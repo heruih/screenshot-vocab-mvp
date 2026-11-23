@@ -299,7 +299,7 @@
       <div class="wm-section">
         <div class="wm-label">释义 <button class="mini-btn" id="wmUseAiDef">用 AI 释义</button><span style="flex:1"></span><button class="mini-btn" id="wmShotAdd" aria-label="给这个词添加截图">＋ 截图</button><button class="mini-btn" id="wmShotsBtn" aria-label="查看该词截图">截图 <span id="wmShotsN">0</span></button></div>
         <input type="file" id="wmShotFile" accept="image/*" multiple style="display:none" aria-label="给这个词选择截图">
-        <textarea id="wmDefinition" placeholder="写你自己的中文释义（可含词性）；或点右上角「用 AI 释义」"></textarea>
+        <textarea id="wmDefinition" placeholder="写你自己的中文释义（可含词性）；AI 也会自动填好，可直接改"></textarea>
       </div>
       <div class="wm-section a-fields">
         <label for="aPurpose">什么时候用／表达功能</label><textarea id="aPurpose" placeholder="例如：委婉表达不感兴趣"></textarea>
@@ -559,8 +559,8 @@
       <section class="st-group" id="stgMedia">
         <button class="st-g-head" data-stg="stgMedia" type="button"><span class="st-g-t">发音与配图</span><span class="st-g-s" id="stgSumMedia">推荐接 · 可跳过</span><b class="st-chev">›</b></button>
         <div class="st-g-body">
-      <div class="media-intro">这两项都不影响背单词的核心功能，不填也能用；填了发音更好听、配图更准。下面分别写清楚利弊，你按需接。</div>
-      <div class="media-card">
+      <div class="media-intro">下面这些都不影响背单词的核心功能，不配置也能用；想让发音更自然，可以按需接豆包真人发音。配图已由我们的中转服务自动完成，无需你配置。</div>
+      <div class="media-card" id="stPixabayCard">
         <div class="media-card-head"><b>配图 Pixabay（选填）</b><span class="media-badge">免费 · 不配也能用</span></div>
         <p class="media-pros">利：免费真实照片，配了自己的 Key 多一个图源，看图记词更稳。</p>
         <p class="media-cons">弊：要花几分钟注册拿 Key；不填也默认用 Openverse 自动找图，找不到可改用截图。</p>
@@ -698,13 +698,12 @@
       </div>
       </section>
       <div class="st-help">
-        <b>兼容说明：</b>支持任意 OpenAI 格式的接口。点上方卡片会自动填好地址和模型：DeepSeek（api.deepseek.com / deepseek-flash，便宜稳定）、豆包（有免费额度、到量自动停）、ChatGPT（国内无法直连）。模型名以服务商控制台为准，下线了会报 HTTP 400。<br>
-        <b>隐私：</b>你自己的 AI 密钥和同步凭据只存在本机浏览器（localStorage），调用时直连你选的服务商 / 你自己的仓库，不会上传给我们。<br>
-        <b>自动配图：</b>配图无需你配置，默认由我们的中转服务完成：抽象词先转成具体可搜的词，再从 Openverse（已认证）找图，找不到再用 Pixabay；这一步不使用你的密钥，也可以随时忽略配图、只用截图。<br>
-        <b>云同步：</b>填 GitHub Token（或自建地址）后，手机和电脑共用一份数据；按条目合并、删除也会同步，改完约 5 秒自动上传。<br>
-        <b>AI 对话：</b>配置同一套接口后，单词弹窗里的「AI 对话」进入「情景口语」——选场景、开口翻译、AI 打分纠错、标准答案跟读。<br>
-        <b>朗读：</b>单词用词典真人女声；英文句子与中文提示自动选系统里最自然的女声（设备不同会略有差异）。<br>
-        <b>未配置时：</b>查词会使用免费词典接口，配图与截图照常可用；网络不可用时可直接手动填写。
+        <b>需要自己配 Key 吗？</b>不用。登录后 AI 回答、语音、配图都由我们的服务完成，你不用申请或管理任何 Key。<br>
+        <b>免费额度：</b>每天 AI 10 句、语音 15 句，日常轻度使用基本够用；当天用完还想继续练，可领手动加练包，不接在线支付、也不会催你。<br>
+        <b>配图：</b>自动完成，抽象词先转成具体画面再找真实照片，不使用你的密钥；也可以随时忽略配图、只用截图。<br>
+        <b>数据：</b>你的笔记和表达保存在本机浏览器，可随时用「完整备份/安全迁移」导出，清缓存前记得先备份。<br>
+        <b>朗读：</b>优先用站方真人语音，万一失败自动回退到手机系统朗读，不影响继续使用。<br>
+        <b>老手：</b>有经验的用户也可以在「发音与配图」里填自己的豆包语音 Key，费用走自己的豆包。
       </div>
     </div>
     <div class="st-actions">
@@ -928,7 +927,7 @@
    <details class="a-guide-fold">
     <summary>笔记页：empower、自由整理、复制粘贴</summary>
     <div class="a-fold-body">
-     <p><b>empower：</b>在笔记里选中英文单词或句子，底部会弹出蓝色 empower 按钮。点它，AI 自动挑 2-3 句典型例句（配中文、覆盖不同义项），不用自己写；再填释义、标签，存进表达库。没存完退出有草稿，下次打开自动接上。</p>
+     <p><b>empower：</b>在笔记里选中英文单词或句子，底部会弹出蓝色 empower 按钮。点它，AI 自动挑 2-3 句典型例句（配中文、覆盖不同义项），不用自己写；同时自动把中文释义填好，你可以直接在框里改；再补上标签，存进表达库。没存完退出有草稿，下次打开自动接上。</p>
      <p><b>自由整理：</b>内容随时能改、能补中文，编辑器工具栏可改字体、字号、颜色。每个词自动配真实图片（抽象词先转成具体画面），配图和你的截图叠在一起，点卡片边角或左滑切换，不想要配图可以只用截图。</p>
      <p><b>复制粘贴：</b>长按词卡或划选正文，底部出现操作栏，可复制、剪切、整节移动；之后点正文放好光标，再点顶部「粘贴」。</p>
     </div>
