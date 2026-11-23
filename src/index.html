@@ -909,53 +909,38 @@
 <div class="modal" id="aGuide" role="dialog" aria-modal="true" aria-label="使用小手册">
  <div class="modal-card a-guide-card"><div class="wm-head"><div><b>使用小手册</b><div class="a-note">每天做一小轮，慢慢把“看懂”变成“用得出”。</div></div><button class="modal-close" id="aGuideClose" aria-label="关闭使用小手册">×</button></div>
  <div class="wm-body a-guide-body">
-  <div class="a-guide-section-title">整体流程</div>
-  <div class="a-guide-flow">
-   <div class="a-guide-flow-step"><b>1 截图录入</b><span>点相机选看剧截图、错题，一次可选多张。</span></div>
-   <div class="a-guide-flow-step"><b>2 自动识别</b><span>AI 认出图中英文，点选你要学的。</span></div>
-   <div class="a-guide-flow-step"><b>3 empower 自由整理</b><span>选中内容就能改、补中文，再加入学习。</span></div>
-   <div class="a-guide-flow-step"><b>4 复习开口</b><span>先自己说、再看答案，情景对话练着用。</span></div>
-  </div>
-
-  <div class="a-guide-section-title">操作详解</div>
-  <div class="a-guide-detail">
+  <div class="a-guide-accordion">
    <details class="a-guide-fold">
-    <summary>empower 选中编辑</summary>
-    <p>在笔记里选中英文单词或句子，底部会弹出蓝色 empower 按钮。点它，AI 自动挑 2-3 句典型例句（配中文、覆盖不同义项），不用自己写；再自己填释义、标签，存进表达库。没存完退出有草稿，下次打开自动接上。</p>
+    <summary>API Key 与为什么要付费</summary>
+    <div class="a-fold-body">
+     <p>还请理解：你每点一次 AI 回答、每听一句语音，背后都要真实付钱给上游。我们每天先为你备好免费额度：AI 10 句、语音 15 句，日常轻度使用基本够用，不用花一分钱。</p>
+     <p>当天免费额度用完、还想继续练，可以领加练包；现阶段加练包由我们手动发放，不接在线支付，也不会主动催你。</p>
+     <p class="a-fold-note">有经验的用户也可以填自己的豆包语音 Key，费用走自己的豆包。</p>
+    </div>
    </details>
    <details class="a-guide-fold">
-    <summary>粘贴 / 移动 / 剪切</summary>
-    <p>长按词卡或划选正文，底部出现操作栏，可复制、剪切、整节移动。复制或剪切后，点正文放好光标，再点顶部「粘贴」。编辑器工具栏还能改字体、字号、颜色。</p>
+    <summary>截图录入</summary>
+    <div class="a-fold-body">
+     <p>点右下角相机，选看剧截图或错题，一次可以选多张。</p>
+     <p>AI 自动认出图里的英文，点选你要学的词或句子，再补一句中文意思就行。</p>
+    </div>
    </details>
    <details class="a-guide-fold">
-    <summary>配图与截图切换</summary>
-    <p>每个词自动配真实图片，抽象词会先转成具体画面。配图和你的截图叠在一起，点卡片边角或左滑就能切换；不想要配图可以只用截图。</p>
+    <summary>笔记页：empower、自由整理、复制粘贴</summary>
+    <div class="a-fold-body">
+     <p><b>empower：</b>在笔记里选中英文单词或句子，底部会弹出蓝色 empower 按钮。点它，AI 自动挑 2-3 句典型例句（配中文、覆盖不同义项），不用自己写；再填释义、标签，存进表达库。没存完退出有草稿，下次打开自动接上。</p>
+     <p><b>自由整理：</b>内容随时能改、能补中文，编辑器工具栏可改字体、字号、颜色。每个词自动配真实图片（抽象词先转成具体画面），配图和你的截图叠在一起，点卡片边角或左滑切换，不想要配图可以只用截图。</p>
+     <p><b>复制粘贴：</b>长按词卡或划选正文，底部出现操作栏，可复制、剪切、整节移动；之后点正文放好光标，再点顶部「粘贴」。</p>
+    </div>
    </details>
    <details class="a-guide-fold">
-    <summary>复习 / 情景对话 / 备份</summary>
-    <p>每天先过待复习的词，先自己开口说、再看答案；再按每组约 5 个词进入情景对话，单词页也能单独练发音。装到主屏幕像 App 一样用、数据更稳；定期导出备份，清缓存或换设备才不会丢。</p>
+    <summary>复习：场景回想、英文闪卡 + AI 对话、写作</summary>
+    <div class="a-fold-body">
+     <p><b>场景回想：</b>看场景说英文，先自己回忆，每轮最多 10 个。</p>
+     <p><b>英文闪卡 + AI 对话：</b>先自己开口说、再看答案，记不住的会安排以后再见；复习到一定数量，按组进 AI 情景对话练着用（备考模式里闪卡叫错题本）。</p>
+     <p><b>写作练习：</b>选词出题、用今天的词写一段，AI 批改后存成笔记。</p>
+    </div>
    </details>
-  </div>
-
-  <div class="a-guide-section-title">API Key 与收费</div>
-  <div class="a-guide-billing">
-   <div class="a-bill-block">
-    <b>直接用站方（免填 Key，登录即用）</b>
-    <ul>
-     <li>AI（DeepSeek）每天免费 10 句，用完当天提示加练或填自己的 Key。</li>
-     <li>语音（CosyVoice）每天免费 15 句，用完或出错自动切回系统朗读，不影响使用。</li>
-     <li>加练包现阶段由站方手动发放，不接在线支付。</li>
-     <li>用到 AI 或语音才让你邮箱登录，权益跟邮箱、换设备也在。</li>
-    </ul>
-   </div>
-   <div class="a-bill-block">
-    <b>填自己的 Key（可选）</b>
-    <ul>
-     <li>自己去 DeepSeek 等平台申请，Key 只存在你手机里、站方看不到。</li>
-     <li>走你自己的账号额度，不占站方每天的免费句数。</li>
-     <li>费用按对应平台官方价、由平台直接扣，本站不代收。</li>
-    </ul>
-   </div>
   </div>
   <div class="a-guide-tip">浏览器里的数据清缓存会消失，只有“装到主屏幕”的独立 App 能豁免；记得定期导出完整备份。</div>
  </div></div>
