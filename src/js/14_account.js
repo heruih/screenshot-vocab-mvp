@@ -32,6 +32,7 @@ async function accountApi(p, body, withAuth) {
 
 let pendingEmail = '';
 let accountStatusCache = null;
+let accountRefreshRequest = 0;
 
 /* ---------------- 登录弹窗 ---------------- */
 
@@ -80,7 +81,9 @@ function ensureLoginModal() {
     msg('验证中…');
     const r = await accountApi('/v1/auth/verify', { email: pendingEmail, code }, false);
     if (r.status !== 200) { msg(r.data.message || '验证失败'); return; }
+    accountStatusCache = null;
     accountWrite({ token: r.data.token, email: pendingEmail });
+    accountRenderGroup();
     closeLogin();
     accountRefresh();
     toast('登录成功');
@@ -119,6 +122,7 @@ function ensureAccountGroup() {
 }
 
 function accountRenderGroup() {
+  refreshCommercialSpeechSettings();
   const body = $('#stgAccountBody');
   if (!body) return;
   $('#stgSumAccount').textContent = accountLoggedIn()
@@ -126,7 +130,7 @@ function accountRenderGroup() {
     : '未登录';
 
   if (!accountLoggedIn()) {
-    body.innerHTML = '<p class="a-note">登录后可使用站方 AI 与语音免费额度。</p>' +
+    body.innerHTML = '<p class="a-note">登录后可以开通站方 AI 额度或领取单独发放的语音包。</p>' +
       '<button class="btn primary" id="stAccountLogin" type="button">登录 / 注册</button>';
     $('#stAccountLogin').onclick = openLogin;
     return;
@@ -137,24 +141,29 @@ function accountRenderGroup() {
   const L = s.entitlements.limits;
   const M = s.entitlements.monthly;
   const yuan = micro => (micro / 1_000_000).toFixed(2);
+  const status = ['active','pending','disabled'].includes(s.account.status) ? s.account.status : 'disabled';
+  const voiceBalance = status !== 'disabled' && L.tts.hasPackage
+    ? '站方语音包剩余 ' + Number(L.tts.grantRemaining) + ' 句'
+    : '暂无可用的站方语音包';
 
   body.innerHTML =
-    '<div class="st-field"><div class="meta"><b>' + s.account.email + '</b> ' +
-      '<span class="badge ' + s.account.status + '">' + statusLabel(s.account.status) + '</span></div></div>' +
+    '<div class="st-field"><div class="meta"><b id="stAccountEmail"></b> ' +
+      '<span class="badge ' + status + '">' + statusLabel(status) + '</span></div></div>' +
     '<div class="st-field"><label>今日剩余（已用 / 每日免费）</label>' +
       '<p class="a-note">AI 句子：' + L.text.freeLeft + ' 句（今日已用 ' + L.text.used + ' / ' + L.text.freeDaily + '）' +
       (L.text.grantRemaining ? '，加练包剩 ' + L.text.grantRemaining : '') + '</p>' +
-      '<p class="a-note">站方语音：' + L.tts.freeLeft + ' 句（今日已用 ' + L.tts.used + ' / ' + L.tts.freeDaily + '）' +
-      (L.tts.grantRemaining ? '，加练包剩 ' + L.tts.grantRemaining : '') + '</p></div>' +
+      '<p class="a-note">' + voiceBalance + '</p></div>' +
     '<div class="st-field"><label>本月站方成本（100 元提醒 / 150 元封顶）</label>' +
       '<p class="a-note">已累计 ¥' + yuan(M.totalMicro) + '，跨月自动重置。</p></div>' +
     '<button class="btn" id="stAccountRefresh" type="button">刷新状态</button>' +
     '<button class="btn" id="stAccountLogout" type="button">退出登录</button>';
 
+  $('#stAccountEmail').textContent = s.account.email;
   $('#stAccountRefresh').onclick = accountRefresh;
   $('#stAccountLogout').onclick = () => {
     try { localStorage.removeItem(ACCOUNT_KEY); } catch (_) {}
     accountStatusCache = null;
+    stopSpeech();
     accountRenderGroup();
     toast('已退出登录');
   };
@@ -165,16 +174,21 @@ function statusLabel(status) {
 }
 
 async function accountRefresh() {
-  if (!accountLoggedIn()) return;
+  const token = accountToken();
+  if (!token) return;
+  const seq = ++accountRefreshRequest;
   try {
     const r = await accountApi('/v1/me/status', {}, true);
+    if (seq !== accountRefreshRequest || token !== accountToken()) return;
     if (r.status === 200) {
       accountStatusCache = r.data;
     } else if (r.status === 401) {
       try { localStorage.removeItem(ACCOUNT_KEY); } catch (_) {}
+      accountStatusCache = null;
+      stopSpeech();
     }
   } catch (_) {}
-  accountRenderGroup();
+  if (seq === accountRefreshRequest) accountRenderGroup();
 }
 
 /* 需要登录的操作：未登录则弹窗并返回 false */

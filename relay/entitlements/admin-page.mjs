@@ -54,11 +54,11 @@ export function renderAdminPage() {
 </div>
 
 <div class="card">
-  <h2 style="margin-top:0">发加练包</h2>
+  <h2 style="margin-top:0">发 AI 加练包或语音包</h2>
   <label>邮箱</label><input id="gEmail" type="email" autocomplete="off" placeholder="user@example.com">
   <div class="grid2">
     <div><label>类型</label>
-      <select id="gKind"><option value="text">DeepSeek 句数</option><option value="tts">CosyVoice 句数</option></select>
+      <select id="gKind"><option value="text">AI 加练句数</option><option value="tts">CosyVoice 语音包句数</option></select>
     </div>
     <div><label>数量</label><input id="gAmount" type="number" min="1" value="20"></div>
   </div>

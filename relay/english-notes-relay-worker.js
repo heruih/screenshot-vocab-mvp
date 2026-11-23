@@ -1,6 +1,6 @@
 /* ============ 英语笔记统一中转 Worker ============
- * 第一阶段：邮箱验证码登录 + 手动开通 + 每日免费额度（DeepSeek 10 / CosyVoice 15）
- *   + 加练包（手动发放）+ 月度成本 100 元提醒 / 150 元封顶。
+ * 邮箱验证、DeepSeek 每日额度及加练包、CosyVoice 独立语音包
+ * 和站方共用的月度 100 元提醒 / 150 元封顶。
  * 设计：
  *  - 文本和语音需绑定 D1，并经过账号权益与共同预算检查；
  *  - BILLING_MODE=simulate（默认）走模拟上游、不真扣钱；切 live 才转发真实接口；
@@ -9,7 +9,7 @@
 
 import { normalizeEmail, requestCode, verifyCode, getSession } from './entitlements/accounts.mjs';
 import {
-  reserveSlot, releaseSlot, getStatus, getBudgetCost, markCostAlertSent,
+  reserveSlot, releaseSlot, getStatus, getGrantBalance, getBudgetCost, markCostAlertSent,
   reserveBudget, settleBudget, releaseBudget, holdBudget, listBudgetHolds, resolveHold
 } from './entitlements/billing.mjs';
 import { deepseekMicro, cosyvoiceMicro, maxDeepseekMicro, deepseekOutputLimit } from './entitlements/pricing.mjs';
@@ -21,6 +21,7 @@ import { isPeakHour } from './entitlements/time.mjs';
 import { synthesizeCosyVoice } from './cosyvoice-preview.mjs';
 
 const DEEPSEEK_UPSTREAM = 'https://api.deepseek.com';
+const DOUBAO_TTS_UPSTREAM = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
 const FLASH_MODELS = ['deepseek-flash', 'deepseek-v4-flash', 'deepseek-v4-flash-vision-exp'];
 
 /* 图片旧版匿名限流 */
@@ -45,7 +46,7 @@ function cors(origin, allowed) {
   return {
     'Access-Control-Allow-Origin': value,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Device-Id, Authorization, X-Admin-Token',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Device-Id, Authorization, X-Admin-Token, X-Doubao-Key',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin'
   };
@@ -148,6 +149,7 @@ export default {
     /* 账号权益（需 D1） */
     if (path === '/v1/me/status') return handleMeStatus(request, env, headers);
     if (path === '/v1/tts/synthesize') return handleTts(request, env, headers, ctx);
+    if (path === '/v1/tts/doubao-own') return handleOwnDoubaoTts(request, headers, allowed);
     if (path === '/v1/chat/completions') {
       return handleTextEntitled(request, env, headers, ctx);
     }
@@ -322,14 +324,52 @@ function scheduleCostWarning(env, ctx, cost) {
 
 /* ---------- 账号权益：CosyVoice 语音 ---------- */
 
+/* 用户自配 Key 仅转给固定的豆包接口，不读取站方密钥，也不记入站方预算。 */
+async function handleOwnDoubaoTts(request, headers, allowed) {
+  if (request.method !== 'POST') return jerr(405, '请使用 POST', headers);
+  if (request.headers.get('Origin') !== allowed) return jerr(403, '请在商业网页版使用自配语音', headers);
+  const apiKey = request.headers.get('X-Doubao-Key')?.trim();
+  if (!apiKey || !/^[\x21-\x7e]{1,256}$/.test(apiKey)) return jerr(400, '请填写自己的豆包语音 Key', headers);
+
+  const input = await readJson(request);
+  const params = input?.req_params;
+  const text = typeof params?.text === 'string' ? params.text.trim() : '';
+  const speaker = typeof params?.speaker === 'string' ? params.speaker.trim() : '';
+  const resource = input?.resourceId;
+  if (!text || Array.from(text).length > 1200 || !/^[\w.-]{1,128}$/.test(speaker) ||
+      typeof resource !== 'string' || !/^[\w.-]{1,80}$/.test(resource)) {
+    return jerr(400, '请检查朗读文本和豆包音色配置', headers);
+  }
+
+  const paramsAudio = params.audio_params;
+  const rate = value => Number.isFinite(value) ? Math.max(-50, Math.min(100, Math.round(value))) : 0;
+  const body = { req_params: { text, speaker, audio_params: { format: 'mp3', sample_rate: 24000,
+    speech_rate: rate(paramsAudio?.speech_rate), pitch_rate: rate(paramsAudio?.pitch_rate) } } };
+  try {
+    const response = await fetch(DOUBAO_TTS_UPSTREAM, {
+      method: 'POST',
+      redirect: 'error',
+      signal: AbortSignal.timeout(10000),
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey,
+        'X-Api-Resource-Id': resource, 'X-Api-Request-Id': crypto.randomUUID() },
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) return jerr(response.status, '请检查自己的豆包 Key、音色授权和额度', headers);
+    return new Response(response.body, { headers: { ...headers, 'Cache-Control': 'no-store',
+      'Content-Type': response.headers.get('Content-Type') || 'application/json' } });
+  } catch (_) {
+    return jerr(502, '豆包语音暂不可用', headers);
+  }
+}
+
 async function handleTts(request, env, headers, ctx) {
   if (!env.DB) return jerr(503, '预算服务暂不可用，已使用系统朗读', headers);
   const account = await getSession(env, bearerToken(request));
   if (!account) return jerr(401, '请先登录', headers);
-  if (account.status !== 'active') {
-    /* 未开通/停用：前端据此回系统朗读 */
-    return jerr(403, '站方语音未开通，已使用系统朗读', headers);
-  }
+  if (account.status === 'disabled') return jerr(403, '账号已停用', headers);
+  const pack = await getGrantBalance(env, account.id, 'tts');
+  if (!pack.hasPackage) return jerr(403, '站方语音包未开通或已到期', headers);
+  if (pack.remaining <= 0) return jerr(402, '站方语音包句数已用完', headers);
   const input = await readJson(request);
   const text = String(input && input.text || '').trim();
   if (!text) return jerr(400, '缺少 text', headers);
@@ -347,7 +387,7 @@ async function handleTts(request, env, headers, ctx) {
     reservation = await reserveSlot(env, account.id, 'tts');
     if (reservation.source === 'none') {
       await releaseBudget(env, budget);
-      return jerr(402, '今日站方语音句数已用完，已使用系统朗读', headers);
+      return jerr(402, '站方语音包已用完或到期', headers);
     }
     let audio, characters;
     if (isSimulate(env)) {

@@ -113,9 +113,14 @@ async function login(env, email) {
   const v = await call(env, 'POST', '/v1/auth/verify', { email, code: rc.data.devCode });
   return v.data.token;
 }
-async function activeUser(env, email) {
+async function grantVoice(env, email, amount, expiresAt) {
+  return call(env, 'POST', '/v1/admin/grant', { email, amount, kind: 'tts', expiresAt },
+    { 'X-Admin-Token': env.ADMIN_TOKEN });
+}
+async function activeUser(env, email, voiceCount = 0) {
   const token = await login(env, email);
   await call(env, 'POST', '/v1/admin/activate', { email }, { 'X-Admin-Token': 'test-admin-secret' });
+  if (voiceCount > 0) await grantVoice(env, email, voiceCount);
   return token;
 }
 const auth = token => ({ Authorization: 'Bearer ' + token });
@@ -146,9 +151,15 @@ setBeijing(2026, 11, 20, 10);
     { 'X-Admin-Token': 'test-admin-secret' });
   const t2 = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
   check('手动开通后 DeepSeek 放行 200', t2.status === 200, 'got ' + t2.status);
-  const v2 = await call(env, 'POST', '/v1/tts/synthesize', { text: 'hello world' }, auth(token));
-  check('手动开通后 CosyVoice 放行 200', v2.status === 200 && v2.data.audio.startsWith('data:audio/mpeg'),
+  const noVoice = await call(env, 'POST', '/v1/tts/synthesize', { text: 'hello world' }, auth(token));
+  check('开通 DeepSeek 后仍需单独发语音包', noVoice.status === 403);
+  const voiceOnly = await login(env, 'voice-only@example.test');
+  await grantVoice(env, 'voice-only@example.test', 1);
+  const v2 = await call(env, 'POST', '/v1/tts/synthesize', { text: 'hello world' }, auth(voiceOnly));
+  check('仅发独立语音包即可使用 CosyVoice', v2.status === 200 && v2.data.audio.startsWith('data:audio/mpeg'),
     'got ' + v2.status);
+  const voiceOnlyText = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(voiceOnly));
+  check('仅发独立语音包不开放 DeepSeek', voiceOnlyText.status === 403);
 }
 
 /* =========================================================
@@ -215,7 +226,7 @@ section('场景4：硬封顶后回系统朗读');
 setBeijing(2026, 11, 22, 10);
 {
   const env = makeEnv({ simMicro: 60_000_000 }); // 每次固定 60 元：2 次过 100，第 3 次 60+120>150 被拦
-  const token = await activeUser(env, 'cap@example.com');
+  const token = await activeUser(env, 'cap@example.com', 3);
 
   const r1 = await call(env, 'POST', '/v1/tts/synthesize', { text: 'first sentence' }, auth(token));
   check('第 1 句语音放行', r1.status === 200, 'got ' + r1.status);
@@ -240,7 +251,7 @@ section('场景5：并发硬上限');
 setBeijing(2026, 11, 23, 10);
 {
   const env = makeEnv({ simMicro: 80_000_000 });
-  const token = await activeUser(env, 'conc@example.com');
+  const token = await activeUser(env, 'conc@example.com', 3);
   const rs = await Promise.all(Array.from({ length: 3 }, () =>
     call(env, 'POST', '/v1/tts/synthesize', { text: 'one sentence here' }, auth(token))));
   const ok = rs.filter(r => r.status === 200).length;
@@ -282,7 +293,7 @@ section('场景7：两服务并发共用预算');
 setBeijing(2026, 11, 25, 10);
 {
   const env = makeEnv({ simMicro: 60_000_000 });
-  const token = await activeUser(env, 'both@example.com');
+  const token = await activeUser(env, 'both@example.com', 2);
   const [t, v] = await Promise.all([
     call(env, 'POST', '/v1/chat/completions', textBody(), auth(token)),
     call(env, 'POST', '/v1/tts/synthesize', { text: 'shared budget speech' }, auth(token))
@@ -404,7 +415,7 @@ section('场景11：旧 D1 表升级');
 section('场景12：真实模式的模拟上游及额度回退');
 {
   const env = makeEnv();
-  const token = await activeUser(env, 'provider@example.test');
+  const token = await activeUser(env, 'provider@example.test', 1);
   env.BILLING_MODE = 'live';
   env.COSYVOICE_WORKSPACE_ID = 'ws-fixture';
   env.COSYVOICE_VOICE_ID = 'voice';
@@ -432,7 +443,7 @@ section('场景12：真实模式的模拟上游及额度回退');
     const failed = await call(env, 'POST', '/v1/tts/synthesize', { text: 'An English sentence.' }, auth(token));
     const next = await call(env, 'GET', '/v1/me/status', null, auth(token));
     check('语音下载失败退用户额度并保留预算', failed.status === 502 &&
-      next.data.entitlements.limits.tts.used === 0 && next.data.entitlements.monthly.heldCount === 1);
+      next.data.entitlements.limits.tts.grantRemaining === 1 && next.data.entitlements.monthly.heldCount === 1);
     const denied = await call(env, 'POST', '/v1/admin/budget-holds', {});
     const opened = await call(env, 'POST', '/v1/admin/budget-holds', {}, { 'X-Admin-Token': env.ADMIN_TOKEN });
     check('仅管理员能读取待核对账单', denied.status === 403 && opened.data.holds.length === 1);
@@ -513,6 +524,57 @@ section('场景14：配图只使用真实图片');
       requests.join() === 'api.openverse.org,pixabay.com');
   } finally {
     globalThis.fetch = upstream;
+  }
+}
+
+section('场景15：独立语音包余额、过期与并发');
+{
+  const env = makeEnv();
+  const address = 'voice-pack@example.test';
+  const token = await login(env, address);
+  await grantVoice(env, address, 4, Date.now() - 60_000);
+  const endpoint = '/v1/tts/synthesize';
+  const speak = () => call(env, 'POST', endpoint, { text: 'I would like a cup of tea.' }, auth(token));
+  const balance = async () => (await call(env, 'GET', '/v1/me/status', null, auth(token))).data.entitlements.limits.tts;
+  check('过期语音包不放行，旧日免费语音不会补足', (await speak()).status === 403 &&
+    (await balance()).freeDaily === 0);
+  await grantVoice(env, address, 1);
+  await grantVoice(env, address, 1);
+  const concurrent = await Promise.all([speak(), speak(), speak()]);
+  check('多个语音包并发只消费已发放句数', concurrent.map(r => r.status).sort().join() === '200,200,402');
+  const after = await balance();
+  check('语音包用完后仍显示已发放，剩余为零', after.hasPackage && after.grantRemaining === 0);
+  await grantVoice(env, address, 1);
+  check('追加语音包后恢复生成', (await speak()).status === 200);
+}
+
+section('场景16：自配豆包 Key 与站方计费隔离');
+{
+  const env = makeEnv();
+  const token = await activeUser(env, 'own-key@example.test');
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push({ url, key: init.headers['X-Api-Key'], requestId: init.headers['X-Api-Request-Id'] });
+    return Response.json({ code: 0, data: 'bXA=' });
+  };
+  try {
+    const endpoint = '/v1/tts/doubao-own';
+    const body = { resourceId: 'seed-tts-2.0', req_params: { text: 'Hello', speaker: 'test_speaker' } };
+    const noKey = await call(env, 'POST', endpoint, body);
+    const wrongOrigin = await call(env, 'POST', endpoint, body, { Origin: 'https://other.example.test',
+      'X-Doubao-Key': 'test-users-key' });
+    check('缺自配 Key 或来源不对均不触发上游', noKey.status === 400 && wrongOrigin.status === 403 &&
+      requests.length === 0);
+    const response = await call(env, 'POST', endpoint, body, { 'X-Doubao-Key': 'test-users-key' });
+    check('只把用户提供的 Key 转给固定豆包地址', response.status === 200 && requests.length === 1 &&
+      requests[0].key === 'test-users-key' && requests[0].requestId &&
+      requests[0].url === 'https://openspeech.bytedance.com/api/v3/tts/unidirectional');
+    const status = await call(env, 'GET', '/v1/me/status', null, auth(token));
+    check('自配 Key 不占用站方语音包及月预算', status.data.entitlements.limits.tts.grantRemaining === 0 &&
+      status.data.entitlements.monthly.totalMicro === 0);
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 }
 

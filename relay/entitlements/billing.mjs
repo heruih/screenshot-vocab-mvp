@@ -17,14 +17,14 @@ import { beijingDay, beijingMonth } from './time.mjs';
 /* 默认口径：每日免费句数、月度提醒/封顶（单位：微元，1 元 = 1,000,000 微元） */
 function config(env) {
   const c = {
-    freeDaily: { text: 10, tts: 15 },
+    freeDaily: { text: 10, tts: 0 },
     warnMicro: 100_000_000,   // 100 元
     capMicro: 150_000_000     // 150 元
   };
   try {
     const raw = env.ENTITLEMENT_CONFIG ? JSON.parse(env.ENTITLEMENT_CONFIG) : null;
     if (raw) {
-      if (raw.freeDaily) Object.assign(c.freeDaily, raw.freeDaily);
+      if (Number.isSafeInteger(raw.freeDaily?.text) && raw.freeDaily.text >= 0) c.freeDaily.text = raw.freeDaily.text;
       if (raw.warnMicro) c.warnMicro = raw.warnMicro;
       if (raw.capMicro) c.capMicro = raw.capMicro;
     }
@@ -162,15 +162,6 @@ async function decrementDaily(db, accountId, kind, day) {
   ).bind(accountId, kind, day).run();
 }
 
-/* 取一个可用加练包：优先用即将过期的，否则按发放顺序（FIFO） */
-async function pickUsableGrant(db, accountId, kind, now) {
-  return db.prepare(
-    'SELECT * FROM grants WHERE account_id = ? AND kind = ? AND remaining > 0 ' +
-    'AND (expires_at IS NULL OR expires_at > ?) ' +
-    'ORDER BY (expires_at IS NULL), expires_at, id LIMIT 1'
-  ).bind(accountId, kind, now).first();
-}
-
 /* 占用一个用户名额。返回 {source:'free'|'grant'|'none', ...}
  * 全程用条件 UPDATE 原子抢占，靠 changes 判断成败，不依赖读回值，并发安全。 */
 export async function reserveSlot(env, accountId, kind, now = new Date()) {
@@ -178,30 +169,25 @@ export async function reserveSlot(env, accountId, kind, now = new Date()) {
   const day = beijingDay(now);
   const freeDaily = config(env).freeDaily[kind];
 
-  /* 幂等确保当日行存在 */
-  await db.prepare(
-    'INSERT OR IGNORE INTO daily_usage (account_id, kind, day, count) VALUES (?, ?, ?, 0)'
-  ).bind(accountId, kind, day).run();
-
-  /* 原子抢基础名额：仅当 count < freeDaily 才自增；changes=1 即抢到 */
-  const upd = await db.prepare(
-    'UPDATE daily_usage SET count = count + 1 ' +
-    'WHERE account_id = ? AND kind = ? AND day = ? AND count < ?'
-  ).bind(accountId, kind, day, freeDaily).run();
-  if (upd.meta.changes === 1) {
-    return { source: 'free', day, freeDaily };
+  if (freeDaily > 0) {
+    await db.prepare(
+      'INSERT OR IGNORE INTO daily_usage (account_id, kind, day, count) VALUES (?, ?, ?, 0)'
+    ).bind(accountId, kind, day).run();
+    const upd = await db.prepare(
+      'UPDATE daily_usage SET count = count + 1 ' +
+      'WHERE account_id = ? AND kind = ? AND day = ? AND count < ?'
+    ).bind(accountId, kind, day, freeDaily).run();
+    if (upd.meta.changes === 1) return { source: 'free', day, freeDaily };
   }
 
-  /* 基础已满，原子抢加练包 */
-  const grant = await pickUsableGrant(db, accountId, kind, Date.now());
-  if (grant) {
-    const g = await db.prepare(
-      'UPDATE grants SET remaining = remaining - 1 WHERE id = ? AND remaining > 0'
-    ).bind(grant.id).run();
-    if (g.meta.changes === 1) {
-      return { source: 'grant', day, grantId: grant.id, freeDaily };
-    }
-  }
+  /* 同一句 SQL 选中并扣减，优先用即将到期的包。 */
+  const grant = await db.prepare(
+    'UPDATE grants SET remaining = remaining - 1 WHERE id = (' +
+    'SELECT id FROM grants WHERE account_id = ? AND kind = ? AND remaining > 0 ' +
+    'AND (expires_at IS NULL OR expires_at > ?) ' +
+    'ORDER BY (expires_at IS NULL), expires_at, id LIMIT 1) RETURNING id'
+  ).bind(accountId, kind, now.getTime()).first();
+  if (grant) return { source: 'grant', day, grantId: grant.id, freeDaily };
   return { source: 'none', day, freeDaily };
 }
 
@@ -218,6 +204,14 @@ export async function releaseSlot(env, accountId, kind, reservation, now = new D
 
 /* ---------- 前端状态汇总 ---------- */
 
+export async function getGrantBalance(env, accountId, kind, now = new Date()) {
+  const row = await env.DB.prepare(
+    'SELECT COUNT(*) AS packs, COALESCE(SUM(remaining), 0) AS remaining FROM grants ' +
+    'WHERE account_id = ? AND kind = ? AND (expires_at IS NULL OR expires_at > ?)'
+  ).bind(accountId, kind, now.getTime()).first();
+  return { hasPackage: row.packs > 0, remaining: row.remaining };
+}
+
 export async function getStatus(env, accountId, now = new Date()) {
   const db = env.DB;
   const day = beijingDay(now);
@@ -227,15 +221,12 @@ export async function getStatus(env, accountId, now = new Date()) {
     const freeDaily = config(env).freeDaily[kind];
     const daily = await getDaily(db, accountId, kind, day);
     const used = daily ? daily.count : 0;
-    const grants = await db.prepare(
-      'SELECT COALESCE(SUM(remaining), 0) AS remaining FROM grants ' +
-      'WHERE account_id = ? AND kind = ? AND (expires_at IS NULL OR expires_at > ?)'
-    ).bind(accountId, kind, Date.now()).first();
-    const grantRemaining = grants ? grants.remaining : 0;
+    const { hasPackage, remaining: grantRemaining } = await getGrantBalance(env, accountId, kind, now);
     out[kind] = {
       freeDaily,
       used,
       freeLeft: Math.max(0, freeDaily - used),
+      hasPackage,
       grantRemaining,
       totalLeft: Math.max(0, freeDaily - used) + grantRemaining
     };

@@ -35,6 +35,7 @@ function applyReadingRate(audio){
   audio.playbackRate=readingPlaybackRate;
 }
 const speechPreviewEnabled=window.APP_CONFIG?.product==='commercial'&&window.APP_CONFIG?.cosyVoicePreview===true;
+const commercialSpeechEnabled=window.APP_CONFIG?.product==='commercial'&&!speechPreviewEnabled;
 const siteSpeechCacheScope=window.APP_CONFIG?.siteSpeechCacheScope;
 const SPEECH_PREVIEW_SOURCE_KEY='en-tts-preview-source-v1';
 const speechPreviewSource=document.getElementById('stSpeechPreviewSource');
@@ -53,24 +54,72 @@ if(speechPreviewEnabled&&speechPreviewSource){
   if(livePreview)listen.textContent='试听新句';
   listen.addEventListener('click',()=>speak(sample,'en-US'));
 }
+const COMMERCIAL_SPEECH_SOURCE_KEY='en-tts-commercial-source-v1';
+const commercialSpeechSource=document.getElementById('stCommercialSpeechSource');
+let preferSiteSpeech=false;
+if(commercialSpeechEnabled&&commercialSpeechSource){
+  try{preferSiteSpeech=localStorage.getItem(COMMERCIAL_SPEECH_SOURCE_KEY)==='site';}catch(_){}
+  document.getElementById('stCommercialSpeech').hidden=false;
+  commercialSpeechSource.addEventListener('change',()=>{
+    preferSiteSpeech=commercialSpeechSource.value==='site';
+    try{localStorage.setItem(COMMERCIAL_SPEECH_SOURCE_KEY,preferSiteSpeech?'site':'auto');}catch(_){}
+    stopSpeech();
+  });
+  document.getElementById('stCommercialSpeechListen').addEventListener('click',()=>
+    speak('Could you save me a seat by the window?','en-US'));
+  document.getElementById('stCommercialSpeechRefresh').addEventListener('click',()=>accountRefresh());
+}
+
+function activeSiteVoicePack(){
+  const status=accountStatusCache;
+  if(!accountLoggedIn()||!status||status.account.email!==accountEmail()||status.account.status==='disabled')return null;
+  const pack=status.entitlements?.limits?.tts;
+  return pack?.hasPackage===true?pack:null;
+}
+
+function refreshCommercialSpeechSettings(){
+  if(!commercialSpeechEnabled||!commercialSpeechSource)return;
+  const pack=activeSiteVoicePack();
+  commercialSpeechSource.options[1].disabled=!pack;
+  commercialSpeechSource.value=pack&&preferSiteSpeech?'site':'auto';
+  document.getElementById('stCommercialSpeechRefresh').hidden=!accountLoggedIn();
+  const status=document.getElementById('stCommercialSpeechStatus');
+  status.textContent=pack
+    ? '站方语音包剩余 '+pack.grantRemaining+' 句'+(pack.grantRemaining===0?'。已生成的本机语音仍可重播。':'。')
+    : (accountLoggedIn()?'暂无可用的站方语音包。收到语音包后可刷新状态。':'登录后可使用管理员发放的站方语音包。');
+}
+
 const VOLC_TTS_KEY='en-tts-v1';
 const VOLC_TTS_DEFAULT={apiKey:'',speaker:'zh_female_vv_uranus_bigtts',resourceId:'seed-tts-2.0',speechRate:0,pitchRate:0,relayUrl:'https://english-notes-tts.english-notes.workers.dev'};
 let volcAudio=null,cancelVolcSpeech=null,volcTtsPlayPending=0,volcTtsLastError='',volcRecentAudio=null;
 function volcTtsConfig(){try{const raw=JSON.parse(localStorage.getItem(VOLC_TTS_KEY)||'{}');return Object.assign({},VOLC_TTS_DEFAULT,raw);}catch(_){return Object.assign({},VOLC_TTS_DEFAULT);}}
 function volcTtsSave(patch){const next=Object.assign(volcTtsConfig(),patch||{});try{localStorage.setItem(VOLC_TTS_KEY,JSON.stringify(next));}catch(_){}return next;}
 function volcTtsReady(){const cfg=volcTtsConfig();return !!(String(cfg.speaker||'').trim()&&(String(cfg.apiKey||'').trim()||String(cfg.relayUrl||'').trim()));}
-function volcTtsCacheKey(text,lang,cfg=volcTtsConfig()){return [cfg.relayUrl||'direct',cfg.resourceId,cfg.speaker,cfg.speechRate,cfg.pitchRate,lang||'en-US',String(text||'').trim()].join('|');}
+function ownVolcTtsConfig(cfg=volcTtsConfig()){
+  if(!String(cfg.apiKey||'').trim()||!String(cfg.speaker||'').trim())return null;
+  return {...cfg,relayUrl:'',ownKey:true};
+}
+function volcTtsCacheKey(text,lang,cfg=volcTtsConfig()){return [cfg.ownKey?'doubao-own-v1':(cfg.relayUrl||'direct'),cfg.resourceId,cfg.speaker,cfg.speechRate,cfg.pitchRate,lang||'en-US',String(text||'').trim()].join('|');}
 async function volcTtsRequest(text,signal,cfg=volcTtsConfig()){
   const relay=String(cfg.relayUrl||'').trim(),body={req_params:{text:String(text||''),speaker:String(cfg.speaker||''),audio_params:{format:'mp3',sample_rate:24000,speech_rate:Number(cfg.speechRate)||0,pitch_rate:Number(cfg.pitchRate)||0}}};
   const headers={'Content-Type':'application/json'};
-  if(!relay){headers['X-Api-Key']=String(cfg.apiKey||'').trim();headers['X-Api-Resource-Id']=String(cfg.resourceId||'seed-tts-2.0');}
-  const res=await fetch(relay||'https://openspeech.bytedance.com/api/v3/tts/unidirectional',{method:'POST',headers,body:JSON.stringify(body),signal});
+  if(cfg.ownKey){
+    headers['X-Doubao-Key']=String(cfg.apiKey||'').trim();
+    body.resourceId=String(cfg.resourceId||'seed-tts-2.0');
+  }else if(!relay){
+    headers['X-Api-Key']=String(cfg.apiKey||'').trim();
+    headers['X-Api-Resource-Id']=String(cfg.resourceId||'seed-tts-2.0');
+  }
+  const url=cfg.ownKey?TEXT_RELAY_DEFAULT+'/v1/tts/doubao-own':(relay||'https://openspeech.bytedance.com/api/v3/tts/unidirectional');
+  const res=await fetch(url,{method:'POST',headers,body:JSON.stringify(body),signal,redirect:'error'});
   if(!res.ok)throw new Error((relay?'豆包中转 HTTP ':'豆包语音 HTTP ')+res.status);
   const rawBody=await res.text();let data;
   try{data=JSON.parse(rawBody);}catch(_){
     const chunks=rawBody.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).map(x=>x.replace(/^data:\s*/,'')).map(x=>{try{return JSON.parse(x);}catch(_){return null;}}).filter(Boolean);
     if(!chunks.length)throw new Error('豆包语音返回格式无法解析');
-    data={code:chunks.find(x=>x.code!==undefined)?.code||0,message:chunks.find(x=>x.message)?.message||'',data:chunks.map(x=>String(x.data||'')).join('')};
+    const error=chunks.find(x=>Number(x.code||0)!==0);
+    const parts=chunks.map(x=>String(x.data||'')).filter(Boolean);
+    data=error||{code:0,data:cfg.ownKey&&parts.length>1?btoa(parts.map(atob).join('')):parts.join('')};
   }
   const apiCode=data&&data.code!==undefined?data.code:data&&data.header&&data.header.code;
   const apiMessage=data&&data.message||data&&data.header&&data.header.message;
@@ -128,8 +177,11 @@ function playSitePreviewSpeech(text,lang,onend){
 }
 /* 正式站方 CosyVoice：走账号权益接口，带 Authorization；过量/失败/封顶由 playCachedCloudSpeech 回系统朗读 */
 function playSiteSpeech(text,lang,onend){
+  const token=accountToken();
   const key=JSON.stringify(['cosyvoice-site-v1',accountEmail(),lang,text]);
   return playCachedCloudSpeech(text,lang,onend,key,()=>{
+    if(token!==accountToken()||!activeSiteVoicePack())throw new Error('站方语音包尚未开通');
+    if(activeSiteVoicePack().grantRemaining<=0)throw new Error('站方语音包句数已用完');
     if(siteSpeechPending.has(key))return siteSpeechPending.get(key);
     const pending=fetch(accountBase()+'/v1/tts/synthesize',{
       method:'POST',signal:AbortSignal.timeout(12000),
@@ -137,6 +189,8 @@ function playSiteSpeech(text,lang,onend){
       body:JSON.stringify({text})
     }).then(async response=>{
       const result=await response.json().catch(()=>({}));
+      if(token!==accountToken())throw new Error('登录状态已变化');
+      if(response.ok||[401,402,403].includes(response.status))accountRefresh();
       if(!response.ok||typeof result.audio!=='string'||!result.audio.startsWith('data:audio/mpeg;base64,')){
         throw new Error(result.message||'站方语音暂不可用');
       }
@@ -146,11 +200,6 @@ function playSiteSpeech(text,lang,onend){
     siteSpeechPending.set(key,pending);
     return pending;
   },true);
-}
-function siteSpeechAvailable(){
-  if(!accountLoggedIn())return false;
-  const st=accountStatusCache?.account?.status;
-  return st!=='pending'&&st!=='disabled';
 }
 async function playCachedCloudSpeech(text,lang,onend,key,requestAudio,isSitePreview=false){
   stopSpeech();
@@ -189,7 +238,7 @@ async function playCachedCloudSpeech(text,lang,onend,key,requestAudio,isSitePrev
       return false;
     }
     volcTtsLastError=e?.name==='AbortError'?'豆包语音请求超时':(e?.message||'豆包语音请求失败');
-    if(lang==='en-US'&&!/\s/.test(value))playYoudaoAudio(value,lang,onend);
+    if(!commercialSpeechEnabled&&lang==='en-US'&&!/\s/.test(value))playYoudaoAudio(value,lang,onend);
     else speakQueued(value,lang,onend);
     return false;
   }
@@ -294,7 +343,13 @@ function speak(text,lang,onend){
     speakQueued(value,locale,onend);
     return;
   }
-  if(locale.toLowerCase().startsWith('en')&&siteSpeechAvailable()){playSiteSpeech(value,locale,onend);return;}
+  if(locale.toLowerCase().startsWith('en')&&commercialSpeechEnabled){
+    if(preferSiteSpeech&&activeSiteVoicePack()){playSiteSpeech(value,locale,onend);return;}
+    const own=ownVolcTtsConfig();
+    if(own)playVolcAudio(value,locale,onend,own);
+    else speakQueued(value,locale,onend);
+    return;
+  }
   if(locale.toLowerCase().startsWith('en')&&volcTtsReady()){playVolcAudio(value,locale,onend);return;}
   let voice;
   try{voice=pickVoice(window.speechSynthesis?.getVoices(),locale);}catch(_){}
