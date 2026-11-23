@@ -35,9 +35,9 @@ function applyReadingRate(audio){
   audio.playbackRate=readingPlaybackRate;
 }
 const speechPreviewEnabled=window.APP_CONFIG?.product==='commercial'&&window.APP_CONFIG?.cosyVoicePreview===true;
+const siteSpeechCacheScope=window.APP_CONFIG?.siteSpeechCacheScope;
 const SPEECH_PREVIEW_SOURCE_KEY='en-tts-preview-source-v1';
 const speechPreviewSource=document.getElementById('stSpeechPreviewSource');
-const speechPreviewSample='Would you mind checking the total before we pay? Sure, let me take a look.';
 if(speechPreviewEnabled&&speechPreviewSource){
   let savedSource='system';
   try{savedSource=localStorage.getItem(SPEECH_PREVIEW_SOURCE_KEY)||'system';}catch(_){}
@@ -47,7 +47,11 @@ if(speechPreviewEnabled&&speechPreviewSource){
     stopSpeech();
     try{localStorage.setItem(SPEECH_PREVIEW_SOURCE_KEY,speechPreviewSource.value);}catch(_){}
   });
-  document.getElementById('stSpeechPreviewListen').addEventListener('click',()=>speak(speechPreviewSample,'en-US'));
+  const listen=document.getElementById('stSpeechPreviewListen');
+  const livePreview=window.APP_CONFIG.siteSpeechLive===true;
+  const sample=livePreview?'Could you save me a seat by the window?':'Would you mind checking the total before we pay? Sure, let me take a look.';
+  if(livePreview)listen.textContent='试听新句';
+  listen.addEventListener('click',()=>speak(sample,'en-US'));
 }
 const VOLC_TTS_KEY='en-tts-v1';
 const VOLC_TTS_DEFAULT={apiKey:'',speaker:'zh_female_vv_uranus_bigtts',resourceId:'seed-tts-2.0',speechRate:0,pitchRate:0,relayUrl:'https://english-notes-tts.english-notes.workers.dev'};
@@ -99,7 +103,12 @@ function playVolcAudio(text,lang,onend,cfg=volcTtsConfig()){
 }
 const siteSpeechPending=new Map();
 function playSitePreviewSpeech(text,lang,onend){
-  const key=JSON.stringify(['cosyvoice-site-preview-v1',lang,text]);
+  if(!siteSpeechCacheScope){
+    toast('这个浏览器还未开通测试语音包，已使用系统朗读','warn');
+    speakQueued(text,lang,onend);
+    return;
+  }
+  const key=JSON.stringify(['cosyvoice-site-preview-v2',siteSpeechCacheScope,lang,text]);
   return playCachedCloudSpeech(text,lang,onend,key,()=>{
     if(siteSpeechPending.has(key))return siteSpeechPending.get(key);
     const pending=fetch(new URL('preview-tts',location.href),{
