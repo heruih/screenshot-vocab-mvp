@@ -126,6 +126,32 @@ function playSitePreviewSpeech(text,lang,onend){
     return pending;
   },true);
 }
+/* 正式站方 CosyVoice：走账号权益接口，带 Authorization；过量/失败/封顶由 playCachedCloudSpeech 回系统朗读 */
+function playSiteSpeech(text,lang,onend){
+  const key=JSON.stringify(['cosyvoice-site-v1',accountEmail(),lang,text]);
+  return playCachedCloudSpeech(text,lang,onend,key,()=>{
+    if(siteSpeechPending.has(key))return siteSpeechPending.get(key);
+    const pending=fetch(accountBase()+'/v1/tts/synthesize',{
+      method:'POST',signal:AbortSignal.timeout(12000),
+      headers:{'Content-Type':'application/json',...accountAuthHeader()},
+      body:JSON.stringify({text})
+    }).then(async response=>{
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok||typeof result.audio!=='string'||!result.audio.startsWith('data:audio/mpeg;base64,')){
+        throw new Error(result.message||'站方语音暂不可用');
+      }
+      await ttsCacheSet(key,result.audio);
+      return result.audio;
+    }).finally(()=>siteSpeechPending.delete(key));
+    siteSpeechPending.set(key,pending);
+    return pending;
+  },true);
+}
+function siteSpeechAvailable(){
+  if(!accountLoggedIn())return false;
+  const st=accountStatusCache?.account?.status;
+  return st!=='pending'&&st!=='disabled';
+}
 async function playCachedCloudSpeech(text,lang,onend,key,requestAudio,isSitePreview=false){
   stopSpeech();
   const seq=volcTtsPlayPending;
@@ -157,7 +183,8 @@ async function playCachedCloudSpeech(text,lang,onend,key,requestAudio,isSitePrev
     }
     const value=String(text||'').trim();
     if(isSitePreview){
-      toast((e?.message||'站方语音暂不可用')+'，已使用系统朗读','warn');
+      const raw=e?.message||'站方语音暂不可用';
+      toast(raw.includes('系统朗读')?raw:raw+'，已使用系统朗读','warn');
       speakQueued(value,lang,onend);
       return false;
     }
@@ -267,6 +294,7 @@ function speak(text,lang,onend){
     speakQueued(value,locale,onend);
     return;
   }
+  if(locale.toLowerCase().startsWith('en')&&siteSpeechAvailable()){playSiteSpeech(value,locale,onend);return;}
   if(locale.toLowerCase().startsWith('en')&&volcTtsReady()){playVolcAudio(value,locale,onend);return;}
   let voice;
   try{voice=pickVoice(window.speechSynthesis?.getVoices(),locale);}catch(_){}

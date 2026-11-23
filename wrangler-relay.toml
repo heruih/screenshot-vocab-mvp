@@ -1,0 +1,16 @@
+name = "english-notes-relay"
+main = "relay/english-notes-relay-worker.js"
+compatibility_date = "2026-11-10"
+
+[vars]
+ALLOWED_ORIGIN = "https://heruih.github.io"
+
+# 不设置 BILLING_MODE，默认 simulate：走模拟上游、不真扣钱；确认后再设为 live
+[[d1_databases]]
+binding = "DB"
+database_name = "english-notes-relay-db"
+database_id = "8e49ff4d-7c4a-4c95-bbfb-ac55b3decd50"
+
+[[kv_namespaces]]
+binding = "RELAY_KV"
+id = "3dae01f101dd461cab1c43d55e020433"

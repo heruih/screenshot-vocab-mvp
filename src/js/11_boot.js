@@ -1,5 +1,6 @@
 /* ============ 启动 ============ */
 state=migrate(load());
+try{accountInit();}catch(e){console.error('账号模块初始化失败',e);}
 try{aInit();}catch(e){console.error('学习模块初始化失败',e);}
 try{bInit();}catch(e){console.error('同步模块初始化失败',e);}
 try{aiDialogueHistoryMigrate();}catch(e){}

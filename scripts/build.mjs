@@ -49,6 +49,7 @@ const modules = [
   '10l_abstract.js',
   '12_feedback.js',
   '13_drag.js',
+  '14_account.js',
   '11_boot.js',
 ];
 const script = (await Promise.all(modules.map((file) => read(path.join('js', file))))).join('');

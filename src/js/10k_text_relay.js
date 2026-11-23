@@ -39,7 +39,7 @@ async function textRelayFetch(messages,opts){
       if(useJson)body.response_format={type:'json_object'};
       const res=await fetch(relay+'/v1/chat/completions',{
         method:'POST',
-        headers:{'Content-Type':'application/json','X-Device-Id':deviceIdGet()},
+        headers:{'Content-Type':'application/json','X-Device-Id':deviceIdGet(),...accountAuthHeader()},
         body:JSON.stringify(body),
         signal:ctrl.signal
       });
@@ -74,7 +74,7 @@ async function imgRelayFetch(term,context){
   try{
     const res=await fetch(relay+'/v1/images/generations',{
       method:'POST',
-      headers:{'Content-Type':'application/json','X-Device-Id':deviceIdGet()},
+      headers:{'Content-Type':'application/json','X-Device-Id':deviceIdGet(),...accountAuthHeader()},
       body:JSON.stringify({term:String(term||''),context:String(context||''),abstract:isAbstractTerm(term)}),
       signal:ctrl.signal
     });
