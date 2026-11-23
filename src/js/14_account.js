@@ -115,7 +115,6 @@ function ensureAccountGroup() {
     '<div class="st-g-body" id="stgAccountBody"></div>';
   const first = $('#settingsModal .st-group');
   first.parentNode.insertBefore(sec, first);
-  sec.querySelector('.st-g-head').onclick = () => sec.classList.toggle('open');
   accountRenderGroup();
 }
 

@@ -1084,14 +1084,15 @@ function bindEvents(){
   $('#btnSettings').addEventListener('click',openSettings);
   $('#stClose').addEventListener('click',()=>$('#settingsModal').classList.remove('show'));
   $('#stSave').addEventListener('click',saveSettings);
-  /* 设置分组：手风琴，点开一个就收起别的 */
-  $$('#settingsModal .st-g-head').forEach(h=>{
-    h.addEventListener('click',()=>{
-      const g=h.parentElement;
-      const open=g.classList.contains('open');
-      $$('#settingsModal .st-group').forEach(x=>x.classList.remove('open'));
-      if(!open) g.classList.add('open');
-    });
+  /* 设置分组：手风琴，点开一个就收起别的。
+     用事件委托绑在弹窗上：动态插入的分组（如账号）也能响应，不依赖初始化时序。 */
+  $('#settingsModal').addEventListener('click',e=>{
+    const h=e.target.closest('.st-g-head');
+    if(!h) return;
+    const g=h.parentElement;
+    const open=g.classList.contains('open');
+    $$('#settingsModal .st-group').forEach(x=>x.classList.remove('open'));
+    if(!open) g.classList.add('open');
   });
   $('#stCodeGen').addEventListener('click',syncCodeMake);
   $('#stCodeCopy').addEventListener('click',syncCodeCopy);
