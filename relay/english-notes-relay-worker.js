@@ -2,17 +2,17 @@
  * 第一阶段：邮箱验证码登录 + 手动开通 + 每日免费额度（DeepSeek 10 / CosyVoice 15）
  *   + 加练包（手动发放）+ 月度成本 100 元提醒 / 150 元封顶。
  * 设计：
- *  - 绑定 D1（env.DB）即走账号权益流程；未绑定则回退旧的匿名 meter 逻辑，可平滑回滚；
+ *  - 文本和语音需绑定 D1，并经过账号权益与共同预算检查；
  *  - BILLING_MODE=simulate（默认）走模拟上游、不真扣钱；切 live 才转发真实接口；
  *  - 密钥全部存 Secret，不回显；新功能独立存储，不碰任何已有用户数据。
  * ===================================================== */
 
 import { normalizeEmail, requestCode, verifyCode, getSession } from './entitlements/accounts.mjs';
 import {
-  reserveSlot, releaseSlot, getStatus, isCapped,
-  reserveBudget, settleBudget, releaseBudget, holdBudget
+  reserveSlot, releaseSlot, getStatus, getBudgetCost, markCostAlertSent,
+  reserveBudget, settleBudget, releaseBudget, holdBudget, listBudgetHolds, resolveHold
 } from './entitlements/billing.mjs';
-import { deepseekMicro, cosyvoiceMicro, maxDeepseekMicro } from './entitlements/pricing.mjs';
+import { deepseekMicro, cosyvoiceMicro, maxDeepseekMicro, deepseekOutputLimit } from './entitlements/pricing.mjs';
 import { notifyOwner } from './entitlements/notify.mjs';
 import { simulateText, simulateTts } from './entitlements/simulate.mjs';
 import { isAdmin, listAccounts, activate, grant, setStatus } from './entitlements/admin.mjs';
@@ -21,12 +21,10 @@ import { isPeakHour } from './entitlements/time.mjs';
 import { synthesizeCosyVoice } from './cosyvoice-preview.mjs';
 
 const DEEPSEEK_UPSTREAM = 'https://api.deepseek.com';
-const MODEL_WHITELIST = ['deepseek-flash', 'deepseek-chat'];
+const FLASH_MODELS = ['deepseek-flash', 'deepseek-v4-flash', 'deepseek-v4-flash-vision-exp'];
 
-/* 旧匿名通道默认档（仅在未绑定 D1 时使用） */
+/* 图片旧版匿名限流 */
 const DEFAULT_LIMITS = {
-  text:  { daily: 15,  perMinute: 6 },
-  tts:   { daily: 100, perMinute: 12 },
   image: { daily: 30,  perMinute: 6 }
 };
 const MAX_BODY_CHARS = 12000;
@@ -34,6 +32,7 @@ const DEVICE_RE = /^[A-Za-z0-9_-]{8,64}$/;
 
 const isSimulate = env => String(env.BILLING_MODE || 'simulate') !== 'live';
 function fixedSimMicro(env) {
+  if (!isSimulate(env)) return null;
   const v = parseInt(env.SIMULATE_COST_MICRO, 10);
   return Number.isSafeInteger(v) && v >= 0 ? v : null;
 }
@@ -150,7 +149,7 @@ export default {
     if (path === '/v1/me/status') return handleMeStatus(request, env, headers);
     if (path === '/v1/tts/synthesize') return handleTts(request, env, headers, ctx);
     if (path === '/v1/chat/completions') {
-      return env.DB ? handleTextEntitled(request, env, headers, ctx) : handleTextLegacy(request, env, ctx, headers);
+      return handleTextEntitled(request, env, headers, ctx);
     }
 
     /* 管理员（需 D1） */
@@ -158,6 +157,10 @@ export default {
     if (path === '/v1/admin/activate') return handleAdminActivate(request, env, headers);
     if (path === '/v1/admin/grant') return handleAdminGrant(request, env, headers);
     if (path === '/v1/admin/status') return handleAdminStatus(request, env, headers);
+    if (path === '/v1/admin/budget-holds' || path === '/v1/admin/budget-holds/resolve') {
+      return handleAdminBudget(request, env, headers, ctx, path.endsWith('/resolve'));
+    }
+    if (path === '/v1/admin/budget-alert/retry') return handleAdminAlertRetry(request, env, headers);
 
     /* 图片沿用旧逻辑 */
     if (path === '/v1/images/generations') return handleImage(request, env, ctx, headers);
@@ -205,6 +208,7 @@ function publicAccount(acc) {
 /* ---------- 账号权益：DeepSeek 文本 ---------- */
 
 async function handleTextEntitled(request, env, headers, ctx) {
+  if (!env.DB) return jerr(503, '预算服务暂不可用', headers);
   const account = await getSession(env, bearerToken(request));
   if (!account) return jerr(401, '请先登录', headers);
   if (account.status === 'disabled') return jerr(403, '账号已停用', headers);
@@ -217,10 +221,10 @@ async function handleTextEntitled(request, env, headers, ctx) {
   if (JSON.stringify(input.messages).length > MAX_BODY_CHARS) {
     return jerr(413, '输入过长，请缩短后再试', headers);
   }
-  if (await isCapped(env)) {
-    return jerr(402, '站方本月服务额度已封顶，下月自动恢复；可填自己的 Key 继续', headers);
+  if (!isSimulate(env) && (!env.DEEPSEEK_API_KEY ||
+      (env.DEEPSEEK_MODEL && !FLASH_MODELS.includes(env.DEEPSEEK_MODEL)))) {
+    return jerr(503, '站方 AI 服务暂不可用', headers);
   }
-
   /* 1) 先按最高可能成本原子预留站方预算；失败即封顶，不调上游、不占用户名额 */
   const fixedForMax = fixedSimMicro(env);
   const maxMicro = fixedForMax !== null ? fixedForMax : maxDeepseekMicro(env, input);
@@ -230,23 +234,27 @@ async function handleTextEntitled(request, env, headers, ctx) {
   }
 
   /* 2) 再原子占用户练习名额；没抢到就把刚预留的预算退掉 */
-  const reservation = await reserveSlot(env, account.id, 'text');
-  if (reservation.source === 'none') {
-    await releaseBudget(env, maxMicro);
-    return jerr(402, '今日免费句数已用完，可使用加练包或填自己的 Key', headers);
-  }
-
+  let reservation;
   try {
+    reservation = await reserveSlot(env, account.id, 'text');
+    if (reservation.source === 'none') {
+      await releaseBudget(env, budget);
+      return jerr(402, '今日免费句数已用完，可使用加练包或填自己的 Key', headers);
+    }
     let data, usage;
+    const peak = isPeakHour();
     if (isSimulate(env)) {
       const sim = simulateText(input);
       data = sim.response; usage = sim.usage;
     } else {
       const r = await callDeepseekUpstream(env, input);
       if (!r.ok) {
-        /* 上游明确错误响应：确定未扣费，释放预算 + 归还用户名额 */
-        await releaseBudget(env, maxMicro);
-        await releaseSlot(env, account.id, 'text', reservation);
+        /* 明确拒绝时释放。服务端错误可能发生在上游开始处理之后。 */
+        if (r.status >= 500) await holdBudget(env, budget, '上游返回服务错误');
+        else await releaseBudget(env, budget);
+        const unusedSlot = reservation;
+        reservation = null;
+        await releaseSlot(env, account.id, 'text', unusedSlot);
         return jerr(r.status, r.message, headers);
       }
       data = r.data; usage = r.usage;
@@ -254,15 +262,13 @@ async function handleTextEntitled(request, env, headers, ctx) {
 
     /* 3) 成功：按实际用量结算，退回多预留差额；首次跨 100 线则主动通知站方 */
     const fixed = fixedSimMicro(env);
-    const actualMicro = fixed !== null ? fixed : deepseekMicro(env, usage, isPeakHour());
-    const cost = await settleBudget(env, 'text', maxMicro, actualMicro);
+    const actualMicro = fixed !== null ? fixed : deepseekMicro(env, usage, peak);
+    const cost = await settleBudget(env, budget, actualMicro);
     if (cost.alert) scheduleCostWarning(env, ctx, cost);
     return jbody(200, data, headers, costHeaders(cost, reservation));
-  } catch (err) {
-    /* 只有网络层异常（超时/连接失败）会到这里：上游是否扣费不确定，挂起预留待核对；
-     * 用户没拿到结果，仍归还其练习名额。 */
-    await holdBudget(env, budget.holdId, 'text', maxMicro, err.message);
-    await releaseSlot(env, account.id, 'text', reservation);
+  } catch (_) {
+    await holdBudget(env, budget, '文本请求或本地结算结果无法确认');
+    if (reservation) await releaseSlot(env, account.id, 'text', reservation);
     return jerr(502, 'AI 服务暂不可用，请稍后再试', headers);
   }
 }
@@ -270,19 +276,18 @@ async function handleTextEntitled(request, env, headers, ctx) {
 /* live 模式调用 DeepSeek：网络层异常直接抛出（调用方按"不确定"挂起）；
  * 有明确 HTTP 响应则返回 {ok,status,message} 或 {ok,data,usage}。 */
 async function callDeepseekUpstream(env, input) {
-  let model = MODEL_WHITELIST.includes(input.model) ? input.model : MODEL_WHITELIST[0];
-  if (env.DEEPSEEK_MODEL) model = env.DEEPSEEK_MODEL;
   const upstreamBody = {
-    model,
+    model: env.DEEPSEEK_MODEL || FLASH_MODELS[0],
     temperature: typeof input.temperature === 'number' ? input.temperature : 0.85,
-    messages: input.messages
+    messages: input.messages,
+    max_tokens: deepseekOutputLimit(input)
   };
-  if (input.max_tokens) upstreamBody.max_tokens = input.max_tokens;
   if (input.response_format) upstreamBody.response_format = input.response_format;
   const upstream = await fetch(DEEPSEEK_UPSTREAM + '/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + env.DEEPSEEK_API_KEY },
-    body: JSON.stringify(upstreamBody)
+    body: JSON.stringify(upstreamBody),
+    signal: AbortSignal.timeout(25_000)
   });
   const text = await upstream.text();
   let parsed = null;
@@ -290,23 +295,35 @@ async function callDeepseekUpstream(env, input) {
   if (!upstream.ok) {
     return { ok: false, status: upstream.status, message: (parsed && parsed.error && parsed.error.message) || '上游服务异常' };
   }
-  return { ok: true, data: parsed, usage: parsed.usage || {} };
+  const usage = parsed?.usage;
+  if (!Array.isArray(parsed?.choices) || !parsed.choices.length ||
+      !Number.isSafeInteger(usage?.prompt_tokens) || usage.prompt_tokens < 0 ||
+      !Number.isSafeInteger(usage?.completion_tokens) || usage.completion_tokens < 0) {
+    throw new Error('DeepSeek response or usage is incomplete');
+  }
+  return { ok: true, data: parsed, usage };
 }
 
-/* 首次跨 100 元提醒线：异步主动通知站方，不阻塞响应；失败不影响主流程。 */
+async function sendCostWarning(env, cost) {
+  const warning = cost.warnMicro / 1_000_000;
+  const cap = cost.capMicro / 1_000_000;
+  const subject = '【截图错题本】本月站方费用已达 ' + warning + ' 元提醒线';
+  const text = '账期 ' + cost.month + '，站方累计成本已达 ' + warning + ' 元。月度上限为 ' + cap + ' 元。';
+  const notice = await notifyOwner(env, 'cost-warn:' + cost.month, { subject, text, html: '<p>' + text + '</p>' });
+  await markCostAlertSent(env, cost.month);
+  return notice;
+}
+
 function scheduleCostWarning(env, ctx, cost) {
-  const yuan = (cost.total / 1_000_000).toFixed(2);
-  const subject = '【截图错题本】本月站方费用已达 100 元提醒线';
-  const text = '账期 ' + cost.month + '，站方累计成本已达 100 元（当前 ' + yuan +
-    ' 元），150 元为硬封顶，达到后付费功能自动停用。';
-  const job = notifyOwner(env, 'cost-warn:' + cost.month,
-    { subject, text, html: '<p>' + text + '</p>' }).catch(() => {});
+  const job = sendCostWarning(env, cost)
+    .catch(() => console.warn('站方费用提醒待发送', cost.month));
   if (ctx && ctx.waitUntil) ctx.waitUntil(job);
 }
 
 /* ---------- 账号权益：CosyVoice 语音 ---------- */
 
 async function handleTts(request, env, headers, ctx) {
+  if (!env.DB) return jerr(503, '预算服务暂不可用，已使用系统朗读', headers);
   const account = await getSession(env, bearerToken(request));
   if (!account) return jerr(401, '请先登录', headers);
   if (account.status !== 'active') {
@@ -318,24 +335,20 @@ async function handleTts(request, env, headers, ctx) {
   if (!text) return jerr(400, '缺少 text', headers);
   if (Array.from(text).length > 240) return jerr(422, '请选择 240 字符以内的内容朗读', headers);
 
-  if (await isCapped(env)) {
-    return jerr(402, '站方本月语音额度已封顶，已使用系统朗读', headers);
-  }
-
-  /* 输入字符数已知，按它原子预留（CosyVoice 按输入字符计费） */
+  /* 字符计费按 UTF-8 字节保守预留，实际结算使用百炼报告的字符数。 */
   const fixedForMax = fixedSimMicro(env);
-  const maxMicro = fixedForMax !== null ? fixedForMax : cosyvoiceMicro(env, Array.from(text).length);
+  const maxMicro = fixedForMax !== null ? fixedForMax : cosyvoiceMicro(env, new TextEncoder().encode(text).length);
   const budget = await reserveBudget(env, 'tts', maxMicro);
   if (!budget.ok) {
     return jerr(402, '站方本月语音额度已封顶，已使用系统朗读', headers);
   }
-  const reservation = await reserveSlot(env, account.id, 'tts');
-  if (reservation.source === 'none') {
-    await releaseBudget(env, maxMicro);
-    return jerr(402, '今日站方语音句数已用完，已使用系统朗读', headers);
-  }
-
+  let reservation;
   try {
+    reservation = await reserveSlot(env, account.id, 'tts');
+    if (reservation.source === 'none') {
+      await releaseBudget(env, budget);
+      return jerr(402, '今日站方语音句数已用完，已使用系统朗读', headers);
+    }
     let audio, characters;
     if (isSimulate(env)) {
       const sim = simulateTts(text);
@@ -354,17 +367,17 @@ async function handleTts(request, env, headers, ctx) {
 
     const fixed = fixedSimMicro(env);
     const actualMicro = fixed !== null ? fixed : cosyvoiceMicro(env, characters);
-    const cost = await settleBudget(env, 'tts', maxMicro, actualMicro);
+    const cost = await settleBudget(env, budget, actualMicro);
     if (cost.alert) scheduleCostWarning(env, ctx, cost);
     return jbody(200, { audio, characters }, headers, costHeaders(cost, reservation));
   } catch (err) {
     /* 不确定（超时/网络/合成后失败）挂起；配置错误或明确拒绝则释放 */
-    if (err && err.name === 'TtsError' && err.kind === 'inconclusive') {
-      await holdBudget(env, budget.holdId, 'tts', maxMicro, err.message);
+    if (err?.name === 'TtsError' && ['config', 'rejected'].includes(err.kind)) {
+      await releaseBudget(env, budget);
     } else {
-      await releaseBudget(env, maxMicro);
+      await holdBudget(env, budget, '语音请求或本地结算结果无法确认');
     }
-    await releaseSlot(env, account.id, 'tts', reservation);
+    if (reservation) await releaseSlot(env, account.id, 'tts', reservation);
     return jerr(502, '站方语音暂不可用，已使用系统朗读', headers);
   }
 }
@@ -381,6 +394,32 @@ function costHeaders(cost, reservation) {
 
 function adminTokenOf(request) {
   return request.headers.get('X-Admin-Token') || '';
+}
+
+async function handleAdminBudget(request, env, headers, ctx, resolve) {
+  if (!isAdmin(env, adminTokenOf(request))) return jerr(403, '管理员密钥无效', headers);
+  if (!env.DB) return jerr(503, '预算服务未配置', headers);
+  if (!resolve) return jbody(200, { holds: await listBudgetHolds(env) }, headers);
+  if (request.method !== 'POST') return jerr(405, '请使用 POST', headers);
+  const input = await readJson(request);
+  const result = await resolveHold(env, input?.holdId ?? '', input?.decision, input?.actualMicro);
+  if (!result.ok) return jerr(result.status, result.message, headers);
+  if (result.cost.alert) scheduleCostWarning(env, ctx, result.cost);
+  return jbody(200, result, headers);
+}
+
+async function handleAdminAlertRetry(request, env, headers) {
+  if (!isAdmin(env, adminTokenOf(request))) return jerr(403, '管理员密钥无效', headers);
+  if (!env.DB) return jerr(503, '预算服务未配置', headers);
+  if (request.method !== 'POST') return jerr(405, '请使用 POST', headers);
+  const cost = await getBudgetCost(env);
+  if (!cost.alert) return jbody(200, { pending: false }, headers);
+  try {
+    const result = await sendCostWarning(env, cost);
+    return jbody(200, { pending: true, simulated: result.simulated }, headers);
+  } catch (_) {
+    return jerr(502, '提醒尚未发出，请检查发件和收件配置后再试', headers);
+  }
 }
 async function handleAdminAccounts(request, env, headers) {
   if (!env.DB) return jerr(500, '账号服务未配置', headers);
@@ -413,48 +452,6 @@ async function handleAdminStatus(request, env, headers) {
 }
 
 /* ---------- 旧匿名 DeepSeek（无 D1 时） ---------- */
-
-async function handleTextLegacy(request, env, ctx, headers) {
-  if (!env.DEEPSEEK_API_KEY) return jerr(500, 'DEEPSEEK_API_KEY 未配置', headers);
-  const input = await readJson(request);
-  if (!input || !Array.isArray(input.messages) || !input.messages.length) {
-    return jerr(400, '缺少 messages', headers);
-  }
-  if (JSON.stringify(input.messages).length > MAX_BODY_CHARS) {
-    return jerr(413, '输入过长，请缩短后再试', headers);
-  }
-  const device = deviceIdOf(request);
-  const m = await meter(env, ctx, device, 'text');
-  if (m.blocked) return jerr(429, '请求太频繁，稍后再试', { ...headers, 'Retry-After': String(m.retryAfter || 20) });
-
-  let model = MODEL_WHITELIST.includes(input.model) ? input.model : MODEL_WHITELIST[0];
-  if (env.DEEPSEEK_MODEL) model = env.DEEPSEEK_MODEL;
-  const upstreamBody = {
-    model,
-    temperature: typeof input.temperature === 'number' ? input.temperature : 0.85,
-    messages: input.messages
-  };
-  if (input.max_tokens) upstreamBody.max_tokens = input.max_tokens;
-  if (input.response_format) upstreamBody.response_format = input.response_format;
-
-  const upstream = await fetch(DEEPSEEK_UPSTREAM + '/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + env.DEEPSEEK_API_KEY },
-    body: JSON.stringify(upstreamBody)
-  });
-  const body = await upstream.text();
-  return new Response(body, {
-    status: upstream.status,
-    headers: {
-      ...headers,
-      'Content-Type': upstream.headers.get('Content-Type') || 'application/json',
-      'X-Relay-Tier': m.tier || 'free',
-      'X-Relay-Daily-Count': String(m.daily || 0),
-      'X-Relay-Daily-Limit': String(m.limit || 0),
-      'X-Relay-Degraded': m.degraded ? '1' : '0'
-    }
-  });
-}
 
 /* ================= 图片 relay：Openverse → Pixabay → Seedream 接力 ================= */
 const IMG_TIMEOUT = 8000;

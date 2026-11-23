@@ -22,11 +22,12 @@ export function beijingMonth(date = new Date()) {
   return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1);
 }
 
-/* DeepSeek 高峰时段：工作日（周一至周五）9:00-12:00、14:00-16:00（北京时间）；周末全天闲时 */
+/* DeepSeek 高峰时段：北京时间周一至周五 9:00–12:00、14:00–18:00。
+ * 法定节假日的优惠按官方账单核对，本机账本不低估这几天的成本。 */
 export function isPeakHour(date = new Date()) {
   const d = shifted(date);
   const weekday = d.getUTCDay(); // 0=周日，6=周六
   if (weekday === 0 || weekday === 6) return false;
   const hour = d.getUTCHours();
-  return (hour >= 9 && hour < 12) || (hour >= 14 && hour < 16);
+  return (hour >= 9 && hour < 12) || (hour >= 14 && hour < 18);
 }

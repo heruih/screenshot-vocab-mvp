@@ -36,6 +36,13 @@
 
 另需浏览器/Node 人工核对（已做）：完整备份导出不含、导入忽略 `english-notes-account-v1`；生产缺邮件配置返回 500、仅 `ALLOW_DEV_AUTH=1` 回传验证码；管理页无内联 onclick、邮箱纯文本、按钮事件绑定。
 
+### 预算升级与发布顺序
+
+- 空库用 `relay/entitlements/schema.sql` 初始化。现有库先检查 `PRAGMA table_info(monthly_cost)`，回退点备妥后，只在缺少 `reserved_micro` 时按版本执行一次 `relay/entitlements/migrations/001-budget-reservations.sql`。检查历史金额、加练包和账号保留、已有月账新增列为 0，并确认 `budget_hold` 存在。列已存在的环境按现状检查新表，跳过重复加列。
+- 先迁移，再部署引用新列的 Worker。此次迁移只新增列和表。需要回退时保留记录和新增结构，复查付费模式和当月费用后再决定是否恢复服务。
+- 正式服务先核对站方提醒收件配置 `ALERT_EMAIL`、发件配置和用户验证码收件。在隔离环境用模拟请求跨提醒线，并验证管理员「重试本月费用提醒」、两次核对同一记录、跨月记回预留账期。
+- 最后验证 iPhone 上的登录、手动开通、新语音和失败后系统朗读。任何真实付费验证先由 Simon 确定预算。
+
 ## 发版前跑（30 分钟内）
 
 - [ ] 上面全部

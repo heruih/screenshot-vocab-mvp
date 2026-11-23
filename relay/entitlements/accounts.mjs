@@ -1,6 +1,6 @@
 /* ============ 账号 / 验证码 / 会话 ============
  * 验证码与会话用 KV（带 TTL 自动过期），长期账号资料用 D1。
- * 真机配置了 RESEND_API_KEY 就真发邮件；未配置时返回 devCode，仅供本地/测试。
+ * 生产必须真实发信；模拟环境须显式启用测试验证码。
  * ============================================ */
 
 import { sendCodeEmail } from './mailer.mjs';
@@ -31,6 +31,11 @@ function randomToken() {
 /* 请求发送验证码 */
 export async function requestCode(env, email) {
   const kv = env.RELAY_KV;
+  if (!kv) return { ok: false, status: 503, message: '登录服务暂不可用' };
+  const allowDevCode = env.BILLING_MODE !== 'live' && String(env.ALLOW_DEV_AUTH) === '1';
+  if (!env.RESEND_API_KEY && !allowDevCode) {
+    return { ok: false, status: 500, message: '邮件服务未配置，暂时无法发送验证码' };
+  }
   if (kv) {
     const last = parseInt((await kv.get('coderate:' + email)) || '0', 10) || 0;
     if (last && Date.now() - last < RESEND_INTERVAL * 1000) {
@@ -44,16 +49,14 @@ export async function requestCode(env, email) {
     await kv.put('coderate:' + email, String(Date.now()), { expirationTtl: RESEND_INTERVAL });
   }
 
-  if (env.RESEND_API_KEY) {
+  if (!env.RESEND_API_KEY) return { ok: true, simulate: true, devCode: code };
+  try {
     await sendCodeEmail(env, email, code);
-    return { ok: true };
+  } catch (_) {
+    await Promise.all([kv.delete('code:' + email), kv.delete('coderate:' + email)]);
+    return { ok: false, status: 502, message: '验证码发送失败，请稍后重试' };
   }
-  /* 生产环境必须能真实发邮件；只有显式打开隔离测试开关 ALLOW_DEV_AUTH 时才回传验证码，
-   * 确保验证码不会在正式环境泄露到响应里。 */
-  if (String(env.ALLOW_DEV_AUTH) === '1') {
-    return { ok: true, simulate: true, devCode: code };
-  }
-  return { ok: false, status: 500, message: '邮件服务未配置，暂时无法发送验证码' };
+  return { ok: true };
 }
 
 /* 校验验证码，建立/取回账号并签发会话 */

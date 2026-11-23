@@ -21,8 +21,14 @@ function pricingFor(env) {
   try {
     const raw = env.PRICING ? JSON.parse(env.PRICING) : null;
     if (raw) {
-      if (raw.deepseek) Object.assign(p.deepseek, raw.deepseek);
-      if (raw.cosyvoice) Object.assign(p.cosyvoice, raw.cosyvoice);
+      for (const category of ['inputMiss', 'inputHit', 'output']) {
+        for (const tier of ['peak', 'off']) {
+          const value = raw.deepseek?.[category]?.[tier];
+          if (typeof value === 'number' && Number.isFinite(value) && value > 0) p.deepseek[category][tier] = value;
+        }
+      }
+      const voiceRate = raw.cosyvoice?.per10kChars;
+      if (typeof voiceRate === 'number' && Number.isFinite(voiceRate) && voiceRate > 0) p.cosyvoice.per10kChars = voiceRate;
     }
   } catch (_) {}
   return p;
@@ -52,18 +58,19 @@ export function cosyvoiceMicro(env, characters) {
   return Math.max(0, Math.round(yuan * MICRO_PER_YUAN));
 }
 
-/* DeepSeek 单笔"最高可能成本"（微元），用于调用前原子预留。
- * 输入按字符数保守上界（每字符最多 1 token），输出按 max_tokens 或默认 2048，
- * 一律取高峰、输入未命中（最贵）口径。预留偏大，结算时按实际用量退回差额。 */
 const DEFAULT_MAX_OUTPUT_TOKENS = 2048;
+
+export function deepseekOutputLimit(input) {
+  const asked = input?.max_tokens;
+  return Number.isSafeInteger(asked) && asked > 0 ? Math.min(asked, 8192) : DEFAULT_MAX_OUTPUT_TOKENS;
+}
+
+/* 按 UTF-8 字节及聊天模板开销保守预留。输出上限必须与发给上游的参数一致。 */
 export function maxDeepseekMicro(env, input) {
   const p = pricingFor(env).deepseek;
-  const chars = Array.from(JSON.stringify(input?.messages || '')).length;
-  const maxInTokens = chars;
-  const asked = Number(input?.max_tokens);
-  const maxOutTokens = asked > 0 ? asked : DEFAULT_MAX_OUTPUT_TOKENS;
-  const yuan =
-    (maxInTokens / 1_000_000) * p.inputMiss.peak +
-    (maxOutTokens / 1_000_000) * p.output.peak;
-  return Math.max(1, Math.round(yuan * MICRO_PER_YUAN));
+  const messageBytes = new TextEncoder().encode(JSON.stringify(input.messages)).length;
+  const maxInTokens = messageBytes + 32 * input.messages.length + 256;
+  const inputRate = Math.max(...Object.values(p.inputMiss), ...Object.values(p.inputHit));
+  const outputRate = Math.max(...Object.values(p.output));
+  return Math.ceil(maxInTokens * inputRate + deepseekOutputLimit(input) * outputRate);
 }

@@ -8,11 +8,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
+import { Script } from 'node:vm';
 import worker from '../relay/english-notes-relay-worker.js';
 import {
-  reserveBudget, releaseBudget, holdBudget, resolveHold, getStatus as billingGetStatus
+  reserveBudget, releaseBudget, settleBudget, holdBudget, resolveHold, getStatus as billingGetStatus
 } from '../relay/entitlements/billing.mjs';
 import { notifyOwner } from '../relay/entitlements/notify.mjs';
+import { isPeakHour } from '../relay/entitlements/time.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const schemaSql = fs.readFileSync(path.join(root, 'relay/entitlements/schema.sql'), 'utf8');
@@ -42,6 +44,17 @@ function createKV() {
 /* ---------- D1 mock（真实 SQLite） ---------- */
 function createD1(sqlite) {
   return {
+    async batch(statements) {
+      sqlite.exec('BEGIN');
+      try {
+        const results = statements.map(statement => statement.run());
+        sqlite.exec('COMMIT');
+        return results;
+      } catch (error) {
+        sqlite.exec('ROLLBACK');
+        throw error;
+      }
+    },
     prepare(sql) {
       const stmt = sqlite.prepare(sql);
       return {
@@ -296,13 +309,13 @@ setBeijing(2026, 11, 26, 10);
 
   const b1 = await reserveBudget(env, 'text', 50_000_000);
   check('预留成功', b1.ok === true);
-  await releaseBudget(env, 50_000_000);
+  await releaseBudget(env, b1);
   const s1 = await billingGetStatus(env, accId);
   check('确定失败释放后 reserved 归零、total 不变', s1.monthly.reservedMicro === 0 &&
     s1.monthly.totalMicro === 0, 'reserved=' + s1.monthly.reservedMicro);
 
   const b2 = await reserveBudget(env, 'tts', 50_000_000);
-  await holdBudget(env, b2.holdId, 'tts', 50_000_000, 'network timeout');
+  await holdBudget(env, b2, 'network timeout');
   const s2 = await billingGetStatus(env, accId);
   check('不确定挂起：reserved 保留 50、budget_hold 有 1 笔', s2.monthly.reservedMicro === 50_000_000 &&
     s2.monthly.heldCount === 1, 'reserved=' + s2.monthly.reservedMicro + ' held=' + s2.monthly.heldCount);
@@ -341,7 +354,9 @@ setBeijing(2026, 11, 30, 23);
   const env = makeEnv({ simMicro: 80_000_000 });
   const token = await activeUser(env, 'mm@example.com');
   const b = await reserveBudget(env, 'text', 80_000_000);
-  await holdBudget(env, b.holdId, 'text', 80_000_000, 'inconclusive before month end');
+  await holdBudget(env, b, 'inconclusive before month end');
+  const inFlight = await reserveBudget(env, 'tts', 60_000_000);
+  const monthEnd = new Date();
   check('月末挂起 80 成功', b.ok === true);
 
   setBeijing(2026, 12, 1, 10); // 跨月
@@ -351,6 +366,114 @@ setBeijing(2026, 11, 30, 23);
     JSON.stringify(st.data.entitlements.monthly));
   const r = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
   check('新月预算独立、请求放行 200', r.status === 200, 'got ' + r.status);
+  await settleBudget(env, inFlight, 50_000_000);
+  const admin = { 'X-Admin-Token': env.ADMIN_TOKEN };
+  const attempts = await Promise.all(Array.from({ length: 2 }, () => call(env, 'POST',
+    '/v1/admin/budget-holds/resolve', { holdId: b.holdId, decision: 'settled', actualMicro: 60_000_000 }, admin)));
+  check('并发核对同一笔只有一次结算', attempts.map(x => x.status).sort().join() === '200,409');
+  const previous = await billingGetStatus(env, st.data.account.id, monthEnd);
+  const current = await billingGetStatus(env, st.data.account.id);
+  check('月末预留和手动核对都记回旧月', previous.monthly.totalMicro === 110_000_000 &&
+    previous.monthly.reservedMicro === 0 && current.monthly.totalMicro === 80_000_000);
+}
+
+section('场景11：旧 D1 表升级');
+{
+  const legacy = new DatabaseSync(':memory:');
+  const baseline = schemaSql.split('-- 旧库迁移')[0].replace(/^\s*reserved_micro INTEGER.*\n/m, '');
+  legacy.exec(baseline);
+  legacy.exec("INSERT INTO accounts (id, email, status, created_at) VALUES (1, 'keep@example.test', 'active', 1); " +
+    "INSERT INTO grants (account_id,kind,amount,remaining,created_at) VALUES (1,'text',4,2,1); " +
+    "INSERT INTO monthly_cost (month,deepseek_micro,cosyvoice_micro,total_micro,alert_sent,updated_at) " +
+    "VALUES ('2026-12',40000000,0,40000000,0,1)");
+  legacy.exec(fs.readFileSync(path.join(root, 'relay/entitlements/migrations/001-budget-reservations.sql'), 'utf8'));
+  const env = { DB: createD1(legacy) };
+  const stored = await billingGetStatus(env, 1);
+  check('旧费用和加练包保留，新预留为 0', stored.monthly.totalMicro === 40_000_000 &&
+    stored.monthly.reservedMicro === 0 && stored.limits.text.grantRemaining === 2);
+  const budget = await reserveBudget(env, 'text', 10_000_000);
+  await settleBudget(env, budget, 5_000_000);
+  const latest = await billingGetStatus(env, 1);
+  check('旧库升级后可预留与结算', latest.monthly.totalMicro === 45_000_000 &&
+    latest.monthly.reservedMicro === 0);
+}
+
+section('场景12：真实模式的模拟上游及额度回退');
+{
+  const env = makeEnv();
+  const token = await activeUser(env, 'provider@example.test');
+  env.BILLING_MODE = 'live';
+  env.COSYVOICE_WORKSPACE_ID = 'ws-fixture';
+  env.COSYVOICE_VOICE_ID = 'voice';
+  env.COSYVOICE_API_KEY = 'fixture';
+  env.DEEPSEEK_API_KEY = 'fixture';
+  const upstream = globalThis.fetch;
+  try {
+    let outputLimit;
+    globalThis.fetch = async (url, opts) => {
+      outputLimit = JSON.parse(opts.body).max_tokens;
+      return Response.json({ error: { message: 'mock rejection' } }, { status: 429 });
+    };
+    const rejected = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
+    const current = await call(env, 'GET', '/v1/me/status', null, auth(token));
+    check('DeepSeek 明确失败归还额度与费用预留', rejected.status === 429 &&
+      current.data.entitlements.limits.text.used === 0 && current.data.entitlements.monthly.reservedMicro === 0);
+    check('DeepSeek 缺省输出上限显式传给上游', outputLimit === 2048);
+
+    globalThis.fetch = async url => {
+      if (String(url).endsWith('SpeechSynthesizer')) return Response.json({
+        output: { audio: { url: 'https://example.oss-cn-beijing.aliyuncs.com/mock.mp3' } }
+      });
+      throw new TypeError('simulated downstream connection failure');
+    };
+    const failed = await call(env, 'POST', '/v1/tts/synthesize', { text: 'An English sentence.' }, auth(token));
+    const next = await call(env, 'GET', '/v1/me/status', null, auth(token));
+    check('语音下载失败退用户额度并保留预算', failed.status === 502 &&
+      next.data.entitlements.limits.tts.used === 0 && next.data.entitlements.monthly.heldCount === 1);
+    const denied = await call(env, 'POST', '/v1/admin/budget-holds', {});
+    const opened = await call(env, 'POST', '/v1/admin/budget-holds', {}, { 'X-Admin-Token': env.ADMIN_TOKEN });
+    check('仅管理员能读取待核对账单', denied.status === 403 && opened.data.holds.length === 1);
+    const login = await call(env, 'POST', '/v1/auth/request-code', { email: 'config@example.test' });
+    check('正式模式误开测试开关也不返回验证码', login.status === 500 && !login.data.devCode);
+  } finally {
+    globalThis.fetch = upstream;
+  }
+}
+
+section('场景13：提醒发送失败后可人工重试');
+{
+  const env = makeEnv();
+  env.BILLING_MODE = 'live';
+  env.RESEND_API_KEY = 'fixture';
+  env.ALERT_EMAIL = 'owner@example.test';
+  const budget = await reserveBudget(env, 'text', 100_000_000);
+  await settleBudget(env, budget, 100_000_000);
+  const admin = { 'X-Admin-Token': env.ADMIN_TOKEN };
+  const attempts = [];
+  const upstream = globalThis.fetch;
+  globalThis.fetch = async (_url, opts) => {
+    attempts.push(opts.headers['Idempotency-Key']);
+    return Response.json({}, { status: attempts.length === 1 ? 503 : 200 });
+  };
+  try {
+    const endpoint = '/v1/admin/budget-alert/retry';
+    const fail = await call(env, 'POST', endpoint, {}, admin);
+    const sent = await call(env, 'POST', endpoint, {}, admin);
+    const repeat = await call(env, 'POST', endpoint, {}, admin);
+    check('失败可重试，成功后不再重发', fail.status === 502 && sent.data.pending === true &&
+      sent.data.simulated === false && repeat.data.pending === false && attempts.length === 2);
+    check('同账期重试沿用发送去重标识', attempts[0] === 'cost-warn:2026-12' && attempts[1] === attempts[0]);
+  } finally {
+    globalThis.fetch = upstream;
+  }
+  const page = await call(env, 'GET', '/admin', null);
+  const script = page.data.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  check('后台脚本可解析并包含核对和重试入口', Boolean(script) && Boolean(new Script(script)) &&
+    page.data.includes('btnResolveBudget') && page.data.includes('btnRetryAlert'));
+  setBeijing(2026, 12, 1, 17, 30);
+  check('工作日 17:30 计入 DeepSeek 高峰', isPeakHour());
+  setBeijing(2026, 12, 1, 18);
+  check('工作日 18:00 起为闲时', !isPeakHour());
 }
 
 /* ---------- 汇总 ---------- */

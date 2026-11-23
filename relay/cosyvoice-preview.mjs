@@ -49,28 +49,30 @@ export async function synthesizeCosyVoice(text, { workspaceId, voiceId, apiKey }
     /* 超时 / 连接失败：是否已处理、是否计费都不确定 */
     throw new TtsError('inconclusive', 'speech request network error: ' + (err && err.message));
   }
-  if (!result.ok) throw new TtsError('rejected', 'speech provider rejected the request');
+  if (!result.ok) {
+    const kind = result.status >= 500 ? 'inconclusive' : 'rejected';
+    throw new TtsError(kind, 'speech provider rejected the request');
+  }
 
-  const payload = await result.json();
-  const audioUrl = new URL(payload?.output?.audio?.url);
-  if (!['http:', 'https:'].includes(audioUrl.protocol) ||
-      !audioUrl.hostname.endsWith('.oss-cn-beijing.aliyuncs.com') ||
-      audioUrl.username || audioUrl.password || audioUrl.port) {
-    /* 合成请求已成功（可能已计费），仅返回地址未通过安全校验，按不确定挂起 */
-    throw new TtsError('inconclusive', 'speech provider returned an unexpected audio URL');
+  try {
+    const payload = await result.json();
+    const audioUrl = new URL(payload?.output?.audio?.url);
+    if (!['http:', 'https:'].includes(audioUrl.protocol) ||
+        !audioUrl.hostname.endsWith('.oss-cn-beijing.aliyuncs.com') ||
+        audioUrl.username || audioUrl.password || audioUrl.port) {
+      throw new Error('unexpected audio URL');
+    }
+    audioUrl.protocol = 'https:';
+    const audio = await fetcher(audioUrl, { signal, redirect: 'error' });
+    if (!audio.ok || Number(audio.headers.get('content-length')) > MAX_AUDIO_BYTES) {
+      throw new Error('speech audio download failed');
+    }
+    const bytes = new Uint8Array(await audio.arrayBuffer());
+    if (!bytes.length || bytes.length > MAX_AUDIO_BYTES) throw new Error('invalid speech audio size');
+    const characters = payload.usage?.characters;
+    if (!Number.isSafeInteger(characters) || characters <= 0) throw new Error('speech usage was not reported');
+    return { bytes, characters };
+  } catch (_) {
+    throw new TtsError('inconclusive', 'speech was accepted but its result could not be confirmed');
   }
-  audioUrl.protocol = 'https:';
-  const audio = await fetcher(audioUrl, { signal, redirect: 'error' });
-  if (!audio.ok || Number(audio.headers.get('content-length')) > MAX_AUDIO_BYTES) {
-    throw new TtsError('inconclusive', 'speech audio download failed');
-  }
-  const bytes = new Uint8Array(await audio.arrayBuffer());
-  if (!bytes.length || bytes.length > MAX_AUDIO_BYTES) {
-    throw new TtsError('inconclusive', 'invalid speech audio size');
-  }
-  const characters = payload.usage?.characters;
-  if (!Number.isSafeInteger(characters) || characters <= 0) {
-    throw new TtsError('inconclusive', 'speech usage was not reported');
-  }
-  return { bytes, characters };
 }

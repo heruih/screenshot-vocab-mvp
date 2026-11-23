@@ -43,110 +43,106 @@ async function ensureMonthlyRow(db, month) {
   return db.prepare('SELECT * FROM monthly_cost WHERE month = ?').bind(month).first();
 }
 
-/* 是否已达月度封顶（含在途预留）。返回 true 时付费功能必须停。 */
-export async function isCapped(env, now = new Date()) {
-  const month = beijingMonth(now);
-  const row = await ensureMonthlyRow(env.DB, month);
-  return row.total_micro + row.reserved_micro >= config(env).capMicro;
-}
-
 /* 调用前原子预留站方预算。仅当 total + reserved + max <= cap 时才自增，changes=1 即成功。
  * 返回 {ok, holdId, month, maxMicro}；ok=false 表示预算不足，调用方应直接 402，不调上游。 */
 export async function reserveBudget(env, service, maxMicro, now = new Date()) {
+  if (!Number.isSafeInteger(maxMicro) || maxMicro < 0) throw new Error('Invalid budget reservation');
   const db = env.DB;
   const month = beijingMonth(now);
   await ensureMonthlyRow(db, month);
   const cap = config(env).capMicro;
   const holdId = crypto.randomUUID();
-  const upd = await db.prepare(
+  const at = Date.now();
+  const [upd] = await db.batch([db.prepare(
     'UPDATE monthly_cost SET reserved_micro = reserved_micro + ?, updated_at = ? ' +
     'WHERE month = ? AND total_micro + reserved_micro + ? <= ?'
-  ).bind(maxMicro, Date.now(), month, maxMicro, cap).run();
+  ).bind(maxMicro, at, month, maxMicro, cap), db.prepare(
+    'INSERT INTO budget_hold (id, month, service, max_micro, status, created_at, updated_at) ' +
+    "SELECT ?, ?, ?, ?, 'reserved', ?, ? WHERE changes() = 1"
+  ).bind(holdId, month, service, maxMicro, at, at)]);
   if (upd.meta.changes !== 1) return { ok: false, holdId: null, month, maxMicro };
-  return { ok: true, holdId, month, maxMicro };
+  return { ok: true, holdId, month, service, maxMicro };
 }
 
-/* 调用成功后原子结算：reserved 减回最高预留，total 与分服务列按实际成本自增。
- * 用 CASE 原子翻转 alert_sent；返回是否首次跨过 100 元提醒线。 */
-export async function settleBudget(env, service, maxMicro, actualMicro, now = new Date()) {
+/* 同一事务更新请求状态和月账。重试或并发核对只能结算一次，账期沿用预留时的月份。 */
+async function finishBudget(env, budget, expectedStatus, finalStatus, actualMicro) {
+  if (!Number.isSafeInteger(actualMicro) || actualMicro < 0) throw new Error('Invalid billed amount');
   const db = env.DB;
-  const month = beijingMonth(now);
+  const { holdId, month, service, maxMicro } = budget;
+  const serviceColumn = service === 'text' ? 'deepseek_micro' : 'cosyvoice_micro';
+  const at = Date.now();
+  const [updated] = await db.batch([
+    db.prepare(
+      'UPDATE monthly_cost SET reserved_micro = reserved_micro - ?, total_micro = total_micro + ?, ' +
+      serviceColumn + ' = ' + serviceColumn + ' + ?, updated_at = ? ' +
+      'WHERE month = ? AND reserved_micro >= ? AND EXISTS ' +
+      '(SELECT 1 FROM budget_hold WHERE id = ? AND month = ? AND status = ?)'
+    ).bind(maxMicro, actualMicro, actualMicro, at, month, maxMicro, holdId, month, expectedStatus),
+    db.prepare(
+      'UPDATE budget_hold SET status = ?, updated_at = ? WHERE id = ? AND status = ? AND changes() = 1'
+    ).bind(finalStatus, at, holdId, expectedStatus)
+  ]);
+  if (updated.meta.changes !== 1) return null;
+  return getBudgetCost(env, month);
+}
+
+export async function getBudgetCost(env, month = beijingMonth()) {
+  const row = await env.DB.prepare('SELECT * FROM monthly_cost WHERE month = ?').bind(month).first();
   const cfg = config(env);
-  const before = await ensureMonthlyRow(db, month);
-  const wasAlert = before.alert_sent;
+  const total = row?.total_micro ?? 0;
+  return { alert: !row?.alert_sent && total >= cfg.warnMicro, total,
+    reserved: row?.reserved_micro ?? 0, month, warnMicro: cfg.warnMicro, capMicro: cfg.capMicro };
+}
 
-  if (service === 'text') {
-    await db.prepare(
-      'UPDATE monthly_cost SET reserved_micro = MAX(0, reserved_micro - ?), ' +
-      'total_micro = total_micro + ?, deepseek_micro = deepseek_micro + ?, ' +
-      'alert_sent = CASE WHEN total_micro + ? >= ? THEN 1 ELSE alert_sent END, ' +
-      'updated_at = ? WHERE month = ?'
-    ).bind(maxMicro, actualMicro, actualMicro, actualMicro, cfg.warnMicro, Date.now(), month).run();
-  } else {
-    await db.prepare(
-      'UPDATE monthly_cost SET reserved_micro = MAX(0, reserved_micro - ?), ' +
-      'total_micro = total_micro + ?, cosyvoice_micro = cosyvoice_micro + ?, ' +
-      'alert_sent = CASE WHEN total_micro + ? >= ? THEN 1 ELSE alert_sent END, ' +
-      'updated_at = ? WHERE month = ?'
-    ).bind(maxMicro, actualMicro, actualMicro, actualMicro, cfg.warnMicro, Date.now(), month).run();
-  }
+export async function settleBudget(env, budget, actualMicro) {
+  const cost = await finishBudget(env, budget, 'reserved', 'settled', actualMicro);
+  if (!cost) throw new Error('Budget reservation is not open');
+  return cost;
+}
 
-  const row = await ensureMonthlyRow(db, month);
-  const alert = !wasAlert && row.total_micro >= cfg.warnMicro;
-  return { alert, total: row.total_micro, reserved: row.reserved_micro, month: row.month };
+export async function markCostAlertSent(env, month) {
+  await env.DB.prepare('UPDATE monthly_cost SET alert_sent = 1 WHERE month = ?').bind(month).run();
 }
 
 /* 确定失败（上游明确报错、确定未扣费）：原子释放预留，不增加已结算成本。 */
-export async function releaseBudget(env, maxMicro, now = new Date()) {
-  const db = env.DB;
-  const month = beijingMonth(now);
-  await db.prepare(
-    'UPDATE monthly_cost SET reserved_micro = MAX(0, reserved_micro - ?), updated_at = ? WHERE month = ?'
-  ).bind(maxMicro, Date.now(), month).run();
+export async function releaseBudget(env, budget) {
+  return finishBudget(env, budget, 'reserved', 'released', 0);
 }
 
 /* 结果不确定（超时/网络异常，上游可能已扣费）：预留继续挂在 reserved_micro，
  * 同时写 budget_hold 留痕，等人工核对后再 resolveHold。用户练习名额另行归还。 */
-export async function holdBudget(env, holdId, service, maxMicro, reason, now = new Date()) {
-  const db = env.DB;
-  const month = beijingMonth(now);
-  await db.prepare(
-    'INSERT INTO budget_hold (id, month, service, max_micro, status, reason, created_at, updated_at) ' +
-    "VALUES (?, ?, ?, ?, 'held', ?, ?, ?)"
-  ).bind(holdId, month, service, maxMicro, reason || '', Date.now(), Date.now()).run();
-  return { holdId, month, maxMicro };
+export async function holdBudget(env, budget, reason) {
+  await env.DB.prepare(
+    "UPDATE budget_hold SET status = 'held', reason = ?, updated_at = ? WHERE id = ? AND status = 'reserved'"
+  ).bind(reason, Date.now(), budget.holdId).run();
 }
 
 /* 人工核对一笔挂起预留：decision='settled' 按 actualMicro 转结算；'released' 全额释放。 */
-export async function resolveHold(env, holdId, decision, actualMicro = 0, now = new Date()) {
+const STALE_RESERVATION_MS = 15 * 60 * 1000;
+
+export async function listBudgetHolds(env) {
+  const result = await env.DB.prepare(
+    "SELECT * FROM budget_hold WHERE status = 'held' OR (status = 'reserved' AND updated_at <= ?) " +
+    'ORDER BY created_at LIMIT 100'
+  ).bind(Date.now() - STALE_RESERVATION_MS).all();
+  return result.results;
+}
+
+export async function resolveHold(env, holdId, decision, actualMicro = 0) {
+  if (!['settled', 'released'].includes(decision)) {
+    return { ok: false, status: 400, message: '请选择结算或释放' };
+  }
   const held = await env.DB.prepare('SELECT * FROM budget_hold WHERE id = ?').bind(holdId).first();
   if (!held) return { ok: false, status: 404, message: '没有这笔待核对记录' };
-  if (held.status !== 'held') return { ok: false, status: 409, message: '该记录已核对过' };
-  const month = beijingMonth(now);
-  if (decision === 'settled') {
-    const actual = Math.max(0, Math.min(held.max_micro, parseInt(actualMicro, 10) || 0));
-    if (held.service === 'text') {
-      await env.DB.prepare(
-        'UPDATE monthly_cost SET reserved_micro = MAX(0, reserved_micro - ?), ' +
-        'total_micro = total_micro + ?, deepseek_micro = deepseek_micro + ?, updated_at = ? WHERE month = ?'
-      ).bind(held.max_micro, actual, actual, Date.now(), month).run();
-    } else {
-      await env.DB.prepare(
-        'UPDATE monthly_cost SET reserved_micro = MAX(0, reserved_micro - ?), ' +
-        'total_micro = total_micro + ?, cosyvoice_micro = cosyvoice_micro + ?, updated_at = ? WHERE month = ?'
-      ).bind(held.max_micro, actual, actual, Date.now(), month).run();
-    }
-  } else if (decision === 'released') {
-    await env.DB.prepare(
-      'UPDATE monthly_cost SET reserved_micro = MAX(0, reserved_micro - ?), updated_at = ? WHERE month = ?'
-    ).bind(held.max_micro, Date.now(), month).run();
-  } else {
-    return { ok: false, status: 400, message: "decision 必须是 settled 或 released" };
+  const stale = held.status === 'reserved' && held.updated_at <= Date.now() - STALE_RESERVATION_MS;
+  if (held.status !== 'held' && !stale) return { ok: false, status: 409, message: '该记录不可核对或已核对' };
+  if (decision === 'settled' && (!Number.isSafeInteger(actualMicro) || actualMicro <= 0)) {
+    return { ok: false, status: 400, message: '实际费用须为正整数微元' };
   }
-  await env.DB.prepare(
-    "UPDATE budget_hold SET status = ?, updated_at = ? WHERE id = ?"
-  ).bind(decision === 'settled' ? 'settled' : 'released', Date.now(), holdId).run();
-  return { ok: true, decision, month };
+  const budget = { holdId, month: held.month, service: held.service, maxMicro: held.max_micro };
+  const cost = await finishBudget(env, budget, held.status, decision, decision === 'settled' ? actualMicro : 0);
+  if (!cost) return { ok: false, status: 409, message: '该记录已核对过' };
+  return { ok: true, decision, month: held.month, cost };
 }
 
 /* ---------- 每日用量（原子计数器） ---------- */

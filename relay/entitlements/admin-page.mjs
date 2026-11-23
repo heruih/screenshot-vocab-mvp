@@ -68,6 +68,21 @@ export function renderAdminPage() {
 
 <div id="msg"></div>
 
+<div class="card">
+  <h2 style="margin-top:0">站方费用</h2>
+  <button id="btnBudgetList" type="button">刷新待核对记录</button>
+  <button id="btnRetryAlert" type="button">重试本月费用提醒</button>
+  <div id="budgetHolds" class="meta" aria-live="polite"></div>
+  <label for="holdId">待核对记录编号</label>
+  <input id="holdId" type="text" autocomplete="off">
+  <label for="holdDecision">核对结果</label>
+  <select id="holdDecision"><option value="settled">已扣费，按实际金额结算</option><option value="released">确认未扣费，释放预留</option></select>
+  <label for="holdActual">实际扣费（元，已扣费时填写）</label>
+  <input id="holdActual" type="number" min="0.000001" step="0.000001" inputmode="decimal">
+  <button id="btnResolveBudget" type="button">保存核对结果</button>
+  <div id="budgetMessage" class="meta" aria-live="polite"></div>
+</div>
+
 <script>
 function setMsg(t, ok){ var el=document.getElementById('msg'); el.textContent=t;
   el.className = ok ? 'ok' : 'err'; }
@@ -140,8 +155,59 @@ async function doGrant(){
   } catch (e) { setMsg(e.message, false); }
 }
 
+function budgetMsg(text){ document.getElementById('budgetMessage').textContent = text; }
+
+async function loadBudgetHolds(){
+  try {
+    var data = await api('/v1/admin/budget-holds');
+    var list = document.getElementById('budgetHolds');
+    list.textContent = data.holds.length ? '' : '没有待核对记录。';
+    data.holds.forEach(function(hold){
+      var row = document.createElement('div');
+      row.className = 'row';
+      var info = document.createElement('span');
+      info.textContent = hold.month + ' · ' + (hold.service === 'text' ? 'DeepSeek' : 'CosyVoice') +
+        ' · 预留 ¥' + (hold.max_micro / 1000000).toFixed(6) + ' · ' + hold.id;
+      var select = document.createElement('button');
+      select.type = 'button';
+      select.className = 'ghost';
+      select.textContent = '选中';
+      select.addEventListener('click', function(){ document.getElementById('holdId').value = hold.id; });
+      row.append(info, select);
+      list.appendChild(row);
+    });
+  } catch (e) { budgetMsg(e.message); }
+}
+
+async function resolveBudgetHold(){
+  try {
+    var decision = document.getElementById('holdDecision').value;
+    var holdId = document.getElementById('holdId').value.trim();
+    var actual = Number(document.getElementById('holdActual').value);
+    if (!holdId || (decision === 'settled' && (!Number.isFinite(actual) || actual <= 0))) {
+      return budgetMsg('请选择记录，已扣费时填入实际金额。');
+    }
+    await api('/v1/admin/budget-holds/resolve', { holdId: holdId, decision: decision,
+      actualMicro: decision === 'settled' ? Math.round(actual * 1000000) : 0 });
+    budgetMsg('已保存核对结果。');
+    document.getElementById('holdId').value = '';
+    document.getElementById('holdActual').value = '';
+    await loadBudgetHolds();
+  } catch (e) { budgetMsg(e.message); }
+}
+
+async function retryBudgetAlert(){
+  try {
+    var result = await api('/v1/admin/budget-alert/retry');
+    budgetMsg(!result.pending ? '本月没有待发提醒。' : result.simulated ? '已记录模拟提醒。' : '提醒已提交发送。');
+  } catch (e) { budgetMsg(e.message); }
+}
+
 document.getElementById('btnEnter').addEventListener('click', loadAccounts);
 document.getElementById('btnGrant').addEventListener('click', doGrant);
+document.getElementById('btnBudgetList').addEventListener('click', loadBudgetHolds);
+document.getElementById('btnResolveBudget').addEventListener('click', resolveBudgetHold);
+document.getElementById('btnRetryAlert').addEventListener('click', retryBudgetAlert);
 </script>
 </body>
 </html>`;
