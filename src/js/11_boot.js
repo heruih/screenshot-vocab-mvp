@@ -17,6 +17,7 @@ try{ applyLookPrefs(); }catch(e){ console.error('外观偏好应用失败',e); }
 if(!localStorage.getItem(LS_KEY)) save();
 try{bindEvents();}catch(e){console.error('界面事件绑定失败',e);}
 try{personaBind();}catch(e){console.error('学习身份绑定失败',e);}
+try{onboardingInit();}catch(e){console.error('新手引导初始化失败',e);}
 try{initFeedback();}catch(e){console.error('意见反馈初始化失败',e);}
 try{bindSideSwipe();}catch(e){console.error('侧滑绑定失败',e);}
 try{bindPageSwipe();}catch(e){console.error('页面左右滑绑定失败',e);}

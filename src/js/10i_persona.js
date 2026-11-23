@@ -63,6 +63,7 @@ function personaBind(){
       personaSet(btn.getAttribute('data-persona'));
       closePersona();
       try{ render(); }catch(_){}
+      try{ onboardingOpen(); }catch(_){}
     });
   });
   const skip=$('#personaSkip');
@@ -70,6 +71,7 @@ function personaBind(){
     personaSet(PERSONA_FREE);   /* 跳过按自由派处理，并记住不再弹 */
     closePersona();
     try{ render(); }catch(_){}
+    try{ onboardingOpen(); }catch(_){}
   });
   document.querySelectorAll('.persona-pick').forEach(btn=>{
     btn.addEventListener('click',()=>{

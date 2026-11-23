@@ -1890,3 +1890,33 @@ body.drag-select #noteBody .en-word.sel-pick{
 .persona-pick.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-fg)}
 .persona-pick:active{transform:scale(.98)}
 .st-note{font-size:12.5px;line-height:1.55;color:var(--text2);margin:10px 2px 2px}
+
+/* ============ 新手引导（onboarding） ============ */
+.ob-modal{z-index:1200;align-items:center;background:rgba(0,0,0,.72)}
+.ob-card{
+  position:relative;width:min(92vw,460px);
+  background:var(--s2);border:1px solid var(--line);border-radius:22px;
+  padding:26px 24px calc(22px + env(safe-area-inset-bottom,0));
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  box-shadow:var(--shadow-lg);
+  transform:translateY(16px) scale(.98);transition:transform .25s ease;
+}
+.ob-modal.show .ob-card{transform:none}
+.ob-skip{position:absolute;top:14px;right:16px;font-size:14px;color:var(--text2);padding:6px 10px;border-radius:10px}
+.ob-skip:active{background:var(--s5);color:var(--text)}
+.ob-hero{
+  width:96px;height:96px;border-radius:28px;margin:26px 0 22px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--accent-soft);color:var(--accent-fg);
+}
+.ob-hero svg{width:46px;height:46px}
+.ob-title{font-size:22px;font-weight:800;color:var(--text);margin:0 0 10px}
+.ob-text{font-size:15.5px;line-height:1.6;color:var(--text2);margin:0;max-width:320px}
+.ob-dots{display:flex;gap:8px;margin:26px 0 20px}
+.ob-dot{width:8px;height:8px;border-radius:50%;background:var(--s5);transition:width .2s ease,background .2s ease}
+.ob-dot.active{width:22px;border-radius:5px;background:var(--accent)}
+.ob-actions{display:flex;align-items:center;gap:12px;width:100%}
+.ob-back{flex:0 0 auto;font-size:15px;font-weight:600;color:var(--text2);padding:13px 14px;border-radius:14px;min-width:74px}
+.ob-back:active{background:var(--s5)}
+.ob-next{flex:1;font-size:16px;font-weight:700;color:#fff;background:var(--accent);border-radius:14px;padding:14px 16px}
+.ob-next:active{transform:scale(.98)}
