@@ -34,8 +34,7 @@ if (!html.includes('cosyVoicePreview:true')) throw new Error('先运行 node scr
 const instrumentation = '<script>const previewOriginalPlay=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){this.addEventListener("playing",()=>{document.documentElement.dataset.previewRate=String(this.playbackRate);document.documentElement.dataset.previewPlays=String(Number(document.documentElement.dataset.previewPlays||0)+1)},{once:true});return previewOriginalPlay.call(this);};</script>';
 const previewHtml = args.includes('--inspect') ? html.replace('<head>', '<head>' + instrumentation) : html;
 const origin = `http://${host}:${port}`;
-const grant = randomBytes(24).toString('base64url');
-const cookie = `cosyvoice_preview=${grant}`;
+const grantedPath = `/listen/${randomBytes(24).toString('base64url')}/`;
 const types = new Map([
   ['.js', 'text/javascript; charset=utf-8'], ['.json', 'application/json'],
   ['.png', 'image/png'], ['.svg', 'image/svg+xml'], ['.jpg', 'image/jpeg'],
@@ -49,12 +48,12 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-async function previewSpeech(req, res) {
-  if (req.method !== 'POST' || req.headers.origin !== origin) {
+async function previewSpeech(req, res, granted) {
+  if (req.method !== 'POST' || (req.headers.origin && req.headers.origin !== origin)) {
     json(res, 403, { message: '预览请求无效' });
     return;
   }
-  if (!String(req.headers.cookie || '').split(/;\s*/).includes(cookie)) {
+  if (!granted) {
     json(res, 403, { message: '这个浏览器还未开通测试语音包' });
     return;
   }
@@ -93,29 +92,32 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   res.setHeader('Content-Security-Policy', "connect-src 'self'");
+  res.setHeader('Referrer-Policy', 'no-referrer');
   try {
     const url = new URL(req.url, origin);
-    if (url.pathname === '/preview-tts') {
-      await previewSpeech(req, res);
+    const granted = url.pathname.startsWith(grantedPath);
+    const previewPath = granted ? url.pathname.slice(grantedPath.length - 1) : url.pathname;
+    if (previewPath === '/preview-tts') {
+      await previewSpeech(req, res, granted);
       return;
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.writeHead(405).end();
       return;
     }
-    if (url.pathname === '/' && url.searchParams.get('grant') === grant) {
-      res.writeHead(303, { Location: '/', 'Set-Cookie': cookie + '; Path=/; HttpOnly; SameSite=Strict' }).end();
+    if (url.pathname === grantedPath.slice(0, -1)) {
+      res.writeHead(308, { Location: grantedPath }).end();
       return;
     }
-    if (url.pathname === '/preview-stats' && args.includes('--inspect') && req.socket.remoteAddress === '127.0.0.1') {
+    if (previewPath === '/preview-stats' && args.includes('--inspect') && req.socket.remoteAddress === '127.0.0.1') {
       json(res, 200, { requests, characters, upstreamCalls: 0 });
       return;
     }
-    if (url.pathname === '/' || url.pathname === '/index.html') {
+    if (previewPath === '/' || previewPath === '/index.html') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }).end(previewHtml);
       return;
     }
-    const asset = path.resolve(root, '.' + decodeURIComponent(url.pathname));
+    const asset = path.resolve(root, '.' + decodeURIComponent(previewPath));
     if (!asset.startsWith(root) || !types.has(path.extname(asset))) {
       res.writeHead(404).end();
       return;
@@ -129,6 +131,6 @@ const server = http.createServer(async (req, res) => {
 });
 server.listen(port, host, () => {
   console.log(`测试版 ${origin}/`);
-  console.log(`已开通 ${origin}/?grant=${grant}`);
+  console.log(`已开通 ${origin}${grantedPath}`);
 });
 setTimeout(() => server.close(), 2 * 60 * 60 * 1000).unref();
