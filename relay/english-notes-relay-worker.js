@@ -18,6 +18,10 @@ import { simulateText, simulateTts } from './entitlements/simulate.mjs';
 import { isAdmin, listAccounts, activate, grant, setStatus } from './entitlements/admin.mjs';
 import { renderAdminPage } from './entitlements/admin-page.mjs';
 import { isPeakHour } from './entitlements/time.mjs';
+import {
+  readDialogueReview, validateDialogueResult, claimDialogueReview, reserveDialogueUnits,
+  releaseDialogueReview, completeDialogueReview
+} from './entitlements/dialogue-review.mjs';
 import { synthesizeCosyVoice } from './cosyvoice-preview.mjs';
 
 const DEEPSEEK_UPSTREAM = 'https://api.deepseek.com';
@@ -153,6 +157,12 @@ export default {
     if (path === '/v1/chat/completions') {
       return handleTextEntitled(request, env, headers, ctx);
     }
+    if (path === '/v1/dialogue/review') {
+      const review = handleTextEntitled(request, env, { ...headers, 'Cache-Control': 'no-store' }, ctx, true);
+      // 浏览器断开后继续结算，原样重试即可领取同一份批改。
+      ctx.waitUntil(review.then(() => undefined, () => undefined));
+      return review;
+    }
 
     /* 管理员（需 D1） */
     if (path === '/v1/admin/accounts') return handleAdminAccounts(request, env, headers);
@@ -209,14 +219,18 @@ function publicAccount(acc) {
 
 /* ---------- 账号权益：DeepSeek 文本 ---------- */
 
-async function handleTextEntitled(request, env, headers, ctx) {
+async function handleTextEntitled(request, env, headers, ctx, isReview = false) {
+  if (request.method !== 'POST') return jerr(405, '请使用 POST', headers);
   if (!env.DB) return jerr(503, '预算服务暂不可用', headers);
   const account = await getSession(env, bearerToken(request));
   if (!account) return jerr(401, '请先登录', headers);
   if (account.status === 'disabled') return jerr(403, '账号已停用', headers);
   if (account.status !== 'active') return jerr(403, '邮箱已验证，等待站方开通', headers);
 
-  const input = await readJson(request);
+  const body = await readJson(request);
+  const review = isReview ? await readDialogueReview(body) : null;
+  if (isReview && !review) return jerr(400, '请提交 1–5 条非空练习答案', headers);
+  const input = review ? review.input : body;
   if (!input || !Array.isArray(input.messages) || !input.messages.length) {
     return jerr(400, '缺少 messages', headers);
   }
@@ -227,26 +241,42 @@ async function handleTextEntitled(request, env, headers, ctx) {
       (env.DEEPSEEK_MODEL && !FLASH_MODELS.includes(env.DEEPSEEK_MODEL)))) {
     return jerr(503, '站方 AI 服务暂不可用', headers);
   }
-  /* 1) 先按最高可能成本原子预留站方预算；失败即封顶，不调上游、不占用户名额 */
-  const fixedForMax = fixedSimMicro(env);
-  const maxMicro = fixedForMax !== null ? fixedForMax : maxDeepseekMicro(env, input);
-  const budget = await reserveBudget(env, 'text', maxMicro);
-  if (!budget.ok) {
-    return jerr(402, '站方本月服务额度已封顶，下月自动恢复；可填自己的 Key 继续', headers);
+  if (review) {
+    const claim = await claimDialogueReview(env.DB, account.id, review);
+    if (claim.result) return jbody(200, claim.result, headers);
+    if (!claim.claimed) return jerr(409, claim.error, headers);
   }
 
-  /* 2) 再原子占用户练习名额；没抢到就把刚预留的预算退掉 */
-  let reservation;
+  let budget, reservation;
+  let succeeded = false;
   try {
-    reservation = await reserveSlot(env, account.id, 'text');
-    if (reservation.source === 'none') {
-      await releaseBudget(env, budget);
-      return jerr(402, '今日免费句数已用完，可使用加练包或填自己的 Key', headers);
+    const fixed = fixedSimMicro(env);
+    budget = await reserveBudget(env, 'text', fixed ?? maxDeepseekMicro(env, input));
+    if (!budget.ok) {
+      return jerr(402, '站方本月服务额度已封顶，下月自动恢复', headers);
     }
+
+    if (review) {
+      if (!await reserveDialogueUnits(env, account.id, review)) {
+        await releaseBudget(env, budget);
+        budget = null;
+        return jerr(402, review.count === 1
+          ? '今日 10 句免费批改已用完。明天可继续，也可使用已开通的加练包。'
+          : '剩余批改额度不够批改整组答案，请减少句数后重试或使用加练包。', headers);
+      }
+    } else {
+      reservation = await reserveSlot(env, account.id, 'text_aux');
+      if (reservation.source === 'none') {
+        await releaseBudget(env, budget);
+        budget = null;
+        return jerr(429, '今日场景生成及其他 AI 文本操作已达到上限，已生成的场景仍可练习。', headers);
+      }
+    }
+
     let data, usage;
     const peak = isPeakHour();
     if (isSimulate(env)) {
-      const sim = simulateText(input);
+      const sim = simulateText(input, review?.count);
       data = sim.response; usage = sim.usage;
     } else {
       const r = await callDeepseekUpstream(env, input);
@@ -254,24 +284,35 @@ async function handleTextEntitled(request, env, headers, ctx) {
         /* 明确拒绝时释放。服务端错误可能发生在上游开始处理之后。 */
         if (r.status >= 500) await holdBudget(env, budget, '上游返回服务错误');
         else await releaseBudget(env, budget);
-        const unusedSlot = reservation;
-        reservation = null;
-        await releaseSlot(env, account.id, 'text', unusedSlot);
+        budget = null;
         return jerr(r.status, r.message, headers);
       }
       data = r.data; usage = r.usage;
     }
 
     /* 3) 成功：按实际用量结算，退回多预留差额；首次跨 100 线则主动通知站方 */
-    const fixed = fixedSimMicro(env);
-    const actualMicro = fixed !== null ? fixed : deepseekMicro(env, usage, peak);
+    const actualMicro = fixed ?? deepseekMicro(env, usage, peak);
     const cost = await settleBudget(env, budget, actualMicro);
+    budget = null;
     if (cost.alert) scheduleCostWarning(env, ctx, cost);
+    if (review) {
+      const result = validateDialogueResult(data, review.count);
+      if (!result) return jerr(502, 'AI 没有返回完整批改，未扣句数，请重试', headers);
+      const response = jbody(200, result, headers);
+      await completeDialogueReview(env.DB, account.id, review.id, result);
+      succeeded = true;
+      return response;
+    }
+    succeeded = true;
     return jbody(200, data, headers, costHeaders(cost, reservation));
   } catch (_) {
-    await holdBudget(env, budget, '文本请求或本地结算结果无法确认');
-    if (reservation) await releaseSlot(env, account.id, 'text', reservation);
+    if (budget?.ok) await holdBudget(env, budget, '文本请求或本地结算结果无法确认');
     return jerr(502, 'AI 服务暂不可用，请稍后再试', headers);
+  } finally {
+    if (!succeeded) {
+      if (review) await releaseDialogueReview(env.DB, account.id, review.id);
+      if (reservation && reservation.source !== 'none') await releaseSlot(env, account.id, 'text_aux', reservation);
+    }
   }
 }
 

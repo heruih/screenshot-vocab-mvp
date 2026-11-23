@@ -150,8 +150,8 @@ function accountRenderGroup() {
     '<div class="st-field"><div class="meta"><b id="stAccountEmail"></b> ' +
       '<span class="badge ' + status + '">' + statusLabel(status) + '</span></div></div>' +
     '<div class="st-field"><label>今日剩余（已用 / 每日免费）</label>' +
-      '<p class="a-note">AI 句子：' + L.text.freeLeft + ' 句（今日已用 ' + L.text.used + ' / ' + L.text.freeDaily + '）' +
-      (L.text.grantRemaining ? '，加练包剩 ' + L.text.grantRemaining : '') + '</p>' +
+      '<p class="a-note">AI 对话免费批改剩余 ' + L.text.freeLeft + ' 句（今日已用 ' + L.text.used + ' / ' + L.text.freeDaily + '）' +
+      (L.text.grantRemaining ? '，加练包剩 ' + L.text.grantRemaining + ' 句' : '') + '</p>' +
       '<p class="a-note">' + voiceBalance + '</p></div>' +
     '<div class="st-field"><label>本月站方成本（100 元提醒 / 150 元封顶）</label>' +
       '<p class="a-note">已累计 ¥' + yuan(M.totalMicro) + '，跨月自动重置。</p></div>' +

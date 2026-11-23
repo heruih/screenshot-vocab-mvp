@@ -44,14 +44,7 @@ async function textRelayFetch(messages,opts){
         signal:ctrl.signal
       });
       if(!res.ok){
-        let t='';try{t=await res.text();}catch(_){}
-        const statusMessage={
-          402:'共用 AI 服务额度不足（HTTP 402），请稍后再试',
-          429:'用的人太多，稍后再试'
-        };
-        const err=new Error(statusMessage[res.status]||('HTTP '+res.status+' '+(t||'').slice(0,100)));
-        err.status=res.status;
-        throw err;
+        throw await textRelayError(res);
       }
       const data=await res.json();
       const message=data&&data.choices&&data.choices[0]&&data.choices[0].message||{};
@@ -63,6 +56,38 @@ async function textRelayFetch(messages,opts){
   }catch(err){
     if(err&&err.status===400)return await once(false);
     throw err;
+  }
+}
+async function textRelayError(res){
+  const data=await res.json().catch(()=>null);
+  const message=typeof data?.message==='string'?data.message.trim():'';
+  const err=new Error(message||('HTTP '+res.status));
+  err.status=res.status;
+  return err;
+}
+async function dialogueReviewFetch(answers,requestId,tone){
+  const relay=textRelayConfig().relayUrl.replace(/\/+$/,'');
+  if(!relay)throw new Error('没有可用的免 Key 中转地址');
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),35000);
+  const token=accountToken();
+  try{
+    const res=await fetch(relay+'/v1/dialogue/review',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',...accountAuthHeader()},
+      body:JSON.stringify({requestId,tone,answers}),
+      signal:ctrl.signal
+    });
+    if(!res.ok)throw await textRelayError(res);
+    const data=await res.json();
+    if(!Array.isArray(data?.reviews)||data.reviews.length!==answers.length||
+      data.reviews.some(review=>typeof review?.standard!=='string'||!review.standard.trim())){
+      throw new Error('未收到完整批改，请原样重试');
+    }
+    return data.reviews;
+  }finally{
+    clearTimeout(timer);
+    if(token&&token===accountToken())accountRefresh();
   }
 }
 /* 图片中转：本地先判抽象，Worker 内抽象词 LLM 改写后走 Openverse(认证)→Pixabay。返回 {source,candidates,usage}。 */

@@ -1358,16 +1358,21 @@ function startScene(sc){
     const retry=$('#aiRetry'); if(retry) retry.addEventListener('click',()=>startScene(sc));
   });
 }
-async function aiJudge(attempt){
+function usesSiteDialogueReview(){
+  return window.APP_CONFIG?.product==='commercial'&&!aiApiConfig().apiKey;
+}
+async function aiJudge(attempt,requestId){
   const target=aiTargetTerm(aiState.currentTargetWord||aiState.term);
   const context=aiState.lines.filter(line=>line.who!=='YOU').map(line=>line.en).join('\n');
+  const answer={target,context,promptCn:aiState.attemptPromptCn,attempt};
+  if(requestId){
+    const [review]=await dialogueReviewFetch([answer],requestId,state.settings.tone);
+    return review;
+  }
   const review=await aiCall([
     {role:'system',content:'你是英语口语教练。'+toneSystem()+'只返回 JSON。给一个自然、符合中文提示并使用目标词的英文参考答案，简要解释用法，列出最多两个具体易错点。'},
     {role:'user',content:JSON.stringify({
-      target,
-      context,
-      promptCn:aiState.attemptPromptCn,
-      attempt,
+      ...answer,
       responseFormat:{standard:'英文参考答案',fit:'中文用法说明',pitfalls:['中文易错点']}
     })}
   ]);
@@ -1382,19 +1387,34 @@ async function submitAttempt(){
   const input=$('#aiInput');
   const text=input.value.trim();
   if(!text){ toast('先把你的翻译说出来或写下来','warn'); return; }
+  const siteReview=usesSiteDialogueReview();
+  if(text.length>1200&&siteReview){
+    toast('这条练习答案太长，请缩短后再提交','warn'); return;
+  }
   stopAiDictation();
   const attemptState=aiState;
   aiState.busy=true;
   const youLines=aiState.lines.filter(l=>l.who==='YOU');
   const youLine=aiState.multiTurn?(youLines[aiState.turnIndex]||youLines[0]):youLines[0];
+  let requestId;
+  if(siteReview){
+    const previous=attemptState.pendingSubmission;
+    if(previous?.text===text&&previous.lines===aiState.lines&&previous.turn===aiState.turnIndex){
+      requestId=previous.id;
+    }else{
+      requestId=Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,'0')).join('');
+      attemptState.pendingSubmission={text,lines:aiState.lines,turn:aiState.turnIndex,id:requestId};
+    }
+  }
   aiState.attempt=text;
   aiState.attemptPromptCn=(youLine&&youLine.promptCn)||'';
   aiState.currentTargetWord=(youLine&&youLine.wordId)||aiState.term;
   input.value='';
   const session=aiSession,term=aiState.term,mySeq=++aiState.seq;
   aiShowLoading('正在批改你的句子…');
-  aiJudge(text).then(d=>{
+  aiJudge(text,requestId).then(d=>{
     if(session!==aiSession||term!==aiState.term||mySeq!==aiState.seq) return;
+    attemptState.pendingSubmission=null;
     aiState.phase='review';
     aiShowBody();
     aiSetChatbar('review');

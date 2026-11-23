@@ -17,7 +17,7 @@ import { beijingDay, beijingMonth } from './time.mjs';
 /* 默认口径：每日免费句数、月度提醒/封顶（单位：微元，1 元 = 1,000,000 微元） */
 function config(env) {
   const c = {
-    freeDaily: { text: 10, tts: 0 },
+    freeDaily: { text: 10, text_aux: 30, tts: 0 },
     warnMicro: 100_000_000,   // 100 元
     capMicro: 150_000_000     // 150 元
   };
@@ -219,7 +219,7 @@ export async function getStatus(env, accountId, now = new Date()) {
   const out = {};
   for (const kind of ['text', 'tts']) {
     const freeDaily = config(env).freeDaily[kind];
-    const daily = await getDaily(db, accountId, kind, day);
+    const daily = await getDaily(db, accountId, kind === 'text' ? 'dialogue_review' : kind, day);
     const used = daily ? daily.count : 0;
     const { hasPackage, remaining: grantRemaining } = await getGrantBalance(env, accountId, kind, now);
     out[kind] = {

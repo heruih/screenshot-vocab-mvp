@@ -19,10 +19,17 @@ function toBase64(bytes) {
 }
 
 /* 模拟 DeepSeek：按请求特征返回对应占位 JSON，包在 OpenAI 兼容结构里 */
-export function simulateText(input) {
+export function simulateText(input, reviewCount) {
   const blob = JSON.stringify(input.messages || []);
   let content;
-  if (blob.includes('情景口语设计者')) {
+  if (reviewCount) {
+    content = JSON.stringify({ reviews: Array.from({ length: reviewCount }, (_, index) => ({
+      index: index + 1,
+      standard: 'Could we try that again?',
+      fit: '模拟批改：请用问句提出请求。',
+      pitfalls: []
+    })) });
+  } else if (blob.includes('情景口语设计者')) {
     content = JSON.stringify({ scenes: [{ title: '模拟场景', desc: '模拟场景说明', wordIds: [] }] });
   } else if (blob.includes('口语教练') || blob.includes('"lines"')) {
     content = JSON.stringify({ lines: [

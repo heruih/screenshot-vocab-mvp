@@ -125,6 +125,13 @@ async function activeUser(env, email, voiceCount = 0) {
 }
 const auth = token => ({ Authorization: 'Bearer ' + token });
 const textBody = () => ({ messages: [{ role: 'user', content: '请生成一个口语场景' }] });
+const reviewBody = (count = 1) => ({
+  requestId: crypto.randomUUID(),
+  answers: Array.from({ length: count }, (_, index) => ({
+    target: 'try again', promptCn: '问对方能不能再试一次', attempt: 'Can we try again? ' + (index + 1)
+  }))
+});
+const review = (env, token, body = reviewBody()) => call(env, 'POST', '/v1/dialogue/review', body, auth(token));
 
 /* ---------- 断言 ---------- */
 let pass = 0, fail = 0;
@@ -144,6 +151,7 @@ setBeijing(2026, 11, 20, 10);
   const token = await login(env, 'a1@example.com'); // 只登录不开通
   const t = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
   check('未开通 DeepSeek 返回 403', t.status === 403, 'got ' + t.status);
+  check('未开通账号也不能调用新批改入口', (await review(env, token)).status === 403);
   const v = await call(env, 'POST', '/v1/tts/synthesize', { text: 'hello world' }, auth(token));
   check('未开通 CosyVoice 返回 403（前端回系统朗读）', v.status === 403, 'got ' + v.status);
 
@@ -174,7 +182,7 @@ setBeijing(2026, 11, 21, 10);
 
   const results = await Promise.all(users.map(token =>
     Promise.all(Array.from({ length: 12 }, () =>
-      call(env, 'POST', '/v1/chat/completions', textBody(), auth(token))))
+      review(env, token)))
   ));
 
   results.forEach((rs, i) => {
@@ -199,8 +207,8 @@ setBeijing(2026, 11, 30, 23);
 {
   const env = makeEnv();
   const token = await activeUser(env, 'm@example.com');
-  for (let i = 0; i < 10; i++) await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
-  const over = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
+  for (let i = 0; i < 10; i++) await review(env, token);
+  const over = await review(env, token);
   check('当月第 11 句被拦 402', over.status === 402, 'got ' + over.status);
   const before = await call(env, 'GET', '/v1/me/status', null, auth(token));
   check('11 月已累计成本', before.data.entitlements.monthly.totalMicro > 0 &&
@@ -215,7 +223,7 @@ setBeijing(2026, 11, 30, 23);
   check('12 月月度成本归零', after.data.entitlements.monthly.totalMicro === 0 &&
     after.data.entitlements.month === '2026-12',
     'month=' + after.data.entitlements.month);
-  const again = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
+  const again = await review(env, token);
   check('跨月后 DeepSeek 恢复 200', again.status === 200, 'got ' + again.status);
 }
 
@@ -275,9 +283,9 @@ setBeijing(2026, 11, 24, 10);
 {
   const env = makeEnv({ simMicro: 80_000_000 });
   const token = await activeUser(env, 'cross@example.com');
-  const r1 = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
+  const r1 = await review(env, token);
   check('第 1 笔 80 元放行', r1.status === 200, 'got ' + r1.status);
-  const r2 = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
+  const r2 = await review(env, token);
   check('第 2 笔单笔跨线（80+80>150）调用前 402', r2.status === 402, 'got ' + r2.status);
   const st = await call(env, 'GET', '/v1/me/status', null, auth(token));
   check('被拦笔不占用户名额（used 仍为 1）', st.data.entitlements.limits.text.used === 1,
@@ -401,10 +409,15 @@ section('场景11：旧 D1 表升级');
     "INSERT INTO monthly_cost (month,deepseek_micro,cosyvoice_micro,total_micro,alert_sent,updated_at) " +
     "VALUES ('2026-12',40000000,0,40000000,0,1)");
   legacy.exec(fs.readFileSync(path.join(root, 'relay/entitlements/migrations/001-budget-reservations.sql'), 'utf8'));
+  const reviewMigration = fs.readFileSync(path.join(root, 'relay/entitlements/migrations/002-dialogue-review-receipts.sql'), 'utf8');
+  legacy.exec(reviewMigration);
+  legacy.exec(reviewMigration);
   const env = { DB: createD1(legacy) };
   const stored = await billingGetStatus(env, 1);
   check('旧费用和加练包保留，新预留为 0', stored.monthly.totalMicro === 40_000_000 &&
     stored.monthly.reservedMicro === 0 && stored.limits.text.grantRemaining === 2);
+  check('旧库重复执行批改迁移无破坏', legacy.prepare('SELECT COUNT(*) AS count FROM dialogue_review_request')
+    .get().count === 0 && legacy.prepare('SELECT email FROM accounts WHERE id = 1').get().email === 'keep@example.test');
   const budget = await reserveBudget(env, 'text', 10_000_000);
   await settleBudget(env, budget, 5_000_000);
   const latest = await billingGetStatus(env, 1);
@@ -575,6 +588,140 @@ section('场景16：自配豆包 Key 与站方计费隔离');
       status.data.entitlements.monthly.totalMicro === 0);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+}
+
+
+section('场景17：场景不扣批改句数、整组扣减与加练包');
+setBeijing(2026, 11, 23, 10);
+{
+  const env = makeEnv({ simMicro: 5000 });
+  const email = 'review@example.test';
+  const token = await activeUser(env, email);
+  setBeijing(2026, 11, 23, 10, 2); // 两次验证码间隔一分钟以上，模拟另一台设备重新登录
+  const secondDevice = await login(env, email);
+  const status = async (session = token) => (await call(env, 'GET', '/v1/me/status', null, auth(session))).data.entitlements;
+  for (let i = 0; i < 30; i++) {
+    await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
+  }
+  const sceneOver = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
+  const before = await status();
+  check('非批改请求记站方成本、享有独立日限，不扣批改', sceneOver.status === 429 &&
+    before.limits.text.freeLeft === 10 && before.monthly.totalMicro === 150_000);
+  const three = await review(env, token, reviewBody(3));
+  check('成组收到三份反馈便扣三句，两台设备看到同一余额', three.status === 200 &&
+    three.data.reviews.length === 3 && (await status(secondDevice)).limits.text.freeLeft === 7);
+  await review(env, token, reviewBody(5));
+  const [x, y] = await Promise.all([review(env, token, reviewBody(2)), review(env, secondDevice, reviewBody(2))]);
+  const beforeOver = await status();
+  check('两个设备争最后两句只放行一组，整组不拆扣', [x.status, y.status].sort().join() === '200,402' &&
+    beforeOver.limits.text.used === 10 && beforeOver.monthly.reservedMicro === 0,
+    JSON.stringify([x.status, y.status, beforeOver.limits.text, beforeOver.monthly]));
+  const eleventh = await review(env, secondDevice);
+  check('第十一句明确提示免费额度用完，不调用模型', eleventh.status === 402 &&
+    eleventh.data.message.includes('10 句') && (await status()).monthly.totalMicro === beforeOver.monthly.totalMicro,
+    JSON.stringify(eleventh.data));
+  const admin = { 'X-Admin-Token': env.ADMIN_TOKEN };
+  const grantText = (amount, expiresAt) => call(env, 'POST', '/v1/admin/grant', { email, kind: 'text', amount, expiresAt }, admin);
+  await grantText(1, Date.now() + 1000);
+  await grantText(1, Date.now() + 86400000);
+  await grantText(3);
+  setBeijing(2026, 11, 23, 11);
+  const paid = await review(env, token, reviewBody(3));
+  const packs = (await env.DB.prepare("SELECT remaining FROM grants WHERE kind = 'text' ORDER BY id").bind().all()).results;
+  check('加练请求跳过过期包、优先用将过期包且可跨包', paid.status === 200 &&
+    packs.map(pack => pack.remaining).join() === '1,0,1' && (await status()).limits.text.grantRemaining === 1);
+
+  setBeijing(2026, 11, 24, 0);
+  const tomorrow = await status();
+  check('北京日界跨日恢复十句，月内累计与加练包余额保留', tomorrow.limits.text.freeLeft === 10 &&
+    tomorrow.limits.text.grantRemaining === 1 && tomorrow.monthly.totalMicro === 170_000);
+}
+
+section('场景18：短时重试去重及失败回退');
+setBeijing(2026, 11, 24, 10);
+{
+  const env = makeEnv();
+  const email = 'review-retry@example.test';
+  const token = await activeUser(env, email);
+  const status = async () => (await call(env, 'GET', '/v1/me/status', null, auth(token))).data.entitlements;
+  const two = reviewBody(2);
+  const success = () => Response.json({
+    choices: [{ message: { content: JSON.stringify({
+      reviews: [
+        { index: 2, standard: "Let's give it another try.", fit: '自然的提议', pitfalls: [] },
+        { index: 1, standard: 'Could we try again?', fit: '礼貌的问句', pitfalls: [] }
+      ]
+    }) } }],
+    usage: { prompt_tokens: 100, completion_tokens: 50 }
+  });
+  env.BILLING_MODE = 'live';
+  env.DEEPSEEK_API_KEY = 'fixture';
+  const upstream = globalThis.fetch;
+  try {
+    let returned, started;
+    const startedPromise = new Promise(resolve => { started = resolve; });
+    const gate = new Promise(resolve => { returned = resolve; });
+    let upstreamCalls = 0;
+    globalThis.fetch = async (_url, options) => {
+      upstreamCalls++;
+      started(JSON.parse(options.body));
+      return gate;
+    };
+    const first = review(env, token, two);
+    const bodySent = await Promise.race([startedPromise, first.then(() => null)]);
+    const pending = bodySent ? await review(env, token, two) : null;
+    returned(success());
+    const good = await first;
+    const replay = await review(env, token, two);
+    const sameId = { ...two, answers: reviewBody(2).answers.map(answer => ({ ...answer, attempt: 'A different reply.' })) };
+    const conflict = await review(env, token, sameId);
+    check('重复点击、中途重试、成功回放合计只调用一次上游并扣两句',
+      pending?.status === 409 && good.status === 200 && replay.status === 200 && upstreamCalls === 1 &&
+      good.data.reviews[0].standard === 'Could we try again?' &&
+      JSON.stringify(replay.data) === JSON.stringify(good.data) && (await status()).limits.text.used === 2);
+    check('同一编号改答案会被拒绝，发送给模型的资料含两句', conflict.status === 409 &&
+      bodySent?.response_format.type === 'json_object' && JSON.parse(bodySent.messages[1].content).answers.length === 2);
+    const invalid = await review(env, token, reviewBody(0));
+    check('空批次在调用上游前拒绝', invalid.status === 400 && upstreamCalls === 1);
+    setBeijing(2026, 11, 24, 10, 21);
+    const expired = await review(env, token, two);
+    check('反馈过了短时重试窗口后不再回放，也不再次扣减', expired.status === 409 &&
+      upstreamCalls === 1 && (await status()).limits.text.used === 2);
+
+    globalThis.fetch = async () => Response.json({ error: { message: 'mock refusal' } }, { status: 429 });
+    const rejected = await review(env, token, reviewBody(2));
+    check('上游明确拒绝退回两句及预算预留', rejected.status === 429 && (await status()).limits.text.used === 2 &&
+      (await status()).monthly.reservedMicro === 0);
+
+    env.BILLING_MODE = 'simulate';
+    await review(env, token, reviewBody(5));
+    await review(env, token, reviewBody(2));
+    const admin = { 'X-Admin-Token': env.ADMIN_TOKEN };
+    await call(env, 'POST', '/v1/admin/grant', { email, kind: 'text', amount: 2 }, admin);
+    env.BILLING_MODE = 'live';
+    const before = await status();
+    const mixed = reviewBody(3);
+    globalThis.fetch = async () => success(); // expected 3 answers; upstream returns only 2
+    const incomplete = await review(env, token, mixed);
+    const afterInvalid = await status();
+    check('漏批时退回整组免费和加练额度，已产生站方费用照计', incomplete.status === 502 &&
+      incomplete.data.message.includes('未扣句数') && afterInvalid.limits.text.freeLeft === 1 &&
+      afterInvalid.limits.text.grantRemaining === 2 && afterInvalid.monthly.totalMicro > before.monthly.totalMicro);
+    globalThis.fetch = async () => { throw new DOMException('mock timeout', 'TimeoutError'); };
+    const timedOut = await review(env, token, mixed);
+    const afterTimeout = await status();
+    check('同一编号可在失败后重试，超时返还额度并挂起待核对的站方费用',
+      timedOut.status === 502 && afterTimeout.limits.text.freeLeft === 1 &&
+      afterTimeout.limits.text.grantRemaining === 2 && afterTimeout.monthly.heldCount === 1);
+
+    env.BILLING_MODE = 'simulate';
+    const recovered = await review(env, token, mixed);
+    const finalStatus = await status();
+    check('第三次原样提交成功，恰好扣一免费句和两加练句', recovered.status === 200 &&
+      finalStatus.limits.text.freeLeft === 0 && finalStatus.limits.text.grantRemaining === 0);
+  } finally {
+    globalThis.fetch = upstream;
   }
 }
 
