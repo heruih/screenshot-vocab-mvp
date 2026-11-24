@@ -175,8 +175,6 @@ body.side-open #sidebar{transform:none}
 .ni-snippet{font-size:13px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
 .ni-meta{font-size:12px;color:var(--text3);display:flex;align-items:center;gap:6px;margin-top:3px}
 .folder-badge{font-size:11px;color:var(--text2);background:var(--s3);border-radius:7px;padding:1px 7px}
-.ni-del{width:36px;height:36px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;color:var(--text3);opacity:.4;flex:none}
-.ni-del:hover{background:var(--hover-soft);color:var(--danger);opacity:1}
 .ni-pin{width:36px;height:36px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;color:var(--text3);opacity:.4;flex:none}
 .ni-pin .icon-sm{width:18px;height:18px}
 .ni-pin:hover{background:var(--hover-soft);color:var(--accent);opacity:1}
@@ -184,7 +182,7 @@ body.side-open #sidebar{transform:none}
 .ni-pinmark{display:inline-flex;vertical-align:-2px;width:14px;height:14px;margin-right:4px;color:var(--accent)}
 .ni-pinmark .icon-sm{width:14px;height:14px}
 .note-item.pinned .ni-title{color:var(--accent)}
-@media (hover:none){.ni-del{opacity:.55}.ni-pin{opacity:.55}.ni-pin.on{opacity:1}}
+@media (hover:none){.ni-pin{opacity:.55}.ni-pin.on{opacity:1}}
 .empty-state{
   display:flex;flex-direction:column;align-items:center;gap:12px;padding:70px 28px;color:var(--text3);
   font-size:14px;text-align:center;line-height:1.7;

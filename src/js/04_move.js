@@ -557,21 +557,6 @@ function clipCopyText(range,text,cut){
   if(cut){range.deleteContents();persistEditor();}
   return true;
 }
-/* 复制 / 剪切整节 */
-function clipCopySection(h,cut){
-  if(!h||!bodyEl.contains(h))return;
-  const g=secGroup(h);
-  const words=clipWordsIn(g);
-  const entry={kind:'section',mode:cut?'cut':'copy',html:clipClean(g),at:Date.now()};
-  if(!clipWriteAction(entry,words)) return;
-  if(cut){
-    const srcId=ui.note;
-    g.forEach(el=>el.remove());
-    words.forEach(word=>unlinkWordFromNote(word,srcId));
-    foldClear(); applyFolds(); mvDecorate(); persistEditor();
-  }
-  toast(cut?'已剪切整节，到其它笔记点粘贴':'已复制整节，到其它笔记点粘贴');
-}
 /* 复制 / 剪切单个词条（.en-word 可能是词组，即“一段单词”） */
 function clipCopyWord(span,cut){
   if(!span||!bodyEl.contains(span)){ toast('词条不在正文里','warn');return; }
