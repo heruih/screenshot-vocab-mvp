@@ -69,7 +69,7 @@ function defaultState(){
      tags:['日常'],notes:[],source:'demo',createdAt:t,updatedAt:t}
   ];
   return {folders:[],notes:[],words:[],aiLog:[],grave:[],tagList:['职场','日常'],meta:{backupAt:null,sync:{provider:'gist',ghToken:'',ghGistId:'',url:'',user:'',pass:'',auto:true,lastAt:0,lastBy:''}},
-    settings:{baseUrl:'',apiKey:'',model:'',tone:'friend',theme:'midnight',fs:'m'}};
+    settings:{baseUrl:'',apiKey:'',model:'',tone:'friend',theme:'white',fs:'m'}};
 }
 /* ============ 间隔复习（Leitner 分箱） ============ */
 const SRS_DAYS=[0,0,1,3,7,15,30];   // 箱位 -> 间隔天数
@@ -152,11 +152,11 @@ function load(){
 /* 主题 / 字号 */
 function applyTheme(){
   const st=state&&state.settings||{};
-  const theme=st.theme==='dark'?'midnight':(st.theme==='light'?'paper':(['midnight','paper','lavender','study'].includes(st.theme)?st.theme:'study'));
+  const theme=st.theme==='dark'?'midnight':(st.theme==='light'?'paper':(['midnight','paper','lavender','study','white'].includes(st.theme)?st.theme:'white'));
   document.documentElement.setAttribute('data-theme',theme);
   document.documentElement.setAttribute('data-fs',st.fs||'m');
   const mt=document.querySelector('meta[name="theme-color"]');
-  if(mt) mt.setAttribute('content',theme==='paper'?'#f5efe7':(theme==='lavender'?'#f3f0fa':(theme==='study'?'#1e1a15':'#141416')));
+  if(mt) mt.setAttribute('content',theme==='white'?'#ffffff':(theme==='paper'?'#f5efe7':(theme==='lavender'?'#f3f0fa':(theme==='study'?'#1e1a15':'#141416'))));
 }
 function save(skipSync){
   if(!aStore(LS_KEY,JSON.stringify(state))) throw new Error('保存失败：请先导出完整备份并释放浏览器空间');

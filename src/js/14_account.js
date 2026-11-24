@@ -206,7 +206,9 @@ function accountRenderGroup() {
   const status = ['active','pending','disabled'].includes(s.account.status) ? s.account.status : 'disabled';
   const tts = L.tts || {};
   let voiceBalance;
-  if (status === 'disabled' || !tts.hasPackage) {
+  if (s.account.unlimited === true) {
+    voiceBalance = '永久免费账号：站方语音不限量，不扣句数';
+  } else if (status === 'disabled' || !tts.hasPackage) {
     voiceBalance = '暂无可用的站方语音包';
   } else {
     const free = Number(tts.freeRemaining) || 0;
@@ -218,12 +220,18 @@ function accountRenderGroup() {
     }
   }
 
+  const textBalance = s.account.unlimited === true
+    ? 'AI 对话与场景生成：永久免费，不限量'
+    : 'AI 对话免费批改剩余 ' + L.text.freeLeft + ' 句（今日已用 ' + L.text.used + ' / ' + L.text.freeDaily + '）' +
+      (L.text.grantRemaining ? '，加练包剩 ' + L.text.grantRemaining + ' 句' : '');
+
   body.innerHTML =
     '<div class="st-field"><div class="meta"><b id="stAccountEmail"></b> ' +
-      '<span class="badge ' + status + '">' + statusLabel(status) + '</span></div></div>' +
+      '<span class="badge ' + status + '">' + statusLabel(status) + '</span>' +
+      (s.account.unlimited === true ? '<span class="badge active">永久免费</span>' : '') +
+      '</div></div>' +
     '<div class="st-field"><label>今日剩余（已用 / 每日免费）</label>' +
-      '<p class="a-note">AI 对话免费批改剩余 ' + L.text.freeLeft + ' 句（今日已用 ' + L.text.used + ' / ' + L.text.freeDaily + '）' +
-      (L.text.grantRemaining ? '，加练包剩 ' + L.text.grantRemaining + ' 句' : '') + '</p>' +
+      '<p class="a-note">' + textBalance + '</p>' +
       '<p class="a-note">' + voiceBalance + '</p>' +
       '<p class="a-note">当前朗读方式：' + (typeof currentReadingMethodLabel === 'function' ? currentReadingMethodLabel() : '系统朗读') + '</p></div>' +
     '<div class="st-field"><label>本月站方成本（100 元提醒 / 150 元封顶）</label>' +

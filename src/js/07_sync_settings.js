@@ -347,7 +347,6 @@ function syncSettingsUI(){
   const activeTheme=st.theme==='dark'?'midnight':(st.theme==='light'?'paper':(st.theme||'midnight'));
   $$('#stTheme [data-theme-val]').forEach(b=>b.classList.toggle('on',activeTheme===b.dataset.themeVal));
   $$('#stFs [data-fs-val]').forEach(b=>b.classList.toggle('on',(st.fs||'m')===b.dataset.fsVal));
-  $$('#stWordColor [data-wc-val]').forEach(b=>b.classList.toggle('on',getWordColor()===b.dataset.wcVal));
   const n=$('#stBackupNote');
   if(n){
     n.textContent=backupNoteText();
@@ -1082,6 +1081,10 @@ function bindEvents(){
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('#cfOk').click(); } });
   });
   $('#btnSettings').addEventListener('click',openSettings);
+  /* empower 操作演示：笔记页顶部常驻入口 */
+  $('#btnEmpowerGuide').addEventListener('click',()=>$('#empowerDemoModal').classList.add('show'));
+  $('#empowerDemoClose').addEventListener('click',()=>$('#empowerDemoModal').classList.remove('show'));
+  $('#empowerDemoModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove('show'); });
   $('#stClose').addEventListener('click',()=>$('#settingsModal').classList.remove('show'));
   $('#stSave').addEventListener('click',saveSettings);
   /* 设置分组：手风琴，点开一个就收起别的。
@@ -1125,9 +1128,6 @@ function bindEvents(){
   }));
   $$('#stFs [data-fs-val]').forEach(b=>b.addEventListener('click',()=>{
     state.settings.fs=b.dataset.fsVal; save(); applyTheme(); syncSettingsUI();
-  }));
-  $$('#stWordColor [data-wc-val]').forEach(b=>b.addEventListener('click',()=>{
-    setWordColor(b.dataset.wcVal); syncSettingsUI();
   }));
   $('#stAnki').addEventListener('click',exportAnki);
   /* 云同步 */
@@ -1635,11 +1635,6 @@ function bindEvents(){
     const chip=e.target.closest('[data-tag]');
     if(!chip) return;
     toggleWmTag(chip.dataset.tag);
-  });
-  $('#wmCnAll').addEventListener('click',()=>{
-    const list=$$('#wmExamples .ex-cn-text');
-    const allShown=list.length>0&&list.every(el=>!el.classList.contains('hided'));
-    setExCnAll(!allShown);
   });
 
   /* 核心搭配：添加 / 删除 */

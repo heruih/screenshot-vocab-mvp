@@ -93,10 +93,10 @@
       </button>
       <button class="note-organize-btn" id="btnClipPaste" type="button" hidden>粘贴</button>
       <span id="edBreadcrumb"></span>
-      <button class="icon-btn" id="btnLook" title="外观（配色）" aria-label="外观">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="9.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><path d="M12 21a3 3 0 0 1 0-6c2 0 3-1.5 3-3"/></svg>
+      <button class="icon-btn" id="btnLook" title="字体与配色" aria-label="字体与配色">
+        <span class="hdr-aa">Aa</span><span class="hdr-lbl">字体</span>
       </button>
-      <button class="note-organize-btn" id="btnNoteOrganize" type="button" title="整理这篇笔记">整理</button>
+      <button class="note-organize-btn" id="btnNoteOrganize" type="button" title="整理这篇笔记"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>整理</button>
       <button class="kb-btn" id="btnKb" title="收起键盘" aria-label="收起键盘">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="10" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 13h12"/><path d="M9 19l3 2 3-2"/></svg>
         <span>收起键盘</span>
@@ -122,6 +122,10 @@
         <span class="nib-go">去处理 ›</span>
       </div>
       <div class="note-editor-label"><span class="note-editor-kicker">笔记</span><span class="note-editor-context">原始语境 · 个人表达</span></div>
+      <div class="empower-guide-bar" id="empowerGuideBar">
+        <span class="empower-guide-hint">长按选中英文 → 点底部 Empower，就能收进词库</span>
+        <button class="empower-guide-btn" id="btnEmpowerGuide" type="button">看 Empower 怎么用 ›</button>
+      </div>
       <div id="noteTitle" class="ce" contenteditable="true" data-ph="标题"></div>
       <div id="edHint" class="ed-hint hidden">选中文字或长按词卡后，底部可以剪贴、改样式或开始练习。iPhone 上长按若先弹系统复制菜单，先点「收起键盘」再长按选中英文。</div>
       <div class="note-body-label">正文</div>
@@ -305,7 +309,7 @@
         <button class="wm-tab" type="button" data-wmtab="tags">标签</button>
       </div>
       <div class="wm-pane" id="wmPane-examples">
-        <div class="wm-label">例句<span class="wm-tip">点句子里的单词就能查词</span><button class="mini-btn" id="wmRegen">换一批</button><button class="mini-btn" id="wmCnAll">显示全部中文</button></div>
+        <div class="wm-label">例句<span class="wm-tip">点单词可查词 · 再点标亮</span><button class="mini-btn" id="wmRegen">换一批</button></div>
         <div id="wmExamples"></div>
       </div>
       <div class="wm-pane hidden" id="wmPane-colls">
@@ -589,6 +593,7 @@
         <label>主题与字号</label>
         <div class="st-inline">
           <div class="seg theme-seg" id="stTheme">
+            <button data-theme-val="white">纯白</button>
             <button data-theme-val="study">暖纸书房</button>
             <button data-theme-val="midnight">午夜编辑</button>
             <button data-theme-val="paper">温暖纸张</button>
@@ -599,17 +604,6 @@
             <button data-fs-val="m">中</button>
             <button data-fs-val="l">大</button>
           </div>
-        </div>
-      </div>
-      <div class="st-field">
-        <label>正文词条配色</label>
-        <div class="seg seg-wide" id="stWordColor">
-          <button data-wc-val="sky">晴空蓝</button>
-          <button data-wc-val="mint">薄荷绿</button>
-          <button data-wc-val="amber">暖杏橙</button>
-          <button data-wc-val="lilac">丁香紫</button>
-          <button data-wc-val="pearl">珍珠白</button>
-          <button data-wc-val="capsule">复古胶囊</button>
         </div>
       </div>
         </div>
@@ -930,6 +924,16 @@
   </div>
   <div class="a-guide-tip">浏览器里的数据清缓存会消失，只有“装到主屏幕”的独立 App 能豁免；记得定期导出完整备份。</div>
  </div></div>
+</div>
+<div class="modal" id="empowerDemoModal" role="dialog" aria-modal="true" aria-label="Empower 操作演示">
+ <div class="modal-card">
+  <div class="wm-head"><div><b>Empower 怎么用</b><div class="a-note">三步把英文收进词库</div></div><button class="modal-close" id="empowerDemoClose" aria-label="关闭演示">×</button></div>
+  <div class="wm-body a-stack">
+   <div class="emp-demo-step"><div class="emp-demo-num">1</div><div class="emp-demo-txt"><b>长按选中英文</b><p>在正文里长按一个单词或句子。iPhone 若先弹出系统菜单，先点顶栏「收起键盘」，再长按。</p></div></div>
+   <div class="emp-demo-step"><div class="emp-demo-num">2</div><div class="emp-demo-txt"><b>点底部蓝色 Empower</b><p>选中后屏幕底部会弹出蓝色「Empower」按钮，点它。</p></div></div>
+   <div class="emp-demo-step"><div class="emp-demo-num">3</div><div class="emp-demo-txt"><b>加入词库 / 查看词卡</b><p>AI 自动填好释义和三句例句，你只需确认或微调。点「加入词库」收进表达库；已收过的词显示「查看词卡」。</p></div></div>
+  </div>
+ </div>
 </div>
 <div class="modal" id="aBridge" role="dialog" aria-modal="true" aria-label="ChatGPT 任务">
  <div class="modal-card"><div class="wm-head"><div><b>用 ChatGPT 完成这一步</b><div class="a-note">复制任务 → 在 ChatGPT 完成练习 → 粘回结果。Plus 或免费账号均可，额度以账号为准。</div></div><button class="modal-close" id="aBridgeClose" aria-label="关闭 ChatGPT 任务">×</button></div>

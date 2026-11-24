@@ -75,10 +75,17 @@ function commercialSpeechMode(){
   return m;
 }
 
-/* 当前是否有站方语音包（已开通且发放过，含已用尽的情况）；是否可用看 freeRemaining+paidRemaining */
+/* 当前账号是否永久免费（站方给自己/内测账号开的不限量标记） */
+function accountUnlimited(){
+  const status=accountStatusCache;
+  return !!(accountLoggedIn()&&status&&status.account.email===accountEmail()&&status.account.status!=='disabled'&&status.account.unlimited===true);
+}
+/* 当前是否有站方语音包（已开通且发放过，含已用尽的情况）；是否可用看 freeRemaining+paidRemaining。
+ * 永久免费账号返回一个"不限量"虚拟包，走站方 CosyVoice 且不扣额度。 */
 function activeSiteVoicePack(){
   const status=accountStatusCache;
   if(!accountLoggedIn()||!status||status.account.email!==accountEmail()||status.account.status==='disabled')return null;
+  if(status.account.unlimited===true) return { hasPackage:true, unlimited:true, freeRemaining:Infinity, paidRemaining:0 };
   const pack=status.entitlements?.limits?.tts;
   return pack&&pack.hasPackage===true?pack:null;
 }
@@ -95,6 +102,7 @@ function currentReadingMethodLabel(){
   const mode=commercialSpeechMode();
   if(mode==='system') return '系统朗读';
   if(mode==='doubao') return ownVolcTtsConfig()?'自配豆包语音':'系统朗读（未填豆包 Key）';
+  if(accountUnlimited()) return '永久免费（CosyVoice）';
   const pack=activeSiteVoicePack();
   if(pack&&siteVoiceTotal(pack)>0) return '站方语音包（CosyVoice）';
   return ownVolcTtsConfig()?'自配豆包语音':'系统朗读';
@@ -107,7 +115,9 @@ function refreshCommercialSpeechSettings(){
   commercialSpeechSource.value=['auto','system','doubao'].includes(mode)?mode:'auto';
   document.getElementById('stCommercialSpeechRefresh').hidden=!accountLoggedIn();
   const status=document.getElementById('stCommercialSpeechStatus');
-  if(pack&&siteVoiceTotal(pack)>0){
+  if(accountUnlimited()){
+    status.textContent='永久免费账号：不限量使用站方 CosyVoice，不扣句数。';
+  }else if(pack&&siteVoiceTotal(pack)>0){
     const free=pack.freeRemaining||0, paid=pack.paidRemaining||0;
     status.textContent='站方语音：免费剩余 '+free+' 句'+(paid>0?'，付费剩余 '+paid+' 句':'')+'。已生成的本机语音仍可重播。';
   }else if(accountLoggedIn()&&pack){
