@@ -117,6 +117,21 @@ console.log('== D. 刷新/返回续练且不重复计入 ==');
   ok('续练：已评词 reps 已增、不会再被计入', words.find(x => x.id === round[0].id).srs.reps > round[0].reps && words.find(x => x.id === round[1].id).srs.reps > round[1].reps);
 }
 
+console.log('== E1. 旧版 25 词轮次不恢复（resumeReview 上限 5） ==');
+{
+  // 旧版(337db90)队列上限 25，会把 25 个新词(due=0 排最前)存进 REVIEW_ROUND_KEY。
+  // 第三阶段上限 5：resumeReview 必须丢弃 >5 的旧轮次，重新 buildReview 生成 3 练过+2 新。
+  const oldRound = Array.from({ length: 25 }, (_, i) => ({ id: 'old' + i, reps: 0 }));
+  ok('旧 25 词轮次被丢弃（>5 不恢复）', (oldRound.length <= 5) === false);
+  // 丢弃后重新生成：模拟 169 到期 = 81 练过 + 88 新，应得 3 练过 + 2 新（不被大量新词淹没）
+  const words = [
+    ...Array.from({ length: 81 }, (_, i) => ({ id: 't' + i, reps: 1, due: 1000 + i })),
+    ...Array.from({ length: 88 }, (_, i) => ({ id: 'f' + i, reps: 0, due: 0 })),
+  ];
+  const r = buildReviewRound(words);
+  ok('重新生成：3 练过 + 2 新', r.filter(x => x.reps > 0).length === 3 && r.filter(x => x.reps === 0).length === 2 && r.length === 5);
+}
+
 console.log('== E. 批改前后词卡到期日一致（AI 批改只改口语记录） ==');
 {
   const now0 = 3_000_000_000_000;

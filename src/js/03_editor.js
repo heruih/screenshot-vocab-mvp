@@ -39,7 +39,8 @@ function buildReview(mode='due'){
 }
 function resumeReview(){
   const stored=aRead(REVIEW_ROUND_KEY,null);
-  if(Array.isArray(stored)&&stored.length<=25){
+  /* 第三阶段队列上限 5：旧版遗留的 25 词轮次(按 due 排序、新词排最前)不再恢复，交给 buildReview 重排成 3 练过 + 2 新 */
+  if(Array.isArray(stored)&&stored.length<=5){
     const activeIds=new Set(state.words.filter(w=>!aPending(w)).map(w=>w.id));
     const round=stored.filter(card=>card&&activeIds.has(card.id)&&Number.isInteger(card.reps)&&card.reps>=0);
     // Reconstruct the cursor from the same saved rating that increments reps.
