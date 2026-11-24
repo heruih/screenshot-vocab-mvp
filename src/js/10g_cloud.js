@@ -52,7 +52,7 @@ function bFlushSaveHint(){
   if(!bHasPendingSave)return;
   clearTimeout(bTimer);
   bHasPendingSave=false;
-  bSetStatus('本机已保存',true);
+  /* 成功保存静默，不再弹「本机已保存」；同步失败/离线等错误态仍由 bSync 的 catch 分支提示 */
 }
 const bStore=aStore;
 aStore=function(k,v){const ok=bStore(k,v);if(ok&&!bApplying&&k!==B_BASE)bQueue();return ok;};

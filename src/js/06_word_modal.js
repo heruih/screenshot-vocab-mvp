@@ -1709,5 +1709,5 @@ function aiFinishAction(){
     return;
   }
   closeAiModal();
-}function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} if(aiReturnToReview){ aiReturnToReview=false; if(typeof renderFlash==='function') renderFlash(); } }
+}function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} if(aiReturnToReview){ aiReturnToReview=false; if(ui&&ui.flash&&(!ui.flash.ids.length||ui.flash.idx>=ui.flash.ids.length)&&typeof buildReview==='function'){ buildReview('due'); } if(typeof renderFlash==='function') renderFlash(); } }
 
