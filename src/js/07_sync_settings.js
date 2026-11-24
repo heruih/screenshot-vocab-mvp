@@ -1265,8 +1265,6 @@ function bindEvents(){
     }
     const wf=e.target.closest('[data-wfilter]');
     if(wf){ ui.wordFilter=wf.dataset.wfilter; if(ui.wordFilterOpen)wfCloseSheet();render(); return; }
-    const ndel=e.target.closest('[data-ndel]');
-    if(ndel){ e.stopPropagation(); deleteNote(ndel.dataset.ndel); return; }
     const npin=e.target.closest('[data-npin]');
     if(npin){ e.stopPropagation(); toggleNotePin(npin.dataset.npin); return; }
     const wlink=e.target.closest('[data-wlink]');
@@ -1314,8 +1312,23 @@ function bindEvents(){
       return;
     }
     const item=e.target.closest('[data-note]');
-    if(item) openNote(item.dataset.note);
+    if(item){ if(noteLpFired){ noteLpFired=false; return; } openNote(item.dataset.note); }
   });
+
+  /* 长按笔记项 → 弹出置顶/删除菜单 */
+  let noteLpFired=false, noteLpTimer=0, noteLpEl=null;
+  $('#noteList').addEventListener('touchstart',e=>{
+    const item=e.target.closest('[data-note]');
+    if(!item) return;
+    noteLpEl=item;
+    clearTimeout(noteLpTimer);
+    noteLpTimer=setTimeout(()=>{
+      if(noteLpEl){ noteLpFired=true; openNoteMenu(noteLpEl.dataset.note); noteLpEl=null; try{ if(navigator.vibrate) navigator.vibrate(10); }catch(_){} }
+    },500);
+  },{passive:true});
+  const cancelNoteLp=()=>{ clearTimeout(noteLpTimer); noteLpEl=null; };
+  $('#noteList').addEventListener('touchend',cancelNoteLp,{passive:true});
+  $('#noteList').addEventListener('touchmove',cancelNoteLp,{passive:true});
 
   /* 表达库：排序与标签筛选 */
   $('#noteList').addEventListener('keydown',e=>{
@@ -1331,7 +1344,6 @@ function bindEvents(){
   /* 编辑器 */
   $('#btnBack').addEventListener('click',backToList);
   $('#btnHistUndo').addEventListener('click',histUndo);
-  $('#btnDelNote').addEventListener('click',()=>{ if(ui.note) deleteNote(ui.note); });
   $('#btnNoteOrganize').addEventListener('click',openNoteOrganize);
   $('#noteOrganizeClose').addEventListener('click',closeNoteOrganize);
   $('#noteOrganize').addEventListener('click',e=>{
@@ -1395,13 +1407,6 @@ function bindEvents(){
       else if(mvState.kind==='section') mvDropSection(h);
       return;
     }
-    /* 大标题右边的「⋯」 */
-    const mf=e.target.closest&&e.target.closest('.mf');
-    if(mf&&bodyEl.contains(mf)){
-      e.preventDefault(); e.stopPropagation();
-      openMvMenu(mf.parentElement);
-      return;
-    }
     const h=e.target.closest&&e.target.closest('.nh');
     if(!h||!bodyEl.contains(h)) return;
     const r=h.getBoundingClientRect();
@@ -1445,19 +1450,6 @@ function bindEvents(){
     const fn=mvState.revert;
     mvReset();
     if(fn){ fn(); toast('已撤销'); }
-  });
-  $('#mvMenu').addEventListener('click',e=>{
-    if(e.target.id==='mvMenu'){ closeMvMenu(); return; }
-    const it=e.target.closest('.mv-item');
-    if(!it) return;
-    const act=it.getAttribute('data-act'), h=mvMenuHead;
-    closeMvMenu();
-    if(!h) return;
-    if(act==='copysec') clipCopySection(h,false);
-    else if(act==='cutsec') clipCopySection(h,true);
-    else if(act==='lift') mvLiftSection(h);
-    else if(act==='up') mvMoveSection(h,-1);
-    else if(act==='down') mvMoveSection(h,1);
   });
   /* 收起键盘：笔记用顶栏的键，其它地方用浮出的小按钮 */
   const closeKb=()=>{ closeKeyboard(); };

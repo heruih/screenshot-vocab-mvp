@@ -187,16 +187,14 @@ function ocrInboxShowNote(noteId){
   $('#ocrSheet').classList.add('show');$('#ocrImgWrap').classList.add('hidden');$('#ocrSelected').classList.add('hidden');$('#ocrBatch').classList.remove('hidden');
   const st=$('#ocrStatus');if(st)st.textContent='这篇笔记的待处理截图：确认后挂到对应词条。';ocrInboxRender();
 }
-/* 更新笔记编辑器顶部的情境条：无待处理截图时显示 empower 提示，有则切换成「待处理 N 张」 */
+/* 更新笔记编辑器顶部的情境条：empower 提示常驻，有待处理截图时在旁加一个「待处理 N」胶囊 */
 function updateNoteInboxBar(){
   const inbox=$('#situInbox');
-  const empower=$('#situEmpower');
-  if(!inbox||!empower)return;
-  if(ui.mode!=='edit'||!ui.note){ inbox.classList.add('hidden'); empower.classList.remove('hidden'); return; }
+  if(!inbox)return;
+  if(ui.mode!=='edit'||!ui.note){ inbox.classList.add('hidden'); return; }
   const n=ocrInboxRead().filter(x=>x.noteId===ui.note).length;
   const numEl=$('#noteInboxN'); if(numEl)numEl.textContent=String(n);
   inbox.classList.toggle('hidden',n===0);
-  empower.classList.toggle('hidden',n>0);
   if(!inbox.__bound){
     const open=()=>ocrInboxShowNote(ui.note);
     inbox.addEventListener('click',open);

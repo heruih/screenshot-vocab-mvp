@@ -538,7 +538,6 @@ function renderNoteList(){
         '<div class="ni-meta">'+(fb?'<span class="folder-badge">'+esc(fb)+'</span>':'')+'<span>'+fmtDate(n.updatedAt)+'</span></div>'+
       '</div>'+
       '<button class="ni-pin'+(n.pinAt?' on':'')+'" data-npin="'+n.id+'" aria-label="'+(n.pinAt?'取消置顶':'置顶')+'笔记 '+esc(n.title||'')+'">'+pinSvg+'</button>'+
-      '<button class="ni-del" data-ndel="'+n.id+'" aria-label="删除笔记 '+esc(n.title||'')+'"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/></svg></button>'+
     '</div>';
   }).join('');
 }

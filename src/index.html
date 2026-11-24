@@ -101,9 +101,6 @@
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="10" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 13h12"/><path d="M9 19l3 2 3-2"/></svg>
         <span>收起键盘</span>
       </button>
-      <button class="hdr-btn danger" id="btnDelNote" title="删除这篇笔记" aria-label="删除笔记">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/></svg>
-      </button>
     </div>
     <!-- 外观下拉：配色 + 字体，实时生效，不离开编辑页 -->
     <div id="lookPop" class="look-pop" role="dialog" aria-label="外观设置" hidden>
@@ -118,14 +115,13 @@
     </div>
     <div id="editorWrap">
       <div class="situ-bar" id="situBar">
-        <div class="situ-row" id="situEmpower">
+        <button class="situ-main" id="btnEmpowerGuide" type="button">
           <span class="situ-hint">长按选中英文 → 点底部 Empower 收进词库</span>
-          <button class="situ-action" id="btnEmpowerGuide" type="button">看 Empower 怎么用 ›</button>
-        </div>
-        <div class="situ-row hidden" id="situInbox" role="button" tabindex="0" aria-label="处理这篇笔记的待处理截图">
-          <span class="situ-hint">这篇笔记有 <b id="noteInboxN">0</b> 张待处理截图</span>
-          <span class="situ-action">去处理 ›</span>
-        </div>
+          <span class="situ-action">看 Empower ›</span>
+        </button>
+        <button class="situ-inbox hidden" id="situInbox" type="button" aria-label="处理这篇笔记的待处理截图">
+          <span class="situ-inbox-txt">待处理 <b id="noteInboxN">0</b> ›</span>
+        </button>
       </div>
       <div id="noteTitle" class="ce" contenteditable="true" data-ph="标题"></div>
       <div id="edHint" class="ed-hint hidden">选中文字或长按词卡后，底部可以剪贴、改样式或开始练习。iPhone 上长按若先弹系统复制菜单，先点「收起键盘」再长按选中英文。</div>
@@ -726,19 +722,6 @@
   <button class="mv-btn" id="mvEnd">放到文末</button>
   <button class="mv-btn ghost" id="mvUndo">撤销</button>
   <button class="mv-btn ghost" id="mvCancel">取消</button>
-</div>
-
-<!-- ============ 大标题的「⋯」菜单 ============ -->
-<div class="modal" id="mvMenu">
-  <div class="modal-card mv-menu-card">
-    <div class="mv-menu-t" id="mvMenuTitle"></div>
-    <button class="mv-item" data-act="copysec">复制整节</button>
-    <button class="mv-item" data-act="cutsec">剪切整节</button>
-    <button class="mv-item" data-act="lift">拿起整节</button>
-    <button class="mv-item" data-act="up">上移一节</button>
-    <button class="mv-item" data-act="down">下移一节</button>
-    <button class="mv-item mv-item-cancel" data-act="cancel">取消</button>
-  </div>
 </div>
 
 <!-- ============ 手机底部导航（编辑页自动隐藏） ============ -->

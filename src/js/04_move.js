@@ -1,7 +1,7 @@
 /* ===== 04_move.js · 移动词与整节 / 笔记与文件夹增删 / 键盘 ===== */
 /* ============ 移动：词 / 整节（拿起 → 放下） ============ */
 const mvState={kind:'',node:null,nodes:[],title:'',revert:null,focus:-1};
-let mvTimer=0, mvMenuHead=null;
+let mvTimer=0;
 function headList(){ return Array.prototype.filter.call(bodyEl.children,isHead); }
 function sectionEnd(head){
   let n=head.nextElementSibling,last=head;
@@ -18,16 +18,9 @@ function foldClear(){
   const all=foldAll(); delete all[ui.note];
   try{ localStorage.setItem(FOLD_KEY,JSON.stringify(all)); }catch(_){ }
 }
-/* 每个大标题挂一个「⋯」入口：空元素 + CSS 画，不污染标题文字、不进保存内容 */
+/* 大标题的「⋯」入口已移除（整节操作改由长按标题触发，与系统操作一致）；保留空函数供各处调用 */
 function mvDecorate(){
-  if(!bodyEl||!ui.note) return;
-  headList().forEach(h=>{
-    if(!h.querySelector('.mf')){
-      const b=document.createElement('span');
-      b.className='mf'; b.setAttribute('contenteditable','false'); b.setAttribute('aria-hidden','true');
-      h.appendChild(b);
-    }
-  });
+  return;
 }
 function mvClearTargets(){
   if(!bodyEl) return;
@@ -236,13 +229,6 @@ function mvMoveSection(h,dir){
   toast(dir<0?'已上移一节':'已下移一节');
   return true;
 }
-function openMvMenu(h){
-  if(!h) return;
-  mvMenuHead=h;
-  $('#mvMenuTitle').textContent=(h.textContent||'').trim().slice(0,30)||'这一节';
-  $('#mvMenu').classList.add('show');
-}
-function closeMvMenu(){ $('#mvMenu').classList.remove('show'); mvMenuHead=null; }
 /* 在正文里找某个单词的那一块 */
 function mvFindSpan(term,wid){
   if(!bodyEl) return null;
@@ -398,6 +384,27 @@ function toggleNotePin(id){
   save();
   render();
   try{ if(navigator.vibrate) navigator.vibrate(8); }catch(_){}
+}
+/* 长按笔记项弹出的操作菜单（置顶 / 删除） */
+function openNoteMenu(id){
+  const n=state.notes.find(x=>x.id===id);
+  if(!n) return;
+  openRowMenu(n.title||'无标题',[
+    {text:n.pinAt?'取消置顶':'置顶',act:()=>toggleNotePin(id)},
+    {text:'删除笔记',danger:true,act:()=>confirmDeleteNote(id)},
+    {text:'取消',cancel:true}
+  ]);
+}
+/* 删除前先确认，确认后再执行 deleteNote */
+function confirmDeleteNote(id){
+  const n=state.notes.find(x=>x.id===id);
+  if(!n) return;
+  showConfirm({
+    title:'删除这篇笔记？',
+    msg:'「'+(n.title||'无标题')+'」会被删除，8 秒内可以撤销。',
+    okText:'删除',danger:true,
+    onOk(){ deleteNote(id); }
+  });
 }
 /* 删文件夹（会连带笔记）：保留确认框，删完同样可撤销 */
 function deleteFolder(id){
