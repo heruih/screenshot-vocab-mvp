@@ -8499,7 +8499,7 @@ function aiFinishAction(){
     return;
   }
   closeAiModal();
-}function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} if(aiReturnToReview){ aiReturnToReview=false; if(typeof renderFlash==='function') renderFlash(); } }
+}function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} if(aiReturnToReview){ aiReturnToReview=false; if(ui&&ui.flash&&(!ui.flash.ids.length||ui.flash.idx>=ui.flash.ids.length)&&typeof buildReview==='function'){ buildReview('due'); } if(typeof renderFlash==='function') renderFlash(); } }
 
 /* ============ 云同步（GitHub Gist / WebDAV / 自建地址） ============
    不依赖本机 localStorage：整份数据存到你自己的一个私密位置，
@@ -12798,7 +12798,7 @@ function bFlushSaveHint(){
   if(!bHasPendingSave)return;
   clearTimeout(bTimer);
   bHasPendingSave=false;
-  bSetStatus('本机已保存',true);
+  /* 成功保存静默，不再弹「本机已保存」；同步失败/离线等错误态仍由 bSync 的 catch 分支提示 */
 }
 const bStore=aStore;
 aStore=function(k,v){const ok=bStore(k,v);if(ok&&!bApplying&&k!==B_BASE)bQueue();return ok;};
