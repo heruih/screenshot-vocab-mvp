@@ -1083,6 +1083,7 @@ function bindEvents(){
   $('#btnSettings').addEventListener('click',openSettings);
   /* empower 操作演示：笔记页顶部常驻入口 */
   $('#btnEmpowerGuide').addEventListener('click',()=>$('#empowerDemoModal').classList.add('show'));
+  $('#btnInbox').addEventListener('click',ocrInboxShow);
   $('#empowerDemoClose').addEventListener('click',()=>$('#empowerDemoModal').classList.remove('show'));
   $('#empowerDemoModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove('show'); });
   $('#stClose').addEventListener('click',()=>$('#settingsModal').classList.remove('show'));

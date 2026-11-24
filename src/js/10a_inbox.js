@@ -138,6 +138,7 @@ function ocrSyncBatchMatch(){
   $('#ocrBatchMatchCount').textContent='已选 '+count+' 张截图';
 }
 function ocrInboxRender(){
+  if(typeof updateNoteInboxBar==='function')updateNoteInboxBar();
   const box=$('#ocrBatchList');if(!box)return;
   const all=ocrInboxRead();
   /* 先按笔记过滤，再按时间倒序（最新导入的排第一） */
@@ -187,20 +188,13 @@ function ocrInboxShowNote(noteId){
   $('#ocrSheet').classList.add('show');$('#ocrImgWrap').classList.add('hidden');$('#ocrSelected').classList.add('hidden');$('#ocrBatch').classList.remove('hidden');
   const st=$('#ocrStatus');if(st)st.textContent='这篇笔记的待处理截图：确认后挂到对应词条。';ocrInboxRender();
 }
-/* 更新笔记编辑器顶部的情境条：empower 提示常驻，有待处理截图时在旁加一个「待处理 N」胶囊 */
+/* 更新顶栏收图箱角标：显示全部待处理截图数，永远存在（0 也显示） */
 function updateNoteInboxBar(){
-  const inbox=$('#situInbox');
-  if(!inbox)return;
-  if(ui.mode!=='edit'||!ui.note){ inbox.classList.add('hidden'); return; }
-  const n=ocrInboxRead().filter(x=>x.noteId===ui.note).length;
-  const numEl=$('#noteInboxN'); if(numEl)numEl.textContent=String(n);
-  inbox.classList.toggle('hidden',n===0);
-  if(!inbox.__bound){
-    const open=()=>ocrInboxShowNote(ui.note);
-    inbox.addEventListener('click',open);
-    inbox.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } });
-    inbox.__bound=true;
-  }
+  const numEl=$('#hdrInboxN');
+  if(!numEl)return;
+  const n=ocrInboxRead().length;
+  numEl.textContent=String(n);
+  numEl.classList.toggle('zero',n===0);
 }
 /* 导入多文件前选择归属文件夹：返回 folderId；用户取消则 resolve(null) */
 function pickNoteForImport(){

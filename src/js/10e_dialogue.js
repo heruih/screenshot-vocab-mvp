@@ -201,7 +201,6 @@ renderToday=function(){
         (organizeN?'<button class="th-btn" type="button" id="thOrganize">去整理</button>':'')+
       '</div>'+
     '</div>';
-  const inboxEntry='<button class="inbox-entry'+(inboxN?' has-pending':'')+'" id="aInboxEntry" type="button"><span class="inbox-entry-main"><b>截图收件箱</b><small>'+(inboxN?inboxN+' 张待匹配截图':'已清空，点这里查看')+'</small></span><span class="inbox-entry-count">'+inboxN+'</span></button>';
   box.innerHTML=
     todayHero+
     '<section class="daily-quote" aria-label="每日一句"><div class="daily-quote-kicker">每日一句</div><p class="daily-quote-en">'+esc(quote.en)+'</p><p class="daily-quote-cn">'+esc(quote.cn)+'</p><p class="daily-quote-foot">'+esc(encouragement)+'</p></section>'+
@@ -212,9 +211,7 @@ renderToday=function(){
       '<button class="home-quick-item" data-hq="write" type="button"><span class="hq-t">写作练习</span><span class="hq-d">选词出题 · AI 批改</span></button>'+
       '<button class="home-quick-item primary" data-hq="ai" type="button"><span class="hq-t">AI 对话</span><span class="hq-d">基于刚复习的词开口</span></button>'+
     '</div>'+
-    inboxEntry+
-    '<div class="rv-stats"><div class="rv-stat"><div class="n">'+pending.length+'</div><div class="l">待整理</div></div><div class="rv-stat hot"><div class="n">'+due.length+'</div><div class="l">'+(examView?'待重做':'到期回想')+'</div></div><div class="rv-stat"><div class="n">'+weak.length+'</div><div class="l">待再次输出</div></div></div>'+batchEntry+
-    '<div class="today-actions">'+todayCard('organize','整理表达','补上自己的理解与句子',pending.length)+todayCard('recall','场景回想','看场景说英文 · 每轮最多 10 个',due.length)+todayCard('flash',examView?'错题本':'英文闪卡',examView?'没掌握的题再做一遍':'保留原来的认识与回想练习',due.length)+'</div>'+
+    batchEntry+
     '<div class="a-tools"><button class="btn" id="aTodayWords">按日期回看</button><button class="btn" id="aTodayWrite">每周写一段</button><button class="btn" id="aTodayFavorites">收藏对话</button><button class="btn" id="aTodayNew">手动添加</button><button class="btn" id="aTodayBackup">完整备份／迁移</button></div>'+
     '<p class="a-note">普通日参考：视频与模仿 20 分钟 → 整理 8 分钟 → 回想 5 分钟 → 输出 7 分钟。每周 2 次情景练习、1 次写作，可替换当天部分任务。无需清空全部队列。</p>'+
     '<p class="a-note">AI：'+(aRoute()==='chatgpt'?'ChatGPT 往返模式；套餐和模型由 ChatGPT 账号决定。':'OpenAI API 模式；独立计费。')+' 新地址不会自动读取手机旧地址的数据。</p>'+
@@ -228,7 +225,6 @@ renderToday=function(){
     else if(g==='write')openWriteModal();
     else if(g==='ai')todayAiDialogue();
   });
-  $('#aInboxEntry').onclick=ocrInboxShow;
   const thStart=$('#thStart');
   if(thStart)thStart.onclick=()=>{ui.mode='flash';ui.flash=null;render();};
   const thOrganize=$('#thOrganize');
