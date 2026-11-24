@@ -838,6 +838,22 @@ setBeijing(2026, 11, 24, 10);
   check('免费付费并存时优先用免费', tts.freeRemaining === 2 && tts.paidRemaining === 2);
 }
 
+section('场景22：永久免费账号批改成功（不因跳过额度扣减而 502）');
+setBeijing(2026, 11, 24, 11);
+{
+  const env = makeEnv();
+  const email = 'unlimited-review@example.test';
+  const token = await login(env, email);
+  await call(env, 'POST', '/v1/admin/activate', { email }, { 'X-Admin-Token': env.ADMIN_TOKEN });
+  await call(env, 'POST', '/v1/admin/set-unlimited', { email, unlimited: true }, { 'X-Admin-Token': env.ADMIN_TOKEN });
+  const r = await review(env, token);
+  check('永久免费账号批改返回 200', r.status === 200, 'got ' + r.status);
+  check('批改含标准答案', r.status === 200 && typeof r.data?.reviews?.[0]?.standard === 'string' && r.data.reviews[0].standard.trim().length > 0);
+  /* 同一 requestId 再提交应命中缓存，不重复扣费 */
+  const again = await review(env, token, reviewBody(1));
+  check('永久免费账号再次批改仍 200', again.status === 200, 'got ' + again.status);
+}
+
 /* ---------- 汇总 ---------- */
 console.log('\\n=================================');
 console.log('结果：' + pass + ' 通过 / ' + fail + ' 失败');

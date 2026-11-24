@@ -303,7 +303,12 @@ async function handleTextEntitled(request, env, headers, ctx, isReview = false) 
     }
 
     if (review) {
-      if (!account.unlimited && !await reserveDialogueUnits(env, account.id, review)) {
+      if (account.unlimited) {
+        /* 永久免费：不扣额度，但补一个 allocation 标记，保证批改结果能正常落库缓存 */
+        await env.DB.prepare(
+          "UPDATE dialogue_review_request SET allocation = '{\"source\":\"unlimited\"}' WHERE account_id = ? AND request_id = ? AND allocation IS NULL AND completed_at IS NULL"
+        ).bind(account.id, review.id).run();
+      } else if (!await reserveDialogueUnits(env, account.id, review)) {
         await releaseBudget(env, budget);
         budget = null;
         return jerr(402, review.count === 1
