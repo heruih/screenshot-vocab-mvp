@@ -704,6 +704,7 @@ function openWordModal(term,note,range,existing,prefill,restore){
   ensureOrigFirst();
   if(wmState.examples.length){ renderExCards(); syncRegen(); }
   else renderExCards();
+  wmAutoComplete();
 }
 /* 核心：自动挑选 2-3 句典型例句 */
 function wmGenExamples(){
@@ -761,6 +762,50 @@ function wmGenExamples(){
     wmState.examples=[];
     renderExCards({error:aiErrText(err)});
   });
+}
+/* 打开缺内容的词卡时，后台自动补缺的释义或例句（复用现有 AI 生成逻辑，静默进行）。
+ * 原文句（sense==='原文'）不算 AI 例句；先显示已有内容，成功后再补缺、刷新并存入草稿，
+ * 失败静默放弃，用户仍可点「生成例句」/「用 AI 释义」手动重试。 */
+const wmAutoCompletePending=new Map();
+function wmAutoComplete(){
+  const term=wmState&&wmState.term;
+  if(!term) return;
+  const key=String(term).trim().toLowerCase();
+  if(wmAutoCompletePending.has(key)) return;      /* 同词在途，避免重复请求 */
+  const needDef=!$('#wmDefinition').value.trim();
+  const aiExamples=(wmState.examples||[]).filter(x=>x.sense!=='原文');
+  const needEx=aiExamples.length===0;
+  if(!needDef&&!needEx) return;                   /* 不缺内容，不动 */
+  const mySeq=++wmSeq;
+  const pending=(aAiReady()?aiPack(term):askDict(term))
+    .then(p=>{
+      if(mySeq!==wmSeq) return;                   /* 已切到别的词卡，丢弃结果 */
+      if(needDef){
+        const def=String(p.definition||'').trim();
+        if(def&&!$('#wmDefinition').value.trim()){
+          $('#wmDefinition').value=def;
+          wmState.aiDef=def;
+        }
+        if(p.phonetic&&!$('#wmPhonetic').textContent) $('#wmPhonetic').textContent=String(p.phonetic).trim();
+      }
+      if(needEx&&Array.isArray(p.examples)&&p.examples.length){
+        const seen=new Set((wmState.examples||[]).map(x=>String(x.en||'').trim().toLowerCase()));
+        const add=p.examples
+          .filter(x=>x&&String(x.en).trim())
+          .map(x=>({en:String(x.en).trim(),cn:String(x.cn||'').trim(),sense:String(x.sense||'').trim()}))
+          .filter(x=>!seen.has(x.en.toLowerCase()));
+        if(add.length){
+          wmState.examples=(wmState.examples||[]).concat(add);
+          ensureOrigFirst();
+          renderExCards();
+          syncRegen();
+        }
+      }
+      scheduleWmDraft(200);
+    })
+    .catch(()=>{ /* 失败静默，保留已有内容，手动重试入口仍在 */ })
+    .finally(()=>{ wmAutoCompletePending.delete(key); });
+  wmAutoCompletePending.set(key,pending);
 }
 function renderExSkeleton(){
   const box=$('#wmExamples');
