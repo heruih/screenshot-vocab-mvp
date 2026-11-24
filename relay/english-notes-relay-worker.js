@@ -493,6 +493,7 @@ async function handleTts(request, env, headers, ctx) {
     if (cost.alert) scheduleCostWarning(env, ctx, cost);
     return jbody(200, { audio, characters }, headers, costHeaders(cost, reservation));
   } catch (err) {
+    console.error('[tts-synthesize] failed', { name: err?.name, kind: err?.kind, message: err?.message, stack: err?.stack });
     /* 不确定（超时/网络/合成后失败）挂起；配置错误或明确拒绝则释放 */
     if (err?.name === 'TtsError' && ['config', 'rejected'].includes(err.kind)) {
       await releaseBudget(env, budget);

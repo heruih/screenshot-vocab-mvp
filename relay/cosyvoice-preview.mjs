@@ -51,7 +51,9 @@ export async function synthesizeCosyVoice(text, { workspaceId, voiceId, apiKey }
   }
   if (!result.ok) {
     const kind = result.status >= 500 ? 'inconclusive' : 'rejected';
-    throw new TtsError(kind, 'speech provider rejected the request');
+    let body = '';
+    try { body = (await result.text()).slice(0, 300); } catch (_) {}
+    throw new TtsError(kind, 'speech provider HTTP ' + result.status + ': ' + body);
   }
 
   try {
@@ -72,7 +74,7 @@ export async function synthesizeCosyVoice(text, { workspaceId, voiceId, apiKey }
     const characters = payload.usage?.characters;
     if (!Number.isSafeInteger(characters) || characters <= 0) throw new Error('speech usage was not reported');
     return { bytes, characters };
-  } catch (_) {
-    throw new TtsError('inconclusive', 'speech was accepted but its result could not be confirmed');
+  } catch (e) {
+    throw new TtsError('inconclusive', 'speech accepted but result unconfirmed: ' + (e && e.message));
   }
 }
