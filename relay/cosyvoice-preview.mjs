@@ -29,7 +29,7 @@ export async function synthesizeCosyVoice(text, { workspaceId, voiceId, apiKey }
   try {
     result = await fetcher(origin + '/api/v1/services/audio/tts/SpeechSynthesizer', {
       method: 'POST',
-      redirect: 'error',
+      redirect: 'manual',
       signal,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
@@ -65,7 +65,7 @@ export async function synthesizeCosyVoice(text, { workspaceId, voiceId, apiKey }
       throw new Error('unexpected audio URL');
     }
     audioUrl.protocol = 'https:';
-    const audio = await fetcher(audioUrl, { signal, redirect: 'error' });
+    const audio = await fetcher(audioUrl, { signal, redirect: 'manual' });
     if (!audio.ok || Number(audio.headers.get('content-length')) > MAX_AUDIO_BYTES) {
       throw new Error('speech audio download failed');
     }
