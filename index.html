@@ -2056,7 +2056,7 @@ body.drag-select #noteBody .en-word.sel-pick{
       </div>
       <div class="note-editor-label"><span class="note-editor-kicker">笔记</span><span class="note-editor-context">原始语境 · 个人表达</span></div>
       <div id="noteTitle" class="ce" contenteditable="true" data-ph="标题"></div>
-      <div id="edHint" class="ed-hint hidden">选中文字或长按词卡后，底部可以剪贴、改样式或开始练习。</div>
+      <div id="edHint" class="ed-hint hidden">选中文字或长按词卡后，底部可以剪贴、改样式或开始练习。iPhone 上长按若先弹系统复制菜单，先点「收起键盘」再长按选中英文。</div>
       <div class="note-body-label">正文</div>
       <div id="noteBody" class="ce" contenteditable="true" data-ph="写点什么…"></div>
     </div>
@@ -2516,8 +2516,9 @@ body.drag-select #noteBody .en-word.sel-pick{
       <div class="st-field" id="stCommercialSpeech" hidden>
         <label for="stCommercialSpeechSource">英文朗读来源</label>
         <select id="stCommercialSpeechSource" aria-describedby="stCommercialSpeechStatus">
-          <option value="auto">自配豆包 Key／系统朗读（默认）</option>
-          <option value="site" disabled>站方语音包 · CosyVoice</option>
+          <option value="auto">自动（优先站方语音包，用完回退）</option>
+          <option value="system">系统朗读</option>
+          <option value="doubao">自配豆包语音</option>
         </select>
         <p class="a-note" id="stCommercialSpeechStatus" role="status"></p>
         <button class="btn" id="stCommercialSpeechRefresh" type="button">刷新语音包状态</button>
@@ -2856,9 +2857,9 @@ body.drag-select #noteBody .en-word.sel-pick{
    <details class="a-guide-fold">
     <summary>API Key 与为什么要付费</summary>
     <div class="a-fold-body">
-     <p>AI 对话每天免费批改 10 句。每句成功批改后扣 1 句，生成场景、试听或批改失败都不扣。系统朗读免费，站方 CosyVoice 语音包单独发放。</p>
+     <p>AI 对话每天免费批改 10 句。每句成功批改后扣 1 句，生成场景、试听或批改失败都不扣。开通账号即送一次性站方语音句数，先用免费的、再用付费的，用完自动回退系统朗读；付费语音包由我们单独发放。</p>
      <p>当天免费额度用完、还想继续练，可以领加练包；现阶段加练包由我们手动发放，不接在线支付，也不会主动催你。</p>
-     <p class="a-fold-note">可以填自己的豆包语音 Key，费用走自己的豆包。收到站方语音包后，在「发音与配图」选择「站方语音包」。同一句已生成语音可在本机重播，重播不扣句数。</p>
+     <p class="a-fold-note">可以填自己的豆包语音 Key，费用走自己的豆包。朗读来源在「发音与配图」里选：默认「自动」优先用站方语音，免费句数用完回退系统朗读；也可改「系统朗读」或「自配豆包语音」。同一句已生成语音可在本机重播，重播不扣句数。</p>
     </div>
    </details>
    <details class="a-guide-fold">
@@ -2872,6 +2873,7 @@ body.drag-select #noteBody .en-word.sel-pick{
     <summary>笔记页：empower、自由整理、复制粘贴</summary>
     <div class="a-fold-body">
      <p><b>empower：</b>在笔记里选中英文单词或句子，底部会弹出蓝色 empower 按钮。点它，AI 自动挑 2-3 句典型例句（配中文、覆盖不同义项），不用自己写；同时自动把中文释义填好，你可以直接在框里改；再补上标签，存进表达库。没存完退出有草稿，下次打开自动接上。</p>
+     <p class="a-fold-note"><b>iPhone 长按提示（已验）：</b>长按正文若先弹出系统的复制／查词菜单，点一下顶栏「收起键盘」，再在正文长按选中英文，底部就会弹出蓝色「empower」——点它选「加入词库」（已收录过的词会显示「查看词卡」）。Android 端同一操作待真机复验。</p>
      <p><b>自由整理：</b>内容随时能改、能补中文，编辑器工具栏可改字体、字号、颜色。每个词自动配真实图片（抽象词先转成具体画面），配图和你的截图叠在一起，点卡片边角或左滑切换，不想要配图可以只用截图。</p>
      <p><b>复制粘贴：</b>长按词卡或划选正文，底部出现操作栏，可复制、剪切、整节移动；之后点正文放好光标，再点顶部「粘贴」。</p>
     </div>
@@ -3346,13 +3348,11 @@ if(speechPreviewEnabled&&speechPreviewSource){
 }
 const COMMERCIAL_SPEECH_SOURCE_KEY='en-tts-commercial-source-v1';
 const commercialSpeechSource=document.getElementById('stCommercialSpeechSource');
-let preferSiteSpeech=false;
 if(commercialSpeechEnabled&&commercialSpeechSource){
-  try{preferSiteSpeech=localStorage.getItem(COMMERCIAL_SPEECH_SOURCE_KEY)==='site';}catch(_){}
+  try{ const saved=commercialSpeechMode(); if(['auto','system','doubao'].includes(saved)) commercialSpeechSource.value=saved; }catch(_){}
   document.getElementById('stCommercialSpeech').hidden=false;
   commercialSpeechSource.addEventListener('change',()=>{
-    preferSiteSpeech=commercialSpeechSource.value==='site';
-    try{localStorage.setItem(COMMERCIAL_SPEECH_SOURCE_KEY,preferSiteSpeech?'site':'auto');}catch(_){}
+    try{localStorage.setItem(COMMERCIAL_SPEECH_SOURCE_KEY,commercialSpeechSource.value);}catch(_){}
     stopSpeech();
   });
   document.getElementById('stCommercialSpeechListen').addEventListener('click',()=>
@@ -3360,23 +3360,53 @@ if(commercialSpeechEnabled&&commercialSpeechSource){
   document.getElementById('stCommercialSpeechRefresh').addEventListener('click',()=>accountRefresh());
 }
 
+/* 用户显式选择的英文朗读来源：auto（默认，优先站方语音包）/ system（系统朗读）/ doubao（自配豆包） */
+function commercialSpeechMode(){
+  let m='auto';
+  try{ const v=localStorage.getItem(COMMERCIAL_SPEECH_SOURCE_KEY); if(v==='auto'||v==='system'||v==='doubao') m=v; }catch(_){}
+  return m;
+}
+
+/* 当前是否有站方语音包（已开通且发放过，含已用尽的情况）；是否可用看 freeRemaining+paidRemaining */
 function activeSiteVoicePack(){
   const status=accountStatusCache;
   if(!accountLoggedIn()||!status||status.account.email!==accountEmail()||status.account.status==='disabled')return null;
   const pack=status.entitlements?.limits?.tts;
-  return pack?.hasPackage===true?pack:null;
+  return pack&&pack.hasPackage===true?pack:null;
+}
+function siteVoiceTotal(pack){ return pack?((pack.freeRemaining||0)+(pack.paidRemaining||0)):0; }
+/* auto（默认）模式下，有站方额度就用站方 CosyVoice；显式选 system/doubao 则不用 */
+function useSiteSpeech(){
+  if(commercialSpeechMode()!=='auto')return false;
+  return !!activeSiteVoicePack()&&siteVoiceTotal(activeSiteVoicePack())>0;
+}
+
+/* 当前实际朗读方式（供账号页与设置页显示） */
+function currentReadingMethodLabel(){
+  if(!commercialSpeechEnabled) return '';
+  const mode=commercialSpeechMode();
+  if(mode==='system') return '系统朗读';
+  if(mode==='doubao') return ownVolcTtsConfig()?'自配豆包语音':'系统朗读（未填豆包 Key）';
+  const pack=activeSiteVoicePack();
+  if(pack&&siteVoiceTotal(pack)>0) return '站方语音包（CosyVoice）';
+  return ownVolcTtsConfig()?'自配豆包语音':'系统朗读';
 }
 
 function refreshCommercialSpeechSettings(){
   if(!commercialSpeechEnabled||!commercialSpeechSource)return;
   const pack=activeSiteVoicePack();
-  commercialSpeechSource.options[1].disabled=!pack;
-  commercialSpeechSource.value=pack&&preferSiteSpeech?'site':'auto';
+  const mode=commercialSpeechMode();
+  commercialSpeechSource.value=['auto','system','doubao'].includes(mode)?mode:'auto';
   document.getElementById('stCommercialSpeechRefresh').hidden=!accountLoggedIn();
   const status=document.getElementById('stCommercialSpeechStatus');
-  status.textContent=pack
-    ? '站方语音包剩余 '+pack.grantRemaining+' 句'+(pack.grantRemaining===0?'。已生成的本机语音仍可重播。':'。')
-    : (accountLoggedIn()?'暂无可用的站方语音包。收到语音包后可刷新状态。':'登录后可使用管理员发放的站方语音包。');
+  if(pack&&siteVoiceTotal(pack)>0){
+    const free=pack.freeRemaining||0, paid=pack.paidRemaining||0;
+    status.textContent='站方语音：免费剩余 '+free+' 句'+(paid>0?'，付费剩余 '+paid+' 句':'')+'。已生成的本机语音仍可重播。';
+  }else if(accountLoggedIn()&&pack){
+    status.textContent='免费语音已用完，当前使用'+(mode==='system'?'系统朗读':(mode==='doubao'?'自配豆包语音':'系统朗读'))+'。';
+  }else{
+    status.textContent=accountLoggedIn()?'暂无可用的站方语音包，收到语音包后可刷新状态。':'登录后开通账号即送站方语音句数。';
+  }
 }
 
 const VOLC_TTS_KEY='en-tts-v1';
@@ -3470,8 +3500,8 @@ function playSiteSpeech(text,lang,onend){
   const token=accountToken();
   const key=JSON.stringify(['cosyvoice-site-v1',accountEmail(),lang,text]);
   return playCachedCloudSpeech(text,lang,onend,key,()=>{
-    if(token!==accountToken()||!activeSiteVoicePack())throw new Error('站方语音包尚未开通');
-    if(activeSiteVoicePack().grantRemaining<=0)throw new Error('站方语音包句数已用完');
+    const pack=activeSiteVoicePack();
+    if(token!==accountToken()||!pack||siteVoiceTotal(pack)<=0)throw new Error('站方语音包尚未开通或句数已用完');
     if(siteSpeechPending.has(key))return siteSpeechPending.get(key);
     const pending=fetch(accountBase()+'/v1/tts/synthesize',{
       method:'POST',signal:AbortSignal.timeout(12000),
@@ -3634,7 +3664,16 @@ function speak(text,lang,onend){
     return;
   }
   if(locale.toLowerCase().startsWith('en')&&commercialSpeechEnabled){
-    if(preferSiteSpeech&&activeSiteVoicePack()){playSiteSpeech(value,locale,onend);return;}
+    const mode=commercialSpeechMode();
+    if(mode==='system'){ speakQueued(value,locale,onend); return; }
+    if(mode==='doubao'){
+      const own=ownVolcTtsConfig();
+      if(own) playVolcAudio(value,locale,onend,own);
+      else { toast('还未填写自己的豆包 Key，已使用系统朗读','warn'); speakQueued(value,locale,onend); }
+      return;
+    }
+    /* auto（默认）：优先站方语音包，用完或未开通再回退自配豆包/系统朗读 */
+    if(useSiteSpeech()){ playSiteSpeech(value,locale,onend); return; }
     const own=ownVolcTtsConfig();
     if(own)playVolcAudio(value,locale,onend,own);
     else speakQueued(value,locale,onend);
@@ -7412,6 +7451,7 @@ function openWordModal(term,note,range,existing,prefill,restore){
   ensureOrigFirst();
   if(wmState.examples.length){ renderExCards(); syncRegen(); }
   else renderExCards();
+  wmAutoComplete();
 }
 /* 核心：自动挑选 2-3 句典型例句 */
 function wmGenExamples(){
@@ -7469,6 +7509,50 @@ function wmGenExamples(){
     wmState.examples=[];
     renderExCards({error:aiErrText(err)});
   });
+}
+/* 打开缺内容的词卡时，后台自动补缺的释义或例句（复用现有 AI 生成逻辑，静默进行）。
+ * 原文句（sense==='原文'）不算 AI 例句；先显示已有内容，成功后再补缺、刷新并存入草稿，
+ * 失败静默放弃，用户仍可点「生成例句」/「用 AI 释义」手动重试。 */
+const wmAutoCompletePending=new Map();
+function wmAutoComplete(){
+  const term=wmState&&wmState.term;
+  if(!term) return;
+  const key=String(term).trim().toLowerCase();
+  if(wmAutoCompletePending.has(key)) return;      /* 同词在途，避免重复请求 */
+  const needDef=!$('#wmDefinition').value.trim();
+  const aiExamples=(wmState.examples||[]).filter(x=>x.sense!=='原文');
+  const needEx=aiExamples.length===0;
+  if(!needDef&&!needEx) return;                   /* 不缺内容，不动 */
+  const mySeq=++wmSeq;
+  const pending=(aAiReady()?aiPack(term):askDict(term))
+    .then(p=>{
+      if(mySeq!==wmSeq) return;                   /* 已切到别的词卡，丢弃结果 */
+      if(needDef){
+        const def=String(p.definition||'').trim();
+        if(def&&!$('#wmDefinition').value.trim()){
+          $('#wmDefinition').value=def;
+          wmState.aiDef=def;
+        }
+        if(p.phonetic&&!$('#wmPhonetic').textContent) $('#wmPhonetic').textContent=String(p.phonetic).trim();
+      }
+      if(needEx&&Array.isArray(p.examples)&&p.examples.length){
+        const seen=new Set((wmState.examples||[]).map(x=>String(x.en||'').trim().toLowerCase()));
+        const add=p.examples
+          .filter(x=>x&&String(x.en).trim())
+          .map(x=>({en:String(x.en).trim(),cn:String(x.cn||'').trim(),sense:String(x.sense||'').trim()}))
+          .filter(x=>!seen.has(x.en.toLowerCase()));
+        if(add.length){
+          wmState.examples=(wmState.examples||[]).concat(add);
+          ensureOrigFirst();
+          renderExCards();
+          syncRegen();
+        }
+      }
+      scheduleWmDraft(200);
+    })
+    .catch(()=>{ /* 失败静默，保留已有内容，手动重试入口仍在 */ })
+    .finally(()=>{ wmAutoCompletePending.delete(key); });
+  wmAutoCompletePending.set(key,pending);
 }
 function renderExSkeleton(){
   const box=$('#wmExamples');
@@ -12041,7 +12125,7 @@ renderToday=function(){
     '<section class="daily-quote" aria-label="每日一句"><div class="daily-quote-kicker">每日一句</div><p class="daily-quote-en">'+esc(quote.en)+'</p><p class="daily-quote-cn">'+esc(quote.cn)+'</p><p class="daily-quote-foot">'+esc(encouragement)+'</p></section>'+
     '<div class="home-quick">'+
       '<button class="home-quick-item" data-hq="recall" type="button"><span class="hq-t">场景回想</span><span class="hq-d">看场景说英文 · 先回忆</span></button>'+
-      '<button class="home-quick-item" data-hq="note" type="button"><span class="hq-t">加入笔记</span><span class="hq-d">写英文 · 选中 empower</span></button>'+
+      '<button class="home-quick-item" data-hq="note" type="button"><span class="hq-t">笔记</span><span class="hq-d">打开笔记列表 · 新建或继续写</span></button>'+
       '<button class="home-quick-item" data-hq="flash" type="button"><span class="hq-t">'+(examView?'错题本':'英文闪卡')+'</span><span class="hq-d">'+(examView?'没掌握的题再做一遍':'到期回想练习')+'</span></button>'+
       '<button class="home-quick-item" data-hq="write" type="button"><span class="hq-t">写作练习</span><span class="hq-d">选词出题 · AI 批改</span></button>'+
       '<button class="home-quick-item primary" data-hq="ai" type="button"><span class="hq-t">AI 对话</span><span class="hq-d">基于刚复习的词开口</span></button>'+
@@ -12057,7 +12141,7 @@ renderToday=function(){
   box.querySelectorAll('[data-hq]').forEach(b=>b.onclick=()=>{
     const g=b.dataset.hq;
     if(g==='recall')aStartRecall();
-    else if(g==='note')newNote();
+    else if(g==='note'){ persistEditor(); ui.mode='list'; ui.folder='all'; ui.note=null; ui.tag=null; ui.sideOpen=false; render(); }
     else if(g==='flash'){ui.mode='flash';ui.flash=null;render();}
     else if(g==='write')openWriteModal();
     else if(g==='ai')todayAiDialogue();
@@ -13708,9 +13792,19 @@ function accountRenderGroup() {
   const M = s.entitlements.monthly;
   const yuan = micro => (micro / 1_000_000).toFixed(2);
   const status = ['active','pending','disabled'].includes(s.account.status) ? s.account.status : 'disabled';
-  const voiceBalance = status !== 'disabled' && L.tts.hasPackage
-    ? '站方语音包剩余 ' + Number(L.tts.grantRemaining) + ' 句'
-    : '暂无可用的站方语音包';
+  const tts = L.tts || {};
+  let voiceBalance;
+  if (status === 'disabled' || !tts.hasPackage) {
+    voiceBalance = '暂无可用的站方语音包';
+  } else {
+    const free = Number(tts.freeRemaining) || 0;
+    const paid = Number(tts.paidRemaining) || 0;
+    if (free + paid > 0) {
+      voiceBalance = '站方语音：免费剩余 ' + free + ' 句' + (paid > 0 ? '，付费剩余 ' + paid + ' 句' : '');
+    } else {
+      voiceBalance = '免费语音已用完，当前使用系统朗读';
+    }
+  }
 
   body.innerHTML =
     '<div class="st-field"><div class="meta"><b id="stAccountEmail"></b> ' +
@@ -13718,7 +13812,8 @@ function accountRenderGroup() {
     '<div class="st-field"><label>今日剩余（已用 / 每日免费）</label>' +
       '<p class="a-note">AI 对话免费批改剩余 ' + L.text.freeLeft + ' 句（今日已用 ' + L.text.used + ' / ' + L.text.freeDaily + '）' +
       (L.text.grantRemaining ? '，加练包剩 ' + L.text.grantRemaining + ' 句' : '') + '</p>' +
-      '<p class="a-note">' + voiceBalance + '</p></div>' +
+      '<p class="a-note">' + voiceBalance + '</p>' +
+      '<p class="a-note">当前朗读方式：' + (typeof currentReadingMethodLabel === 'function' ? currentReadingMethodLabel() : '系统朗读') + '</p></div>' +
     '<div class="st-field"><label>本月站方成本（100 元提醒 / 150 元封顶）</label>' +
       '<p class="a-note">已累计 ¥' + yuan(M.totalMicro) + '，跨月自动重置。</p></div>' +
     '<button class="btn" id="stAccountRefresh" type="button">刷新状态</button>' +
