@@ -1782,6 +1782,16 @@ function openAiPackPractice(terms){
   const favorite=$('#aiFavorite');if(favorite){favorite.textContent='收藏对话';favorite.disabled=true;}
   $('#aiScene').innerHTML='';
   $('#aiModal').classList.add('show');
+  /* 旧对话复练：同一组词默认打开上次练过的场景，答案清空，保留「重新生成」 */
+  if(typeof aiFindRecentSession==='function'&&typeof aiRestoreLastScene==='function'){
+    const hist=aiFindRecentSession(list.map(w=>w.id));
+    if(hist&&hist.exact&&aiRestoreLastScene(hist.session)){
+      if(typeof aiDialogueHistoryScene==='function') aiDialogueHistoryScene(aiState.scene,aiState.lines,aiState.termIds||[]);
+      aiShowBody(); aiSetChatbar('practice'); aiRenderDialogue(); aiSyncContext('practice');
+      toast('已还原上次练的场景，答案已清空；点「换一批情景」重新生成','ok');
+      return;
+    }
+  }
   const mySeq=++aiState.seq;
   aiShowLoading('正在挑场景…');
   if(!aAiReady()){

@@ -2,15 +2,29 @@ const BATCH_KEY='english-notes-dialogue-batch-v1';
 const DIALOGUE_PREF_KEY='english-notes-dialogue-preferences-v1';
 const AI_DIALOGUE_HISTORY_KEY='english-notes-dialogue-history-v1';
 let batchActiveGroup=-1,batchActiveSegment=null;
-function aiDialogueHistoryRead(){const v=aRead(AI_DIALOGUE_HISTORY_KEY,{sessions:[],favorites:[]});return {sessions:[],favorites:Array.isArray(v&&v.favorites)?v.favorites:[]};}
-function aiDialogueHistoryWrite(v){v.sessions=[];v.favorites=(v.favorites||[]).slice(0,30);aStore(AI_DIALOGUE_HISTORY_KEY,JSON.stringify(v));}
+function aiDialogueHistoryRead(){const v=aRead(AI_DIALOGUE_HISTORY_KEY,{sessions:[],favorites:[]});return {sessions:Array.isArray(v&&v.sessions)?v.sessions:[],favorites:Array.isArray(v&&v.favorites)?v.favorites:[]};}
+/* 会话只存文本：最多 30 段，总计不超过 256KB（UTF-8 字节），单段不超过 64KB */
+function aiDialogueTrimSessions(list){
+  const out=[];let total=0;
+  for(const s of (list||[])){
+    if(!s||!s.id)continue;
+    let json='';try{json=JSON.stringify(s);}catch(e){continue;}
+    let bytes=json.length*2;try{if(typeof TextEncoder!=='undefined')bytes=(new TextEncoder().encode(json)).length;}catch(e){}
+    if(bytes>64*1024)continue;
+    if(out.length>=30)break;
+    if(total+bytes>256*1024)break;
+    out.push(s);total+=bytes;
+  }
+  return out;
+}
+function aiDialogueHistoryWrite(v){v.sessions=aiDialogueTrimSessions(v.sessions||[]);v.favorites=(v.favorites||[]).slice(0,30);try{aStore(AI_DIALOGUE_HISTORY_KEY,JSON.stringify(v));}catch(e){}}
 let aiSessionDoc=null;
 function aiDialogueHistoryMigrate(){
-  /* 旧版本会自动存 30 段会话；现在只保留收藏，启动时顺手清掉旧的自动记录 */
+  /* 恢复自动会话记录后，启动时只裁剪到上限，不再清空 sessions */
   try{
     const raw=aRead(AI_DIALOGUE_HISTORY_KEY,null);
     if(raw&&Array.isArray(raw.sessions)&&raw.sessions.length){
-      aStore(AI_DIALOGUE_HISTORY_KEY,JSON.stringify({sessions:[],favorites:(raw.favorites||[]).slice(0,30)}));
+      aiDialogueHistoryWrite({sessions:raw.sessions,favorites:raw.favorites||[]});
     }
   }catch(e){}
 }
@@ -37,6 +51,34 @@ function aiDialogueHistoryFinish(status){
   if(!aiSessionDoc) return;
   aiSessionDoc.status=status||'completed';
   aiSessionDoc.updatedAt=Date.now();
+  aiDialogueHistoryAutoSave();
+}
+/* 自动存入会话历史（只存文本），供下次「旧对话复练」；没有实际场景不存 */
+function aiDialogueHistoryAutoSave(){
+  if(!aiSessionDoc) return;
+  const scs=(aiSessionDoc.scenes||[]).filter(Boolean);
+  if(!scs.length) return;
+  const v=aiDialogueHistoryRead();
+  v.sessions=[aiSessionDoc].concat(v.sessions.filter(s=>s.id!==aiSessionDoc.id));
+  aiDialogueHistoryWrite(v);
+}
+/* 按词条 ID 查找最近一次会话：返回 {session,overlap,total,exact}；无交集返回 null */
+function aiFindRecentSession(ids){
+  const target=(ids||[]).map(String).filter(Boolean);
+  if(!target.length) return null;
+  const tset=new Set(target);
+  let best=null;
+  for(const s of (aiDialogueHistoryRead().sessions||[])){
+    const sIds=(s.termIds||[]).map(String).filter(Boolean);
+    if(!sIds.length) continue;
+    const overlap=sIds.filter(id=>tset.has(id)).length;
+    if(!overlap) continue;
+    const exact=overlap===target.length&&sIds.length===target.length;
+    if(!best||(exact&&!best.exact)||(exact===best.exact&&(overlap>best.overlap||(overlap===best.overlap&&(s.updatedAt||0)>(best.session.updatedAt||0))))){
+      best={session:s,overlap,total:target.length,exact};
+    }
+  }
+  return best;
 }
 function aiFavoriteCurrent(){
   if(!aiSessionDoc){toast('当前还没有可收藏的对话','warn');return;}

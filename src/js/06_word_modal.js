@@ -1249,15 +1249,36 @@ function aiSetChatbar(phase){
 function aiRenderScenes(){
   const prev=(state.aiLog||[]).filter(x=>String(x.term).toLowerCase()===String(aiState.term).toLowerCase());
   const scored=prev.filter(x=>Number(x.score)>0);const best=scored.length?Math.max.apply(null,scored.map(x=>Number(x.score)||0)):null;
-  const tip=aiState.scenePlanFallback?'AI 场景暂时不可用，下面是快速分组。点击“换一批情景”会重新请求 AI'
+  const tip=aiState.scenePlanFallback?'AI 场景暂时不可用，下面是快速分组。点击"换一批情景"会重新请求 AI'
     :(aiState.terms&&aiState.terms.length>1)?('一次对话练 '+aiState.terms.length+' 个词，选一个情景开始')
     :(prev.length?('这个词练过 '+prev.length+' 次'+(best!=null?'，最高 '+best+' 分':'')+'，选一个情景继续'):'选择一个情景，开始今天的开口练习');
+  /* 部分词重合的历史对话入口 */
+  let relatedHtml='',relatedSession=null;
+  if(typeof aiFindRecentSession==='function'){
+    const ids=aiState.allTermIds||aiState.termIds||[];
+    const hist=aiFindRecentSession(ids);
+    if(hist&&!hist.exact&&hist.overlap>=1){
+      relatedSession=hist.session;
+      const terms=(hist.session.terms||[]).slice(0,3).join(' · ');
+      relatedHtml='<button class="btn ai-related" id="aiRelatedDialogue" type="button">练过的相关对话 · '+esc(terms)+' ›</button>';
+    }
+  }
   $('#aiScene').innerHTML='<div class="ai-hint">'+esc(tip)+'</div>'+
     aiState.scenes.map((s,i)=>'<div class="scene-card" data-scene="'+i+'">'+
       '<span class="scene-num">0'+(i+1)+'</span>'+
       '<span class="scene-main"><span class="scene-title">'+esc(s.title)+'</span><span class="scene-desc">'+esc(s.desc||'')+'</span>'+(Array.isArray(s.wordIds)&&s.wordIds.length?'<span class="scene-words">'+s.wordIds.map(id=>{const w=(state.words||[]).find(x=>x.id===id);return w?'<span class="scene-word">'+esc(w.term)+'</span>':'';}).join('')+'</span>':'')+'</span>'+
       '<svg class="icon-sm scene-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'+
-      '</div>').join('');
+      '</div>').join('')+
+    relatedHtml;
+  if(relatedSession){
+    const b=$('#aiRelatedDialogue');
+    if(b) b.addEventListener('click',()=>{
+      const words=(relatedSession.termIds||[]).map(id=>state.words.find(w=>w.id===id)).filter(Boolean);
+      if(!words.length){ toast('相关对话里的词条已不存在','warn'); return; }
+      closeAiModal();
+      setTimeout(()=>openAiPackPractice(words),60);
+    });
+  }
 }
 function aiRenderDialogue(){
   let visible=aiState.lines;
@@ -1319,6 +1340,35 @@ function aiApplyDialogue(lines){
   aiState.currentTargetWord=aiState.multiTurn?((lines.find(x=>x.who==='YOU')||{}).wordId||aiState.terms[0]):aiState.term;
   aiState.phase='practice';
   aiShowBody(); aiSetChatbar('practice'); aiRenderDialogue();
+}
+/* 还原上次会话最后练的场景：答案清空，直接进入练习，不重新生成 */
+function aiRestoreLastScene(session){
+  const scs=(session.scenes||[]).filter(Boolean);
+  if(!scs.length) return false;
+  const last=scs[scs.length-1];
+  const lines=(last.lines||[]).filter(l=>l&&(l.who==='YOU'||l.en||l.cn));
+  if(!lines.length) return false;
+  aiState.scenes=scs.map(sc=>({title:sc.title||'',desc:sc.desc||'',wordIds:(sc.wordIds||[]).slice()}));
+  aiState.sceneIndex=scs.length-1;
+  aiState.scene={title:last.title||'',desc:last.desc||'',wordIds:(last.wordIds||[]).slice()};
+  /* 组词：把当前场景的词设为目标词 */
+  if(aiState.multiTurn){
+    const srcIds=aiState.allTermIds||aiState.termIds||[];
+    const ids=(last.wordIds||[]).filter(id=>srcIds.includes(id));
+    if(ids.length){
+      aiState.termIds=ids.slice();
+      aiState.terms=ids.map(id=>aiWordTerm(id)).filter(Boolean);
+      aiState.term=aiState.terms.join(' · ');
+      aiState.definition=ids.map(id=>aiWordDef(id)).filter(Boolean).join('；');
+    }
+  }
+  aiState.lines=lines.map(l=>({who:l.who,en:l.en||'',cn:l.cn||'',wordId:l.wordId||'',promptCn:l.promptCn||'',attempt:'',result:''}));
+  aiState.turnIndex=0;aiState.turnResults=[];
+  aiState.attempt='';aiState.attemptPromptCn='';
+  aiState.currentTargetWord=aiState.multiTurn?((aiState.lines.find(l=>l.who==='YOU')||{}).wordId||aiState.terms[0]):aiState.term;
+  aiState.phase='practice';
+  aiState.restored=true;
+  return true;
 }
 function aiSchedulePrefetch(delay){
   if(aiPrefetchTimer){ clearTimeout(aiPrefetchTimer); aiPrefetchTimer=null; }
@@ -1611,6 +1661,16 @@ function openAiDialogue(ev){
   const favorite=$('#aiFavorite');if(favorite){favorite.textContent='收藏对话';favorite.disabled=true;}
   $('#aiScene').innerHTML='';
   $('#aiModal').classList.add('show');
+  /* 旧对话复练：同一词默认打开上次练过的场景，答案清空，保留「重新生成」 */
+  if(ex&&typeof aiFindRecentSession==='function'&&typeof aiRestoreLastScene==='function'){
+    const hist=aiFindRecentSession([ex.id]);
+    if(hist&&hist.exact&&aiRestoreLastScene(hist.session)){
+      if(typeof aiDialogueHistoryScene==='function') aiDialogueHistoryScene(aiState.scene,aiState.lines,aiState.termIds||[]);
+      aiShowBody(); aiSetChatbar('practice'); aiRenderDialogue(); aiSyncContext('practice');
+      toast('已还原上次练的场景，答案已清空；点「换一批情景」重新生成','ok');
+      return;
+    }
+  }
   const mySeq=++aiState.seq;
   aiShowLoading('正在为你挑选最常用的情景…');
   if(!aAiReady()){
