@@ -243,29 +243,28 @@ body.mode-edit #noteListPane{display:none}
 .editor-header{
   display:flex;align-items:center;gap:4px;padding:calc(env(safe-area-inset-top,0px) + 6px) 10px 6px;border-bottom:1px solid var(--sep);min-height:56px;
 }
-#edBreadcrumb{flex:1;min-width:0;font-size:13px;color:var(--text3);padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.note-organize-btn{flex:none;min-height:40px;padding:0 12px;border:1px solid var(--sep);border-radius:10px;background:var(--s2);color:var(--accent-fg);font-size:13px;font-weight:600}
-.note-organize-btn:active{transform:scale(.96);background:var(--accent-soft)}
-.note-organize-btn{display:inline-flex;align-items:center;gap:5px}
-.note-organize-btn .icon-sm{width:15px;height:15px;flex:none}
-#btnLook{width:auto;min-width:44px;padding:0 8px;gap:5px}
-#btnLook .hdr-aa{font-size:16px;font-weight:800;line-height:1;letter-spacing:-.5px;color:var(--accent-fg)}
-#btnLook .hdr-lbl{font-size:12px;font-weight:600}
+.hdr-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:40px;padding:0 10px;border:1px solid var(--sep);border-radius:10px;background:var(--s2);color:var(--text2);font-size:13px;font-weight:600}
+.hdr-btn:active{transform:scale(.96);background:var(--accent-soft)}
+.hdr-btn .icon{width:16px;height:16px;flex:none}
+.hdr-btn .icon-sm{width:15px;height:15px;flex:none}
+.hdr-btn.accent{color:var(--accent-fg);background:var(--accent-soft)}
+.hdr-btn.danger{color:var(--danger)}
+.hdr-btn .hdr-aa{font-size:16px;font-weight:800;line-height:1;letter-spacing:-.5px}
+.hdr-btn .hdr-lbl{font-size:12px;font-weight:600}
+.hdr-spacer{flex:1;min-width:0}
 #editorWrap{flex:1;overflow-y:auto;padding:24px 22px 140px;width:100%;max-width:860px;margin:0 auto}
-.note-editor-label{display:flex;align-items:center;gap:10px;padding:2px 0 14px;border-bottom:1px solid var(--sep)}
-.note-editor-kicker{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--accent-fg);text-transform:uppercase}
-.note-editor-context{font-size:12px;color:var(--text3)}
-.empower-guide-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 2px;padding:8px 12px;border:1px dashed var(--sep);border-radius:12px;background:var(--accent-soft)}
-.empower-guide-hint{font-size:12px;color:var(--text2);flex:1;min-width:0}
-.empower-guide-btn{flex:none;font-size:13px;font-weight:800;color:var(--accent-fg);background:none;border:none;padding:6px 10px;border-radius:8px;white-space:nowrap}
-.empower-guide-btn:active{background:var(--accent-soft)}
+.situ-bar{display:flex;flex-direction:column;margin:0 0 4px}
+.situ-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 12px;border:1px dashed var(--sep);border-radius:12px;background:var(--accent-soft)}
+.situ-hint{font-size:12px;color:var(--text2);flex:1;min-width:0}
+.situ-hint b{color:var(--accent);font-weight:700}
+.situ-action{flex:none;font-size:13px;font-weight:700;color:var(--accent-fg);background:none;border:none;padding:6px 10px;border-radius:8px;white-space:nowrap}
+.situ-action:active{background:var(--accent-soft)}
 .emp-demo-step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--sep)}
 .emp-demo-step:last-child{border-bottom:none}
 .emp-demo-num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center}
 .emp-demo-txt b{font-size:15px}
 .emp-demo-txt p{font-size:13px;color:var(--text2);margin:4px 0 0}
 #noteTitle{font-family:var(--font-display);letter-spacing:.01em;font-size:clamp(26px,3.2vw,34px);font-weight:700;line-height:1.25;padding:6px 0 6px;outline:none;min-height:1.2em;word-break:break-word}
-.note-body-label{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--text3);padding:18px 0 7px;border-bottom:1px solid var(--sep);text-transform:uppercase}
 #noteBody{font-family:var(--font-body);font-size:var(--fs-body);line-height:1.75;padding-top:16px;outline:none;min-height:55vh;word-break:break-word;color:var(--text-body)}
 /* 每 10 行（每按一次回车算一行）多留一小档，长文读起来有节奏 */
 #noteBody>*:nth-child(10n+1):not(:first-child){margin-top:18px}
@@ -339,9 +338,6 @@ body.mode-edit #noteListPane{display:none}
 #empowerPill #edClearSelection{flex:none;background:transparent;color:var(--text2)}
 #empowerPill button[aria-expanded="true"]{background:var(--accent-soft);color:var(--accent-fg)}
 #empowerPill #edQuickUndo{color:var(--accent-fg)}
-#btnHistUndo{width:auto;min-width:44px;padding:0 7px;gap:3px;font-size:12px}
-#btnHistUndo .icon{width:16px;height:16px}
-#btnClipPaste{min-height:44px}
 #empowerPill button:active{transform:scale(.97)}
 .ed-work-panel{display:grid;gap:6px;border-top:1px solid var(--sep);padding-top:6px}
 .ed-work-panel>div{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:4px;color:var(--text2);font-size:12px}
@@ -458,13 +454,8 @@ body.mv-bar,body.undo-bar{--lift:52px}
 .ed-hint.out{opacity:0;transition:opacity .45s ease}
 
 /* ============ 收起键盘 ============ */
-.kb-btn{
-  flex:none;display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 10px;border-radius:10px;
-  background:var(--s4);color:var(--text2);font-size:12.5px;font-weight:600;
-  opacity:0;visibility:hidden;transition:opacity .15s ease;
-}
+.kb-btn{opacity:0;visibility:hidden;transition:opacity .15s ease}
 body.typing .kb-btn{opacity:1;visibility:visible}
-.kb-btn:active{transform:scale(.95)}
 #kbChip{
   position:fixed;right:10px;top:10px;z-index:141;display:none;align-items:center;justify-content:center;
   width:44px;height:44px;border-radius:14px;background:var(--bar-bg);color:var(--text);
@@ -1461,10 +1452,6 @@ body.mode-flash #fabShot{ display:none; }
 #feedbackStatus{margin:0;min-height:1.4em}
 #feedbackSend{min-height:44px}
 /* OCR 图片框选（iPhone 文字识别样式） */
-.note-inbox-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 12px;padding:11px 14px;border-radius:12px;background:var(--s3);color:var(--text);cursor:pointer;border:1px solid var(--sep);font-size:14px}
-.note-inbox-bar:active{background:var(--s4)}
-.note-inbox-bar .nib-text b{color:var(--accent);font-weight:700}
-.note-inbox-bar .nib-go{color:var(--text3);flex:none;font-size:13px}
 /* 批量进度条 */
 .ocr-progress{margin:6px 0 10px}
 .ocr-progress-meta{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--text2);margin-bottom:7px}
@@ -2050,24 +2037,24 @@ body.drag-select #noteBody .en-word.sel-pick{
 
   <main id="editorPane">
     <div class="editor-header">
-      <button class="icon-btn" id="btnBack" title="返回列表" aria-label="返回列表">
+      <button class="hdr-btn" id="btnBack" title="返回列表" aria-label="返回列表">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
-      <button class="icon-btn" id="btnHistUndo" title="撤销" aria-label="撤销">
+      <button class="hdr-btn" id="btnHistUndo" title="撤销" aria-label="撤销">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
         <span>撤销</span>
       </button>
-      <button class="note-organize-btn" id="btnClipPaste" type="button" hidden>粘贴</button>
-      <span id="edBreadcrumb"></span>
-      <button class="icon-btn" id="btnLook" title="字体与配色" aria-label="字体与配色">
+      <button class="hdr-btn" id="btnClipPaste" type="button" hidden>粘贴</button>
+      <span class="hdr-spacer"></span>
+      <button class="hdr-btn" id="btnLook" title="字体与配色" aria-label="字体与配色">
         <span class="hdr-aa">Aa</span><span class="hdr-lbl">字体</span>
       </button>
-      <button class="note-organize-btn" id="btnNoteOrganize" type="button" title="整理这篇笔记"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>整理</button>
-      <button class="kb-btn" id="btnKb" title="收起键盘" aria-label="收起键盘">
+      <button class="hdr-btn accent" id="btnNoteOrganize" type="button" title="整理这篇笔记"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>整理</button>
+      <button class="hdr-btn kb-btn" id="btnKb" title="收起键盘" aria-label="收起键盘">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="10" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 13h12"/><path d="M9 19l3 2 3-2"/></svg>
         <span>收起键盘</span>
       </button>
-      <button class="icon-btn danger-color" id="btnDelNote" title="删除这篇笔记" aria-label="删除笔记">
+      <button class="hdr-btn danger" id="btnDelNote" title="删除这篇笔记" aria-label="删除笔记">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/></svg>
       </button>
     </div>
@@ -2083,18 +2070,18 @@ body.drag-select #noteBody .en-word.sel-pick{
       </div>
     </div>
     <div id="editorWrap">
-      <div id="noteInboxBar" class="note-inbox-bar hidden" role="button" tabindex="0" aria-label="处理这篇笔记的待处理截图">
-        <span class="nib-text">这篇笔记有 <b id="noteInboxN">0</b> 张待处理截图</span>
-        <span class="nib-go">去处理 ›</span>
-      </div>
-      <div class="note-editor-label"><span class="note-editor-kicker">笔记</span><span class="note-editor-context">原始语境 · 个人表达</span></div>
-      <div class="empower-guide-bar" id="empowerGuideBar">
-        <span class="empower-guide-hint">长按选中英文 → 点底部 Empower，就能收进词库</span>
-        <button class="empower-guide-btn" id="btnEmpowerGuide" type="button">看 Empower 怎么用 ›</button>
+      <div class="situ-bar" id="situBar">
+        <div class="situ-row" id="situEmpower">
+          <span class="situ-hint">长按选中英文 → 点底部 Empower 收进词库</span>
+          <button class="situ-action" id="btnEmpowerGuide" type="button">看 Empower 怎么用 ›</button>
+        </div>
+        <div class="situ-row hidden" id="situInbox" role="button" tabindex="0" aria-label="处理这篇笔记的待处理截图">
+          <span class="situ-hint">这篇笔记有 <b id="noteInboxN">0</b> 张待处理截图</span>
+          <span class="situ-action">去处理 ›</span>
+        </div>
       </div>
       <div id="noteTitle" class="ce" contenteditable="true" data-ph="标题"></div>
       <div id="edHint" class="ed-hint hidden">选中文字或长按词卡后，底部可以剪贴、改样式或开始练习。iPhone 上长按若先弹系统复制菜单，先点「收起键盘」再长按选中英文。</div>
-      <div class="note-body-label">正文</div>
       <div id="noteBody" class="ce" contenteditable="true" data-ph="写点什么…"></div>
     </div>
     <div id="noteOrganize" aria-hidden="true">
@@ -2126,8 +2113,6 @@ body.drag-select #noteBody .en-word.sel-pick{
     <button id="edSpeak" type="button">对话</button><button id="edWrite" type="button">写作</button>
   </div>
   <div id="edClipboardActions" class="ed-work-row" hidden>
-    <button id="edCaretBefore" type="button">光标放前</button><button id="edCaretAfter" type="button">光标放后</button>
-    <button id="edDrag" type="button">拖动</button>
     <button id="edQuickUndo" type="button">撤销</button>
   </div>
 </div>
@@ -4442,7 +4427,6 @@ function renderEditor(){
   const n=state.notes.find(x=>x.id===ui.note);
   if(!n||ui.mode!=='edit'){ editorWrap.classList.add('hidden'); closeNoteOrganize(); resetEditorBar(); return; }
   editorWrap.classList.remove('hidden');
-  $('#edBreadcrumb').textContent=folderName()+' / '+(n.title||'无标题');
   if(ui.lastNote!==ui.note){
     resetEditorBar();
     titleEl.innerText=(n.title==='无标题')?'':n.title;
@@ -5541,12 +5525,8 @@ function syncEditorBar(){
   $('#btnEmpower').textContent=words.length?'查看词卡':'加入词库';
   $('#edSpeak').hidden=!ready.length;
   $('#edWrite').hidden=!ready.length;
-  $('#edDrag').hidden=!hasCards||showStyle||showEmpower;
-  const canPlaceCaret=hasCards&&selSpans.length===1&&!showStyle&&!showEmpower;
-  $('#edCaretBefore').hidden=!canPlaceCaret;
-  $('#edCaretAfter').hidden=!canPlaceCaret;
   $('#edQuickUndo').hidden=!editorUndoLabel;
-  $('#edClipboardActions').hidden=!editorUndoLabel&&$('#edDrag').hidden;
+  $('#edClipboardActions').hidden=!editorUndoLabel;
   placePill();
 }
 function editorUndoFeedback(message){
@@ -5644,15 +5624,6 @@ function initEditorBar(){
     if(clipPaste(null,caret)){pillHoldAt=0;checkSelection();editorUndoFeedback('已粘贴');}
   };
   $('#edQuickUndo').onclick=histUndo;
-  $('#edDrag').onclick=confirmSelect;
-  function placeSelectedCardCaret(after){
-    if(!selActive||selSpans.length!==1)return;
-    const card=selSpans[0];
-    endSelect();placeWordCaret(card,after);
-    pillHoldAt=0;checkSelection();
-  }
-  $('#edCaretBefore').onclick=()=>placeSelectedCardCaret(false);
-  $('#edCaretAfter').onclick=()=>placeSelectedCardCaret(true);
   $('#edStyle').onclick=()=>{editorPanel=editorPanel==='style'?'':'style';syncEditorBar();};
   $('#edEmpower').onclick=()=>{editorPanel=editorPanel==='empower'?'':'empower';syncEditorBar();};
   $('#btnDict').onclick=()=>{
@@ -11034,19 +11005,21 @@ function ocrInboxShowNote(noteId){
   $('#ocrSheet').classList.add('show');$('#ocrImgWrap').classList.add('hidden');$('#ocrSelected').classList.add('hidden');$('#ocrBatch').classList.remove('hidden');
   const st=$('#ocrStatus');if(st)st.textContent='这篇笔记的待处理截图：确认后挂到对应词条。';ocrInboxRender();
 }
-/* 更新笔记编辑器顶部的"待处理 N 张"入口（正常流，不遮挡正文） */
+/* 更新笔记编辑器顶部的情境条：无待处理截图时显示 empower 提示，有则切换成「待处理 N 张」 */
 function updateNoteInboxBar(){
-  const bar=$('#noteInboxBar');
-  if(!bar)return;
-  if(ui.mode!=='edit'||!ui.note){ bar.classList.add('hidden'); return; }
+  const inbox=$('#situInbox');
+  const empower=$('#situEmpower');
+  if(!inbox||!empower)return;
+  if(ui.mode!=='edit'||!ui.note){ inbox.classList.add('hidden'); empower.classList.remove('hidden'); return; }
   const n=ocrInboxRead().filter(x=>x.noteId===ui.note).length;
   const numEl=$('#noteInboxN'); if(numEl)numEl.textContent=String(n);
-  bar.classList.toggle('hidden',n===0);
-  if(!bar.__bound){
+  inbox.classList.toggle('hidden',n===0);
+  empower.classList.toggle('hidden',n>0);
+  if(!inbox.__bound){
     const open=()=>ocrInboxShowNote(ui.note);
-    bar.addEventListener('click',open);
-    bar.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } });
-    bar.__bound=true;
+    inbox.addEventListener('click',open);
+    inbox.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } });
+    inbox.__bound=true;
   }
 }
 /* 导入多文件前选择归属文件夹：返回 folderId；用户取消则 resolve(null) */
