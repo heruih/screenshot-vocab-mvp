@@ -12870,7 +12870,9 @@ function errorCauseToggle(wordId,cause){
 const TEXT_DEVICE_KEY='english-notes-device-v1';
 const TEXT_RELAY_KEY='english-notes-text-relay-v1';
 /* 部署后零配置的默认地址；未部署时没 Key 的请求会得到清晰的网络错误 */
-const TEXT_RELAY_DEFAULT='https://english-notes-relay.3374055718-de9.workers.dev';
+const LEGACY_TEXT_RELAY_DEFAULT='https://english-notes-relay.3374055718-de9.workers.dev';
+const USE_COMMERCIAL_TEXT_RELAY=globalThis.APP_CONFIG?.product==='commercial';
+const TEXT_RELAY_DEFAULT=USE_COMMERCIAL_TEXT_RELAY?'https://api.simonnotes.xyz':LEGACY_TEXT_RELAY_DEFAULT;
 
 /* 设备 id：独立 key 持久化，用于 Worker 限流与计量 */
 function deviceIdGet(){
@@ -12885,7 +12887,10 @@ function deviceIdGet(){
 }
 function textRelayConfig(){
   const saved=aRead(TEXT_RELAY_KEY,{});
-  const relayUrl=String((saved&&saved.relayUrl)||TEXT_RELAY_DEFAULT).trim();
+  const relayUrl=String(saved?.relayUrl||TEXT_RELAY_DEFAULT).trim();
+  if(USE_COMMERCIAL_TEXT_RELAY&&(!relayUrl||relayUrl.replace(/\/+$/,'')===LEGACY_TEXT_RELAY_DEFAULT)){
+    return {relayUrl:TEXT_RELAY_DEFAULT};
+  }
   return {relayUrl};
 }
 function textRelaySave(patch){
