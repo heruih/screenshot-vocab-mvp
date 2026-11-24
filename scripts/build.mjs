@@ -26,6 +26,7 @@ const style = await read('style.css');
 const modules = [
   '00_capabilities.js',
   '01_core.js',
+  '01a_review_round.js',
   '02_render.js',
   '03_editor.js',
   '04_move.js',

@@ -978,6 +978,14 @@ body.side-open #scrim{display:block}
 .flash-empty{display:flex;flex-direction:column;align-items:center;gap:14px;padding:56px 28px;text-align:center}
 .flash-empty .big{font-size:44px}
 .flash-empty b{font-size:17px}
+.speak-rec{display:flex;flex-direction:column;gap:10px;width:min(94%,440px);margin:6px 0;padding:14px;border:1px solid var(--sep);border-radius:14px;background:var(--s2);text-align:left}
+.speak-rec-title{font-size:13px;font-weight:600;color:var(--text)}
+.speak-rec-list{display:flex;flex-direction:column;gap:8px}
+.speak-rec-item{font-size:14px;gap:6px}
+.gtag{font-size:11px;font-weight:600;padding:1px 7px;border-radius:8px}
+.gtag.forgot{color:var(--danger);background:var(--danger-soft,var(--s3))}
+.gtag.hard{color:var(--warning,var(--accent-fg));background:var(--s3)}
+.rv-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
 
 /* 跟读页 */
 #followCn{font-size:15px;line-height:1.7;color:var(--text2);text-align:center;max-width:580px;margin-top:14px}

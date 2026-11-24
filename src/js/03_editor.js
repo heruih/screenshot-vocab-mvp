@@ -1,5 +1,7 @@
 /* ===== 03_editor.js · 今日复习 / 编辑器 / 大标题折叠 / 赋能词整体化 ===== */
 /* ============ 今日复习（间隔重复） ============ */
+/* 口语练习是否从复习页发起：完成后接回复习总结，而非停在触发前的页面 */
+let aiReturnToReview=false;
 function reviewQueue(mode){
   const list=mode==='free'?state.words.slice():dueList();
   list.sort((a,b)=>{
@@ -11,7 +13,9 @@ function reviewQueue(mode){
 }
 const REVIEW_ROUND_KEY='english-notes:review-round-v1';
 function setReview(mode,round,idx=0){
-  ui.flash={mode,round,ids:round.map(card=>card.id),idx,flipped:false,graded:idx,total:round.length};
+  /* 从 round 卡片上的 grade 恢复本轮评分结果（刷新/返回续练时不丢推荐依据） */
+  const results=(round||[]).filter(c=>c&&c.grade!=null).map(c=>({id:c.id,grade:c.grade}));
+  ui.flash={mode,round,ids:round.map(card=>card.id),idx,flipped:false,graded:idx,total:round.length,results};
   return ui.flash;
 }
 function nextReviewIndex(round,start=0){
@@ -19,10 +23,19 @@ function nextReviewIndex(round,start=0){
   return idx<0?round.length:idx;
 }
 function buildReview(mode='due'){
-  const limit=mode==='free'?10:25;
-  const round=reviewQueue(mode).filter(w=>!aPending(w)).slice(0,limit).map(w=>({id:w.id,reps:w.srs?.reps||0}));
-  if(mode==='due') aStore(REVIEW_ROUND_KEY,JSON.stringify(round));
-  return setReview(mode,round);
+  if(mode==='free'){
+    const round=reviewQueue('free').filter(w=>!aPending(w)).slice(0,10).map(w=>({id:w.id,reps:w.srs?.reps||0}));
+    return setReview('free',round);
+  }
+  /* 默认队列：3 个最早到期且练过的词 + 2 个从未练过的词，某类不足用另一类补齐 */
+  const eligible=state.words.filter(w=>!aPending(w)&&isDue(w));
+  const picked=buildReviewRound(
+    eligible.map(w=>({id:w.id,reps:(w.srs&&w.srs.reps)||0,due:srsDue(w)})),
+    {trained:3,fresh:2,max:5}
+  );
+  const round=picked.map(c=>({id:c.id,reps:c.reps}));
+  aStore(REVIEW_ROUND_KEY,JSON.stringify(round));
+  return setReview('due',round);
 }
 function resumeReview(){
   const stored=aRead(REVIEW_ROUND_KEY,null);
@@ -59,6 +72,10 @@ function gradeCurrent(g){
   try{ save(); }
   catch(_){ Object.assign(w,before); return; }
   if(typeof batchReviewRecord==='function')batchReviewRecord(w.id);
+  /* 记录本轮评分（写回 round 并持久化，刷新/返回后续练不丢结果、不重复计入） */
+  if(f.round[f.idx]) f.round[f.idx].grade=g;
+  f.results=(f.results||[]); f.results.push({id:w.id,grade:g});
+  try{ aStore(REVIEW_ROUND_KEY,JSON.stringify(f.round)); }catch(_){}
   const tip={0:'已记为「忘了」，10 分钟后再练',1:'记为「有点难」',2:'记为「记住了」'}[g]+' · '+SRS_LABEL[s.box];
   f.idx=nextReviewIndex(f.round,f.idx+1); f.flipped=false; f.graded++;
   renderFlash();
@@ -83,23 +100,44 @@ function renderFlash(){
     '<div class="rv-stat ok"><div class="n">'+sum.done+'</div><div class="l">已掌握</div></div>'+
   '</div>';
   if(!f.ids.length||f.idx>=f.ids.length){
-    const nxt=state.words.filter(w=>!aPending(w)).sort((a,b)=>srsDue(a)-srsDue(b))[0];
-    const nxtTxt=nxt?('下一个到期：'+esc(nxt.term)+'（'+srsNextLabel(nxt)+'）'):'全部单词都已掌握';
+    const results=f.results||[];
+    const cands=rankSpeakCandidates(results);
+    let body;
+    if(!f.graded){
+      const nxt=state.words.filter(w=>!aPending(w)).sort((a,b)=>srsDue(a)-srsDue(b))[0];
+      const nxtTxt=nxt?('下一个到期：'+esc(nxt.term)+'（'+srsNextLabel(nxt)+'）'):'全部单词都已掌握';
+      body='<div class="big">🎉</div><b>现在没有到期的单词</b><div style="font-size:13px;color:var(--text2);line-height:1.7">'+nxtTxt+'</div>';
+    }else{
+      body='<div class="big">🎉</div><b>本轮复习完成 · '+f.graded+' 个词</b>';
+      if(cands.length){
+        body+='<div class="speak-rec">'+
+          '<div class="speak-rec-title">这几个词还没拿稳，建议开口练一下</div>'+
+          '<div class="speak-rec-list">'+cands.map(r=>{const ww=state.words.find(x=>x.id===r.id);return ww?'<label class="a-check speak-rec-item"><input type="checkbox" data-speak="'+esc(ww.id)+'" checked>'+esc(ww.term)+' <span class="gtag'+(r.grade===0?' forgot':' hard')+'">'+(r.grade===0?'忘了':'有点难')+'</span></label>':'';}).join('')+'</div>'+
+          '<button class="btn primary" id="rvSpeakGo">开始对话</button>'+
+        '</div>';
+      }else{
+        body+='<div style="font-size:13px;color:var(--text2);line-height:1.7">这一轮都记住了，不错。</div>';
+      }
+    }
     box.innerHTML=stats+
-      '<div class="flash-empty">'+
-        '<div class="big">🎉</div>'+
-        '<b>'+(f.graded?'本轮复习完成了':'现在没有到期的单词')+'</b>'+
-        '<div style="font-size:13px;color:var(--text2);line-height:1.7">'+(f.graded?('本轮复习 '+f.graded+' 个单词，已按记忆强度安排下次时间。'):nxtTxt)+'</div>'+
-        '<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">'+
-          '<button class="btn primary" id="rvHome">返回首页</button>'+
-          '<button class="btn" id="rvFree">自由复习一轮（最多 10 个）</button>'+
-          '<button class="btn" id="rvReset">重来今日</button>'+
+      '<div class="flash-empty">'+body+
+        '<div class="rv-actions">'+
+          '<button class="btn primary" id="rvHome">结束，回首页</button>'+
+          '<button class="btn" id="rvAgain">再练一轮</button>'+
+          '<button class="btn" id="rvPickSpeak">去表达库选词开口</button>'+
         '</div>'+
         '<div style="font-size:12px;color:var(--text3)">记忆曲线：1 → 3 → 7 → 15 → 30 天</div>'+
       '</div>';
     const rh=$('#rvHome'); if(rh) rh.addEventListener('click',()=>{ ui.mode='today'; ui.sideOpen=false; render(); });
-    const fb=$('#rvFree'); if(fb) fb.addEventListener('click',()=>{ buildReview('free'); renderFlash(); });
-    const rb=$('#rvReset'); if(rb) rb.addEventListener('click',()=>{ buildReview('due'); renderFlash(); });
+    const ra=$('#rvAgain'); if(ra) ra.addEventListener('click',()=>{ buildReview('due'); renderFlash(); });
+    const rp=$('#rvPickSpeak'); if(rp) rp.addEventListener('click',()=>{ ui.mode='words'; ui.selMode=true; ui.sel=[]; ui.wordFilter='all'; render(); });
+    const rg=$('#rvSpeakGo'); if(rg) rg.addEventListener('click',()=>{
+      const ids=$$('[data-speak]:checked').map(el=>el.dataset.speak);
+      const words=ids.map(id=>state.words.find(w=>w.id===id)).filter(Boolean);
+      if(!words.length){ toast('先勾选要练的词','warn'); return; }
+      aiReturnToReview=true;
+      openAiPackPractice(words);
+    });
     return;
   }
   const w=state.words.find(x=>x.id===f.ids[f.idx]);

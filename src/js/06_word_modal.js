@@ -1703,10 +1703,11 @@ function aiFinishAction(){
     if(typeof batchAdvanceDialogueScene==='function'&&batchAdvanceDialogueScene()) return;
     if(typeof batchMarkActiveGroup==='function') batchMarkActiveGroup();
     if(typeof batchMarkActiveSegment==='function') batchMarkActiveSegment();
+    const backToReview=aiReturnToReview;
     closeAiModal();
-    if(typeof batchOpen==='function') setTimeout(batchOpen,120);
+    if(!backToReview&&typeof batchOpen==='function') setTimeout(batchOpen,120);
     return;
   }
   closeAiModal();
-}function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} }
+}function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} if(aiReturnToReview){ aiReturnToReview=false; if(typeof renderFlash==='function') renderFlash(); } }
 
