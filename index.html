@@ -253,12 +253,16 @@ body.mode-edit #noteListPane{display:none}
 .hdr-btn .hdr-lbl{font-size:12px;font-weight:600}
 .hdr-spacer{flex:1;min-width:0}
 #editorWrap{flex:1;overflow-y:auto;padding:24px 22px 140px;width:100%;max-width:860px;margin:0 auto}
-.situ-bar{display:flex;flex-direction:column;margin:0 0 4px}
-.situ-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 12px;border:1px dashed var(--sep);border-radius:12px;background:var(--accent-soft)}
+.situ-bar{display:flex;align-items:center;gap:8px;margin:0 0 4px}
+.situ-main{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 12px;border:1px dashed var(--sep);border-radius:12px;background:var(--accent-soft);text-align:left}
 .situ-hint{font-size:12px;color:var(--text2);flex:1;min-width:0}
 .situ-hint b{color:var(--accent);font-weight:700}
-.situ-action{flex:none;font-size:13px;font-weight:700;color:var(--accent-fg);background:none;border:none;padding:6px 10px;border-radius:8px;white-space:nowrap}
+.situ-action{flex:none;font-size:13px;font-weight:800;color:var(--accent-fg);background:none;border:none;padding:6px 10px;border-radius:8px;white-space:nowrap}
 .situ-action:active{background:var(--accent-soft)}
+.situ-inbox{flex:none;display:inline-flex;align-items:center;padding:0 12px;min-height:40px;border:1px solid var(--sep);border-radius:12px;background:var(--s3);color:var(--text2)}
+.situ-inbox .situ-inbox-txt{font-size:13px;white-space:nowrap}
+.situ-inbox b{color:var(--accent);font-weight:700}
+.situ-inbox:active{background:var(--s4)}
 .emp-demo-step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--sep)}
 .emp-demo-step:last-child{border-bottom:none}
 .emp-demo-num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center}
@@ -2051,9 +2055,6 @@ body.drag-select #noteBody .en-word.sel-pick{
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="10" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 13h12"/><path d="M9 19l3 2 3-2"/></svg>
         <span>收起键盘</span>
       </button>
-      <button class="hdr-btn danger" id="btnDelNote" title="删除这篇笔记" aria-label="删除笔记">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/></svg>
-      </button>
     </div>
     <!-- 外观下拉：配色 + 字体，实时生效，不离开编辑页 -->
     <div id="lookPop" class="look-pop" role="dialog" aria-label="外观设置" hidden>
@@ -2068,14 +2069,13 @@ body.drag-select #noteBody .en-word.sel-pick{
     </div>
     <div id="editorWrap">
       <div class="situ-bar" id="situBar">
-        <div class="situ-row" id="situEmpower">
+        <button class="situ-main" id="btnEmpowerGuide" type="button">
           <span class="situ-hint">长按选中英文 → 点底部 Empower 收进词库</span>
-          <button class="situ-action" id="btnEmpowerGuide" type="button">看 Empower 怎么用 ›</button>
-        </div>
-        <div class="situ-row hidden" id="situInbox" role="button" tabindex="0" aria-label="处理这篇笔记的待处理截图">
-          <span class="situ-hint">这篇笔记有 <b id="noteInboxN">0</b> 张待处理截图</span>
-          <span class="situ-action">去处理 ›</span>
-        </div>
+          <span class="situ-action">看 Empower ›</span>
+        </button>
+        <button class="situ-inbox hidden" id="situInbox" type="button" aria-label="处理这篇笔记的待处理截图">
+          <span class="situ-inbox-txt">待处理 <b id="noteInboxN">0</b> ›</span>
+        </button>
       </div>
       <div id="noteTitle" class="ce" contenteditable="true" data-ph="标题"></div>
       <div id="edHint" class="ed-hint hidden">选中文字或长按词卡后，底部可以剪贴、改样式或开始练习。iPhone 上长按若先弹系统复制菜单，先点「收起键盘」再长按选中英文。</div>
@@ -2676,19 +2676,6 @@ body.drag-select #noteBody .en-word.sel-pick{
   <button class="mv-btn" id="mvEnd">放到文末</button>
   <button class="mv-btn ghost" id="mvUndo">撤销</button>
   <button class="mv-btn ghost" id="mvCancel">取消</button>
-</div>
-
-<!-- ============ 大标题的「⋯」菜单 ============ -->
-<div class="modal" id="mvMenu">
-  <div class="modal-card mv-menu-card">
-    <div class="mv-menu-t" id="mvMenuTitle"></div>
-    <button class="mv-item" data-act="copysec">复制整节</button>
-    <button class="mv-item" data-act="cutsec">剪切整节</button>
-    <button class="mv-item" data-act="lift">拿起整节</button>
-    <button class="mv-item" data-act="up">上移一节</button>
-    <button class="mv-item" data-act="down">下移一节</button>
-    <button class="mv-item mv-item-cancel" data-act="cancel">取消</button>
-  </div>
 </div>
 
 <!-- ============ 手机底部导航（编辑页自动隐藏） ============ -->
@@ -3823,7 +3810,6 @@ function renderNoteList(){
         '<div class="ni-meta">'+(fb?'<span class="folder-badge">'+esc(fb)+'</span>':'')+'<span>'+fmtDate(n.updatedAt)+'</span></div>'+
       '</div>'+
       '<button class="ni-pin'+(n.pinAt?' on':'')+'" data-npin="'+n.id+'" aria-label="'+(n.pinAt?'取消置顶':'置顶')+'笔记 '+esc(n.title||'')+'">'+pinSvg+'</button>'+
-      '<button class="ni-del" data-ndel="'+n.id+'" aria-label="删除笔记 '+esc(n.title||'')+'"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/></svg></button>'+
     '</div>';
   }).join('');
 }
@@ -4769,7 +4755,7 @@ function autoHeading(){
 /* ===== 04_move.js · 移动词与整节 / 笔记与文件夹增删 / 键盘 ===== */
 /* ============ 移动：词 / 整节（拿起 → 放下） ============ */
 const mvState={kind:'',node:null,nodes:[],title:'',revert:null,focus:-1};
-let mvTimer=0, mvMenuHead=null;
+let mvTimer=0;
 function headList(){ return Array.prototype.filter.call(bodyEl.children,isHead); }
 function sectionEnd(head){
   let n=head.nextElementSibling,last=head;
@@ -4786,16 +4772,9 @@ function foldClear(){
   const all=foldAll(); delete all[ui.note];
   try{ localStorage.setItem(FOLD_KEY,JSON.stringify(all)); }catch(_){ }
 }
-/* 每个大标题挂一个「⋯」入口：空元素 + CSS 画，不污染标题文字、不进保存内容 */
+/* 大标题的「⋯」入口已移除（整节操作改由长按标题触发，与系统操作一致）；保留空函数供各处调用 */
 function mvDecorate(){
-  if(!bodyEl||!ui.note) return;
-  headList().forEach(h=>{
-    if(!h.querySelector('.mf')){
-      const b=document.createElement('span');
-      b.className='mf'; b.setAttribute('contenteditable','false'); b.setAttribute('aria-hidden','true');
-      h.appendChild(b);
-    }
-  });
+  return;
 }
 function mvClearTargets(){
   if(!bodyEl) return;
@@ -5004,13 +4983,6 @@ function mvMoveSection(h,dir){
   toast(dir<0?'已上移一节':'已下移一节');
   return true;
 }
-function openMvMenu(h){
-  if(!h) return;
-  mvMenuHead=h;
-  $('#mvMenuTitle').textContent=(h.textContent||'').trim().slice(0,30)||'这一节';
-  $('#mvMenu').classList.add('show');
-}
-function closeMvMenu(){ $('#mvMenu').classList.remove('show'); mvMenuHead=null; }
 /* 在正文里找某个单词的那一块 */
 function mvFindSpan(term,wid){
   if(!bodyEl) return null;
@@ -5166,6 +5138,27 @@ function toggleNotePin(id){
   save();
   render();
   try{ if(navigator.vibrate) navigator.vibrate(8); }catch(_){}
+}
+/* 长按笔记项弹出的操作菜单（置顶 / 删除） */
+function openNoteMenu(id){
+  const n=state.notes.find(x=>x.id===id);
+  if(!n) return;
+  openRowMenu(n.title||'无标题',[
+    {text:n.pinAt?'取消置顶':'置顶',act:()=>toggleNotePin(id)},
+    {text:'删除笔记',danger:true,act:()=>confirmDeleteNote(id)},
+    {text:'取消',cancel:true}
+  ]);
+}
+/* 删除前先确认，确认后再执行 deleteNote */
+function confirmDeleteNote(id){
+  const n=state.notes.find(x=>x.id===id);
+  if(!n) return;
+  showConfirm({
+    title:'删除这篇笔记？',
+    msg:'「'+(n.title||'无标题')+'」会被删除，8 秒内可以撤销。',
+    okText:'删除',danger:true,
+    onOk(){ deleteNote(id); }
+  });
 }
 /* 删文件夹（会连带笔记）：保留确认框，删完同样可撤销 */
 function deleteFolder(id){
@@ -9653,8 +9646,6 @@ function bindEvents(){
     }
     const wf=e.target.closest('[data-wfilter]');
     if(wf){ ui.wordFilter=wf.dataset.wfilter; if(ui.wordFilterOpen)wfCloseSheet();render(); return; }
-    const ndel=e.target.closest('[data-ndel]');
-    if(ndel){ e.stopPropagation(); deleteNote(ndel.dataset.ndel); return; }
     const npin=e.target.closest('[data-npin]');
     if(npin){ e.stopPropagation(); toggleNotePin(npin.dataset.npin); return; }
     const wlink=e.target.closest('[data-wlink]');
@@ -9702,8 +9693,23 @@ function bindEvents(){
       return;
     }
     const item=e.target.closest('[data-note]');
-    if(item) openNote(item.dataset.note);
+    if(item){ if(noteLpFired){ noteLpFired=false; return; } openNote(item.dataset.note); }
   });
+
+  /* 长按笔记项 → 弹出置顶/删除菜单 */
+  let noteLpFired=false, noteLpTimer=0, noteLpEl=null;
+  $('#noteList').addEventListener('touchstart',e=>{
+    const item=e.target.closest('[data-note]');
+    if(!item) return;
+    noteLpEl=item;
+    clearTimeout(noteLpTimer);
+    noteLpTimer=setTimeout(()=>{
+      if(noteLpEl){ noteLpFired=true; openNoteMenu(noteLpEl.dataset.note); noteLpEl=null; try{ if(navigator.vibrate) navigator.vibrate(10); }catch(_){} }
+    },500);
+  },{passive:true});
+  const cancelNoteLp=()=>{ clearTimeout(noteLpTimer); noteLpEl=null; };
+  $('#noteList').addEventListener('touchend',cancelNoteLp,{passive:true});
+  $('#noteList').addEventListener('touchmove',cancelNoteLp,{passive:true});
 
   /* 表达库：排序与标签筛选 */
   $('#noteList').addEventListener('keydown',e=>{
@@ -9719,7 +9725,6 @@ function bindEvents(){
   /* 编辑器 */
   $('#btnBack').addEventListener('click',backToList);
   $('#btnHistUndo').addEventListener('click',histUndo);
-  $('#btnDelNote').addEventListener('click',()=>{ if(ui.note) deleteNote(ui.note); });
   $('#btnNoteOrganize').addEventListener('click',openNoteOrganize);
   $('#noteOrganizeClose').addEventListener('click',closeNoteOrganize);
   $('#noteOrganize').addEventListener('click',e=>{
@@ -9783,13 +9788,6 @@ function bindEvents(){
       else if(mvState.kind==='section') mvDropSection(h);
       return;
     }
-    /* 大标题右边的「⋯」 */
-    const mf=e.target.closest&&e.target.closest('.mf');
-    if(mf&&bodyEl.contains(mf)){
-      e.preventDefault(); e.stopPropagation();
-      openMvMenu(mf.parentElement);
-      return;
-    }
     const h=e.target.closest&&e.target.closest('.nh');
     if(!h||!bodyEl.contains(h)) return;
     const r=h.getBoundingClientRect();
@@ -9833,19 +9831,6 @@ function bindEvents(){
     const fn=mvState.revert;
     mvReset();
     if(fn){ fn(); toast('已撤销'); }
-  });
-  $('#mvMenu').addEventListener('click',e=>{
-    if(e.target.id==='mvMenu'){ closeMvMenu(); return; }
-    const it=e.target.closest('.mv-item');
-    if(!it) return;
-    const act=it.getAttribute('data-act'), h=mvMenuHead;
-    closeMvMenu();
-    if(!h) return;
-    if(act==='copysec') clipCopySection(h,false);
-    else if(act==='cutsec') clipCopySection(h,true);
-    else if(act==='lift') mvLiftSection(h);
-    else if(act==='up') mvMoveSection(h,-1);
-    else if(act==='down') mvMoveSection(h,1);
   });
   /* 收起键盘：笔记用顶栏的键，其它地方用浮出的小按钮 */
   const closeKb=()=>{ closeKeyboard(); };
@@ -11002,16 +10987,14 @@ function ocrInboxShowNote(noteId){
   $('#ocrSheet').classList.add('show');$('#ocrImgWrap').classList.add('hidden');$('#ocrSelected').classList.add('hidden');$('#ocrBatch').classList.remove('hidden');
   const st=$('#ocrStatus');if(st)st.textContent='这篇笔记的待处理截图：确认后挂到对应词条。';ocrInboxRender();
 }
-/* 更新笔记编辑器顶部的情境条：无待处理截图时显示 empower 提示，有则切换成「待处理 N 张」 */
+/* 更新笔记编辑器顶部的情境条：empower 提示常驻，有待处理截图时在旁加一个「待处理 N」胶囊 */
 function updateNoteInboxBar(){
   const inbox=$('#situInbox');
-  const empower=$('#situEmpower');
-  if(!inbox||!empower)return;
-  if(ui.mode!=='edit'||!ui.note){ inbox.classList.add('hidden'); empower.classList.remove('hidden'); return; }
+  if(!inbox)return;
+  if(ui.mode!=='edit'||!ui.note){ inbox.classList.add('hidden'); return; }
   const n=ocrInboxRead().filter(x=>x.noteId===ui.note).length;
   const numEl=$('#noteInboxN'); if(numEl)numEl.textContent=String(n);
   inbox.classList.toggle('hidden',n===0);
-  empower.classList.toggle('hidden',n>0);
   if(!inbox.__bound){
     const open=()=>ocrInboxShowNote(ui.note);
     inbox.addEventListener('click',open);
