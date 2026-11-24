@@ -430,7 +430,7 @@ async function handleOwnDoubaoTts(request, headers, allowed) {
   try {
     const response = await fetch(DOUBAO_TTS_UPSTREAM, {
       method: 'POST',
-      redirect: 'error',
+      redirect: 'manual',
       signal: AbortSignal.timeout(10000),
       headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey,
         'X-Api-Resource-Id': resource, 'X-Api-Request-Id': crypto.randomUUID() },
