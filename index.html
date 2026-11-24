@@ -249,6 +249,9 @@ body.mode-edit #noteListPane{display:none}
 .hdr-btn.danger{color:var(--danger)}
 .hdr-btn .hdr-aa{font-size:16px;font-weight:800;line-height:1;letter-spacing:-.5px}
 .hdr-btn .hdr-lbl{font-size:12px;font-weight:600}
+.hdr-inbox{position:relative}
+.hdr-inbox-n{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--accent);color:#fff;font-size:10.5px;font-weight:700;line-height:17px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
+.hdr-inbox-n.zero{background:var(--s5);color:var(--text3)}
 .hdr-spacer{flex:1;min-width:0}
 #editorWrap{flex:1;overflow-y:auto;padding:24px 22px 140px;width:100%;max-width:860px;margin:0 auto}
 .situ-bar{display:flex;align-items:center;gap:8px;margin:0 0 4px}
@@ -257,10 +260,6 @@ body.mode-edit #noteListPane{display:none}
 .situ-hint b{color:var(--accent);font-weight:700}
 .situ-action{flex:none;font-size:13px;font-weight:800;color:var(--accent-fg);background:none;border:none;padding:6px 10px;border-radius:8px;white-space:nowrap}
 .situ-action:active{background:var(--accent-soft)}
-.situ-inbox{flex:none;display:inline-flex;align-items:center;padding:0 12px;min-height:40px;border:1px solid var(--sep);border-radius:12px;background:var(--s3);color:var(--text2)}
-.situ-inbox .situ-inbox-txt{font-size:13px;white-space:nowrap}
-.situ-inbox b{color:var(--accent);font-weight:700}
-.situ-inbox:active{background:var(--s4)}
 .emp-demo-step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--sep)}
 .emp-demo-step:last-child{border-bottom:none}
 .emp-demo-num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center}
@@ -2055,6 +2054,10 @@ body.drag-select #noteBody .en-word.sel-pick{
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="10" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 13h12"/><path d="M9 19l3 2 3-2"/></svg>
         <span>收起键盘</span>
       </button>
+      <button class="hdr-btn hdr-inbox" id="btnInbox" title="收图箱" aria-label="收图箱">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+        <span class="hdr-inbox-n" id="hdrInboxN">0</span>
+      </button>
     </div>
     <!-- 外观下拉：配色 + 字体，实时生效，不离开编辑页 -->
     <div id="lookPop" class="look-pop" role="dialog" aria-label="外观设置" hidden>
@@ -2072,9 +2075,6 @@ body.drag-select #noteBody .en-word.sel-pick{
         <button class="situ-main" id="btnEmpowerGuide" type="button">
           <span class="situ-hint">长按选中英文 → 点底部 Empower 收进词库</span>
           <span class="situ-action">看 Empower ›</span>
-        </button>
-        <button class="situ-inbox hidden" id="situInbox" type="button" aria-label="处理这篇笔记的待处理截图">
-          <span class="situ-inbox-txt">待处理 <b id="noteInboxN">0</b> ›</span>
         </button>
       </div>
       <div id="noteTitle" class="ce" contenteditable="true" data-ph="标题"></div>
@@ -4328,8 +4328,8 @@ function renderFlash(){
           '<button class="grade-btn hard" data-grade="1">有点难<small>缩短间隔</small></button>'+
           '<button class="grade-btn good" data-grade="2">记住了<small>拉长间隔</small></button>'+
         '</div>':'<div class="flash-hint-row">先回想，再点卡片翻开</div>')+
-      '<div class="review-exit-row"><button class="btn" id="reviewExit" type="button">结束复习，返回首页</button></div>'+
-      (dueMode&&recentCount>=recentThreshold?'<div class="review-pause-choice"><span>已完成 '+recentCount+' 个词，下一步？</span><div><button class="btn" id="reviewContinue">继续复习</button><button class="btn primary" id="reviewPause">AI 对话这组</button></div></div>':'')
+      (dueMode&&recentCount>=recentThreshold?'<div class="review-pause-choice"><span>已完成 '+recentCount+' 个词，下一步？</span><div><button class="btn" id="reviewContinue">继续复习</button><button class="btn primary" id="reviewPause">AI 对话这组</button></div></div>':'')+
+      '<div class="review-exit-row"><button class="btn" id="reviewExit" type="button">结束复习，返回首页</button></div>'
         :'<div class="flash-actions">'+
           '<button class="btn" id="flashPrev"'+(f.idx===0?' disabled':'')+'>上一张</button>'+
           '<button class="btn" id="flashNext"'+(f.idx===total-1?' disabled':'')+'>下一张</button>'+
@@ -9509,6 +9509,7 @@ function bindEvents(){
   $('#btnSettings').addEventListener('click',openSettings);
   /* empower 操作演示：笔记页顶部常驻入口 */
   $('#btnEmpowerGuide').addEventListener('click',()=>$('#empowerDemoModal').classList.add('show'));
+  $('#btnInbox').addEventListener('click',ocrInboxShow);
   $('#empowerDemoClose').addEventListener('click',()=>$('#empowerDemoModal').classList.remove('show'));
   $('#empowerDemoModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove('show'); });
   $('#stClose').addEventListener('click',()=>$('#settingsModal').classList.remove('show'));
@@ -10993,6 +10994,7 @@ function ocrSyncBatchMatch(){
   $('#ocrBatchMatchCount').textContent='已选 '+count+' 张截图';
 }
 function ocrInboxRender(){
+  if(typeof updateNoteInboxBar==='function')updateNoteInboxBar();
   const box=$('#ocrBatchList');if(!box)return;
   const all=ocrInboxRead();
   /* 先按笔记过滤，再按时间倒序（最新导入的排第一） */
@@ -11042,20 +11044,13 @@ function ocrInboxShowNote(noteId){
   $('#ocrSheet').classList.add('show');$('#ocrImgWrap').classList.add('hidden');$('#ocrSelected').classList.add('hidden');$('#ocrBatch').classList.remove('hidden');
   const st=$('#ocrStatus');if(st)st.textContent='这篇笔记的待处理截图：确认后挂到对应词条。';ocrInboxRender();
 }
-/* 更新笔记编辑器顶部的情境条：empower 提示常驻，有待处理截图时在旁加一个「待处理 N」胶囊 */
+/* 更新顶栏收图箱角标：显示全部待处理截图数，永远存在（0 也显示） */
 function updateNoteInboxBar(){
-  const inbox=$('#situInbox');
-  if(!inbox)return;
-  if(ui.mode!=='edit'||!ui.note){ inbox.classList.add('hidden'); return; }
-  const n=ocrInboxRead().filter(x=>x.noteId===ui.note).length;
-  const numEl=$('#noteInboxN'); if(numEl)numEl.textContent=String(n);
-  inbox.classList.toggle('hidden',n===0);
-  if(!inbox.__bound){
-    const open=()=>ocrInboxShowNote(ui.note);
-    inbox.addEventListener('click',open);
-    inbox.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } });
-    inbox.__bound=true;
-  }
+  const numEl=$('#hdrInboxN');
+  if(!numEl)return;
+  const n=ocrInboxRead().length;
+  numEl.textContent=String(n);
+  numEl.classList.toggle('zero',n===0);
 }
 /* 导入多文件前选择归属文件夹：返回 folderId；用户取消则 resolve(null) */
 function pickNoteForImport(){
@@ -12140,7 +12135,6 @@ renderToday=function(){
         (organizeN?'<button class="th-btn" type="button" id="thOrganize">去整理</button>':'')+
       '</div>'+
     '</div>';
-  const inboxEntry='<button class="inbox-entry'+(inboxN?' has-pending':'')+'" id="aInboxEntry" type="button"><span class="inbox-entry-main"><b>截图收件箱</b><small>'+(inboxN?inboxN+' 张待匹配截图':'已清空，点这里查看')+'</small></span><span class="inbox-entry-count">'+inboxN+'</span></button>';
   box.innerHTML=
     todayHero+
     '<section class="daily-quote" aria-label="每日一句"><div class="daily-quote-kicker">每日一句</div><p class="daily-quote-en">'+esc(quote.en)+'</p><p class="daily-quote-cn">'+esc(quote.cn)+'</p><p class="daily-quote-foot">'+esc(encouragement)+'</p></section>'+
@@ -12151,9 +12145,7 @@ renderToday=function(){
       '<button class="home-quick-item" data-hq="write" type="button"><span class="hq-t">写作练习</span><span class="hq-d">选词出题 · AI 批改</span></button>'+
       '<button class="home-quick-item primary" data-hq="ai" type="button"><span class="hq-t">AI 对话</span><span class="hq-d">基于刚复习的词开口</span></button>'+
     '</div>'+
-    inboxEntry+
-    '<div class="rv-stats"><div class="rv-stat"><div class="n">'+pending.length+'</div><div class="l">待整理</div></div><div class="rv-stat hot"><div class="n">'+due.length+'</div><div class="l">'+(examView?'待重做':'到期回想')+'</div></div><div class="rv-stat"><div class="n">'+weak.length+'</div><div class="l">待再次输出</div></div></div>'+batchEntry+
-    '<div class="today-actions">'+todayCard('organize','整理表达','补上自己的理解与句子',pending.length)+todayCard('recall','场景回想','看场景说英文 · 每轮最多 10 个',due.length)+todayCard('flash',examView?'错题本':'英文闪卡',examView?'没掌握的题再做一遍':'保留原来的认识与回想练习',due.length)+'</div>'+
+    batchEntry+
     '<div class="a-tools"><button class="btn" id="aTodayWords">按日期回看</button><button class="btn" id="aTodayWrite">每周写一段</button><button class="btn" id="aTodayFavorites">收藏对话</button><button class="btn" id="aTodayNew">手动添加</button><button class="btn" id="aTodayBackup">完整备份／迁移</button></div>'+
     '<p class="a-note">普通日参考：视频与模仿 20 分钟 → 整理 8 分钟 → 回想 5 分钟 → 输出 7 分钟。每周 2 次情景练习、1 次写作，可替换当天部分任务。无需清空全部队列。</p>'+
     '<p class="a-note">AI：'+(aRoute()==='chatgpt'?'ChatGPT 往返模式；套餐和模型由 ChatGPT 账号决定。':'OpenAI API 模式；独立计费。')+' 新地址不会自动读取手机旧地址的数据。</p>'+
@@ -12167,7 +12159,6 @@ renderToday=function(){
     else if(g==='write')openWriteModal();
     else if(g==='ai')todayAiDialogue();
   });
-  $('#aInboxEntry').onclick=ocrInboxShow;
   const thStart=$('#thStart');
   if(thStart)thStart.onclick=()=>{ui.mode='flash';ui.flash=null;render();};
   const thOrganize=$('#thOrganize');
@@ -12767,7 +12758,7 @@ async function bSync(){
   finally{bRunning=false;if(bQueued){bQueued=false;bQueue();}}
 }
 const bToday=renderToday;
-renderToday=function(){bToday();const panel=document.createElement('div');panel.className='a-callout';panel.innerHTML='<b>每天一小轮</b><p>看视频 → 收集 3—5 个表达 → 自己整理 → 回想 → 情景输出。</p><div class="a-actions"><button class="btn" id="bAudioOpen">原音与跟读</button><button class="btn" id="bCopyLink">复制本应用链接</button><button class="btn" id="bWeekly">本周进度</button></div><p class="a-note">同一账号跨设备自动同步；接口密钥仅保存在各自设备。</p>';$('#noteList .today-actions').after(panel);$$('#noteList .a-note').forEach(el=>{if(el.textContent.includes('新地址不会自动读取'))el.textContent='ChatGPT 练习沿用你账号中的可用模型；学习内容已接入本应用的私有云保存。';});$('#bAudioOpen').onclick=()=>bOpenAudio();$('#bCopyLink').onclick=async()=>{try{await navigator.clipboard.writeText(location.origin);toast('应用链接已复制，其他设备用同一账号打开即可');}catch(_){toast(location.origin);}};$('#bWeekly').onclick=bShowWeekly;pfWrap();};
+renderToday=function(){bToday();const panel=document.createElement('div');panel.className='a-callout';panel.innerHTML='<b>每天一小轮</b><p>看视频 → 收集 3—5 个表达 → 自己整理 → 回想 → 情景输出。</p><div class="a-actions"><button class="btn" id="bAudioOpen">原音与跟读</button><button class="btn" id="bCopyLink">复制本应用链接</button><button class="btn" id="bWeekly">本周进度</button></div><p class="a-note">同一账号跨设备自动同步；接口密钥仅保存在各自设备。</p>';$('#noteList').append(panel);$$('#noteList .a-note').forEach(el=>{if(el.textContent.includes('新地址不会自动读取'))el.textContent='ChatGPT 练习沿用你账号中的可用模型；学习内容已接入本应用的私有云保存。';});$('#bAudioOpen').onclick=()=>bOpenAudio();$('#bCopyLink').onclick=async()=>{try{await navigator.clipboard.writeText(location.origin);toast('应用链接已复制，其他设备用同一账号打开即可');}catch(_){toast(location.origin);}};$('#bWeekly').onclick=bShowWeekly;pfWrap();};
 function bShowWeekly(){const start=Date.now()-7*DAY,logs=aData.attempts.filter(x=>x.createdAt>=start);showConfirm({title:'最近 7 天',msg:'新增 '+state.words.filter(w=>w.createdAt>=start).length+' 个表达；实际练习 '+logs.length+' 次；独立用出 '+new Set(logs.filter(x=>x.result==='independent').map(x=>x.wordId)).size+' 个表达。记录代表练习经历，仍需换场景验证。',okText:'继续学习'});}
 function bOpenAudio(word){
   $('#bAudio').classList.add('show');const select=$('#bAudioWord');select.innerHTML=state.words.map(w=>'<option value="'+esc(w.id)+'">'+esc(w.term)+'</option>').join('');if(word)select.value=word.id;bLoadAudio();
