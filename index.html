@@ -831,6 +831,8 @@ body.side-open #scrim{display:block}
 .mic-btn{flex:none;width:44px;height:44px;border-radius:10px;background:var(--s3);border:1px solid var(--s5);color:var(--text2);display:inline-flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
 .mic-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .ai-hint{font-size:12.5px;color:var(--text3);margin-bottom:2px}
+.ai-related{display:block;width:100%;margin-top:10px;text-align:center;background:var(--s3);border:1px dashed var(--sep);border-radius:12px;padding:11px;font-size:13px;color:var(--text2);font-weight:600}
+.ai-related:active{background:var(--s4)}
 .scene-card{display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--s4);border-radius:12px;padding:12px 14px;cursor:pointer}
 .scene-card:active{border-color:var(--accent)}
 .scene-num{flex:none;width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent-fg);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
@@ -7961,15 +7963,36 @@ function aiSetChatbar(phase){
 function aiRenderScenes(){
   const prev=(state.aiLog||[]).filter(x=>String(x.term).toLowerCase()===String(aiState.term).toLowerCase());
   const scored=prev.filter(x=>Number(x.score)>0);const best=scored.length?Math.max.apply(null,scored.map(x=>Number(x.score)||0)):null;
-  const tip=aiState.scenePlanFallback?'AI 场景暂时不可用，下面是快速分组。点击“换一批情景”会重新请求 AI'
+  const tip=aiState.scenePlanFallback?'AI 场景暂时不可用，下面是快速分组。点击"换一批情景"会重新请求 AI'
     :(aiState.terms&&aiState.terms.length>1)?('一次对话练 '+aiState.terms.length+' 个词，选一个情景开始')
     :(prev.length?('这个词练过 '+prev.length+' 次'+(best!=null?'，最高 '+best+' 分':'')+'，选一个情景继续'):'选择一个情景，开始今天的开口练习');
+  /* 部分词重合的历史对话入口 */
+  let relatedHtml='',relatedSession=null;
+  if(typeof aiFindRecentSession==='function'){
+    const ids=aiState.allTermIds||aiState.termIds||[];
+    const hist=aiFindRecentSession(ids);
+    if(hist&&!hist.exact&&hist.overlap>=1){
+      relatedSession=hist.session;
+      const terms=(hist.session.terms||[]).slice(0,3).join(' · ');
+      relatedHtml='<button class="btn ai-related" id="aiRelatedDialogue" type="button">练过的相关对话 · '+esc(terms)+' ›</button>';
+    }
+  }
   $('#aiScene').innerHTML='<div class="ai-hint">'+esc(tip)+'</div>'+
     aiState.scenes.map((s,i)=>'<div class="scene-card" data-scene="'+i+'">'+
       '<span class="scene-num">0'+(i+1)+'</span>'+
       '<span class="scene-main"><span class="scene-title">'+esc(s.title)+'</span><span class="scene-desc">'+esc(s.desc||'')+'</span>'+(Array.isArray(s.wordIds)&&s.wordIds.length?'<span class="scene-words">'+s.wordIds.map(id=>{const w=(state.words||[]).find(x=>x.id===id);return w?'<span class="scene-word">'+esc(w.term)+'</span>':'';}).join('')+'</span>':'')+'</span>'+
       '<svg class="icon-sm scene-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'+
-      '</div>').join('');
+      '</div>').join('')+
+    relatedHtml;
+  if(relatedSession){
+    const b=$('#aiRelatedDialogue');
+    if(b) b.addEventListener('click',()=>{
+      const words=(relatedSession.termIds||[]).map(id=>state.words.find(w=>w.id===id)).filter(Boolean);
+      if(!words.length){ toast('相关对话里的词条已不存在','warn'); return; }
+      closeAiModal();
+      setTimeout(()=>openAiPackPractice(words),60);
+    });
+  }
 }
 function aiRenderDialogue(){
   let visible=aiState.lines;
@@ -8031,6 +8054,35 @@ function aiApplyDialogue(lines){
   aiState.currentTargetWord=aiState.multiTurn?((lines.find(x=>x.who==='YOU')||{}).wordId||aiState.terms[0]):aiState.term;
   aiState.phase='practice';
   aiShowBody(); aiSetChatbar('practice'); aiRenderDialogue();
+}
+/* 还原上次会话最后练的场景：答案清空，直接进入练习，不重新生成 */
+function aiRestoreLastScene(session){
+  const scs=(session.scenes||[]).filter(Boolean);
+  if(!scs.length) return false;
+  const last=scs[scs.length-1];
+  const lines=(last.lines||[]).filter(l=>l&&(l.who==='YOU'||l.en||l.cn));
+  if(!lines.length) return false;
+  aiState.scenes=scs.map(sc=>({title:sc.title||'',desc:sc.desc||'',wordIds:(sc.wordIds||[]).slice()}));
+  aiState.sceneIndex=scs.length-1;
+  aiState.scene={title:last.title||'',desc:last.desc||'',wordIds:(last.wordIds||[]).slice()};
+  /* 组词：把当前场景的词设为目标词 */
+  if(aiState.multiTurn){
+    const srcIds=aiState.allTermIds||aiState.termIds||[];
+    const ids=(last.wordIds||[]).filter(id=>srcIds.includes(id));
+    if(ids.length){
+      aiState.termIds=ids.slice();
+      aiState.terms=ids.map(id=>aiWordTerm(id)).filter(Boolean);
+      aiState.term=aiState.terms.join(' · ');
+      aiState.definition=ids.map(id=>aiWordDef(id)).filter(Boolean).join('；');
+    }
+  }
+  aiState.lines=lines.map(l=>({who:l.who,en:l.en||'',cn:l.cn||'',wordId:l.wordId||'',promptCn:l.promptCn||'',attempt:'',result:''}));
+  aiState.turnIndex=0;aiState.turnResults=[];
+  aiState.attempt='';aiState.attemptPromptCn='';
+  aiState.currentTargetWord=aiState.multiTurn?((aiState.lines.find(l=>l.who==='YOU')||{}).wordId||aiState.terms[0]):aiState.term;
+  aiState.phase='practice';
+  aiState.restored=true;
+  return true;
 }
 function aiSchedulePrefetch(delay){
   if(aiPrefetchTimer){ clearTimeout(aiPrefetchTimer); aiPrefetchTimer=null; }
@@ -8323,6 +8375,16 @@ function openAiDialogue(ev){
   const favorite=$('#aiFavorite');if(favorite){favorite.textContent='收藏对话';favorite.disabled=true;}
   $('#aiScene').innerHTML='';
   $('#aiModal').classList.add('show');
+  /* 旧对话复练：同一词默认打开上次练过的场景，答案清空，保留「重新生成」 */
+  if(ex&&typeof aiFindRecentSession==='function'&&typeof aiRestoreLastScene==='function'){
+    const hist=aiFindRecentSession([ex.id]);
+    if(hist&&hist.exact&&aiRestoreLastScene(hist.session)){
+      if(typeof aiDialogueHistoryScene==='function') aiDialogueHistoryScene(aiState.scene,aiState.lines,aiState.termIds||[]);
+      aiShowBody(); aiSetChatbar('practice'); aiRenderDialogue(); aiSyncContext('practice');
+      toast('已还原上次练的场景，答案已清空；点「换一批情景」重新生成','ok');
+      return;
+    }
+  }
   const mySeq=++aiState.seq;
   aiShowLoading('正在为你挑选最常用的情景…');
   if(!aAiReady()){
@@ -10146,6 +10208,16 @@ function openAiPackPractice(terms){
   const favorite=$('#aiFavorite');if(favorite){favorite.textContent='收藏对话';favorite.disabled=true;}
   $('#aiScene').innerHTML='';
   $('#aiModal').classList.add('show');
+  /* 旧对话复练：同一组词默认打开上次练过的场景，答案清空，保留「重新生成」 */
+  if(typeof aiFindRecentSession==='function'&&typeof aiRestoreLastScene==='function'){
+    const hist=aiFindRecentSession(list.map(w=>w.id));
+    if(hist&&hist.exact&&aiRestoreLastScene(hist.session)){
+      if(typeof aiDialogueHistoryScene==='function') aiDialogueHistoryScene(aiState.scene,aiState.lines,aiState.termIds||[]);
+      aiShowBody(); aiSetChatbar('practice'); aiRenderDialogue(); aiSyncContext('practice');
+      toast('已还原上次练的场景，答案已清空；点「换一批情景」重新生成','ok');
+      return;
+    }
+  }
   const mySeq=++aiState.seq;
   aiShowLoading('正在挑场景…');
   if(!aAiReady()){
@@ -11869,15 +11941,29 @@ const BATCH_KEY='english-notes-dialogue-batch-v1';
 const DIALOGUE_PREF_KEY='english-notes-dialogue-preferences-v1';
 const AI_DIALOGUE_HISTORY_KEY='english-notes-dialogue-history-v1';
 let batchActiveGroup=-1,batchActiveSegment=null;
-function aiDialogueHistoryRead(){const v=aRead(AI_DIALOGUE_HISTORY_KEY,{sessions:[],favorites:[]});return {sessions:[],favorites:Array.isArray(v&&v.favorites)?v.favorites:[]};}
-function aiDialogueHistoryWrite(v){v.sessions=[];v.favorites=(v.favorites||[]).slice(0,30);aStore(AI_DIALOGUE_HISTORY_KEY,JSON.stringify(v));}
+function aiDialogueHistoryRead(){const v=aRead(AI_DIALOGUE_HISTORY_KEY,{sessions:[],favorites:[]});return {sessions:Array.isArray(v&&v.sessions)?v.sessions:[],favorites:Array.isArray(v&&v.favorites)?v.favorites:[]};}
+/* 会话只存文本：最多 30 段，总计不超过 256KB（UTF-8 字节），单段不超过 64KB */
+function aiDialogueTrimSessions(list){
+  const out=[];let total=0;
+  for(const s of (list||[])){
+    if(!s||!s.id)continue;
+    let json='';try{json=JSON.stringify(s);}catch(e){continue;}
+    let bytes=json.length*2;try{if(typeof TextEncoder!=='undefined')bytes=(new TextEncoder().encode(json)).length;}catch(e){}
+    if(bytes>64*1024)continue;
+    if(out.length>=30)break;
+    if(total+bytes>256*1024)break;
+    out.push(s);total+=bytes;
+  }
+  return out;
+}
+function aiDialogueHistoryWrite(v){v.sessions=aiDialogueTrimSessions(v.sessions||[]);v.favorites=(v.favorites||[]).slice(0,30);try{aStore(AI_DIALOGUE_HISTORY_KEY,JSON.stringify(v));}catch(e){}}
 let aiSessionDoc=null;
 function aiDialogueHistoryMigrate(){
-  /* 旧版本会自动存 30 段会话；现在只保留收藏，启动时顺手清掉旧的自动记录 */
+  /* 恢复自动会话记录后，启动时只裁剪到上限，不再清空 sessions */
   try{
     const raw=aRead(AI_DIALOGUE_HISTORY_KEY,null);
     if(raw&&Array.isArray(raw.sessions)&&raw.sessions.length){
-      aStore(AI_DIALOGUE_HISTORY_KEY,JSON.stringify({sessions:[],favorites:(raw.favorites||[]).slice(0,30)}));
+      aiDialogueHistoryWrite({sessions:raw.sessions,favorites:raw.favorites||[]});
     }
   }catch(e){}
 }
@@ -11904,6 +11990,34 @@ function aiDialogueHistoryFinish(status){
   if(!aiSessionDoc) return;
   aiSessionDoc.status=status||'completed';
   aiSessionDoc.updatedAt=Date.now();
+  aiDialogueHistoryAutoSave();
+}
+/* 自动存入会话历史（只存文本），供下次「旧对话复练」；没有实际场景不存 */
+function aiDialogueHistoryAutoSave(){
+  if(!aiSessionDoc) return;
+  const scs=(aiSessionDoc.scenes||[]).filter(Boolean);
+  if(!scs.length) return;
+  const v=aiDialogueHistoryRead();
+  v.sessions=[aiSessionDoc].concat(v.sessions.filter(s=>s.id!==aiSessionDoc.id));
+  aiDialogueHistoryWrite(v);
+}
+/* 按词条 ID 查找最近一次会话：返回 {session,overlap,total,exact}；无交集返回 null */
+function aiFindRecentSession(ids){
+  const target=(ids||[]).map(String).filter(Boolean);
+  if(!target.length) return null;
+  const tset=new Set(target);
+  let best=null;
+  for(const s of (aiDialogueHistoryRead().sessions||[])){
+    const sIds=(s.termIds||[]).map(String).filter(Boolean);
+    if(!sIds.length) continue;
+    const overlap=sIds.filter(id=>tset.has(id)).length;
+    if(!overlap) continue;
+    const exact=overlap===target.length&&sIds.length===target.length;
+    if(!best||(exact&&!best.exact)||(exact===best.exact&&(overlap>best.overlap||(overlap===best.overlap&&(s.updatedAt||0)>(best.session.updatedAt||0))))){
+      best={session:s,overlap,total:target.length,exact};
+    }
+  }
+  return best;
 }
 function aiFavoriteCurrent(){
   if(!aiSessionDoc){toast('当前还没有可收藏的对话','warn');return;}
