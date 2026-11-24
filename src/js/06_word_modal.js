@@ -825,23 +825,11 @@ function exCardHTML(x,i){
     '</div>'+
   '</div>';
 }
-function syncExCnBtn(){
-  const b=$('#wmCnAll');
-  if(!b) return;
-  const list=$$('#wmExamples .ex-cn-text');
-  const allShown=list.length>0&&list.every(el=>!el.classList.contains('hided'));
-  b.textContent=allShown?'收起中文':'显示全部中文';
-}
-function setExCnAll(show){
-  $$('#wmExamples .ex-cn-text').forEach(el=>el.classList.toggle('hided',!show));
-  syncExCnBtn();
-}
 function toggleExCnRow(enEl){
   const card=enEl.closest('.ex-card');
   const cn=card&&card.querySelector('.ex-cn-text');
   if(!cn) return;
   cn.classList.toggle('hided');
-  syncExCnBtn();
 }
 function renderExCards(opt){
   opt=opt||{};
@@ -862,7 +850,7 @@ function renderExCards(opt){
   box.innerHTML=tip+list.map(exCardHTML).join('');
   const gs=$('#exGoSettings');
   if(gs) gs.addEventListener('click',()=>{ closeWordModal(); openSettings(); });
-  syncRegen(); syncExCnBtn();
+  syncRegen();
 }
 function syncRegen(){
   const b=$('#wmRegen');
