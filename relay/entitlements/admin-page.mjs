@@ -70,6 +70,14 @@ export function renderAdminPage() {
 
 <div class="card">
   <h2 style="margin-top:0">付费订单（线下收款登记）</h2>
+  <label>套餐（选一个自动填）</label>
+  <select id="oPreset">
+    <option value="">手动填写</option>
+    <option value="tts|100|660|体验包 100 句">语音体验包 100 句 · ¥6.6</option>
+    <option value="tts|300|1500|进阶包 300 句">语音进阶包 300 句 · ¥15</option>
+    <option value="tts|1000|3880|畅用包 1000 句">语音畅用包 1000 句 · ¥38.8</option>
+    <option value="text|100|180|加练包 100 次">加练包 100 次 · ¥1.8</option>
+  </select>
   <label>邮箱</label><input id="oEmail" type="email" autocomplete="off" placeholder="user@example.com">
   <div class="grid2">
     <div><label>类型</label>
@@ -354,6 +362,15 @@ document.getElementById('btnEnter').addEventListener('click', loadAccounts);
 document.getElementById('btnGrant').addEventListener('click', doGrant);
 document.getElementById('btnOrderCreate').addEventListener('click', doOrderCreate);
 document.getElementById('btnOrderList').addEventListener('click', loadOrders);
+document.getElementById('oPreset').addEventListener('change', function(){
+  var v = this.value;
+  if (!v) return;
+  var p = v.split('|');
+  document.getElementById('oKind').value = p[0];
+  document.getElementById('oUnits').value = p[1];
+  document.getElementById('oAmount').value = (parseInt(p[2], 10) / 100).toFixed(2);
+  document.getElementById('oPlan').value = p[3];
+});
 document.getElementById('btnFeedbackList').addEventListener('click', function(){ loadFeedbackInbox(false); });
 document.getElementById('btnFeedbackMore').addEventListener('click', function(){ loadFeedbackInbox(true); });
 document.getElementById('btnBudgetList').addEventListener('click', loadBudgetHolds);
