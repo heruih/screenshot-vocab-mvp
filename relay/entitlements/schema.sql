@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS accounts (
   created_at INTEGER NOT NULL,             -- 首次验证时间（ms）
   verified_at INTEGER,
   activated_at INTEGER,
-  note TEXT
+  note TEXT,
+  welcome_tts_granted INTEGER NOT NULL DEFAULT 0  -- 一次性站方赠送语音是否已发放（防重复）
 );
 
 -- 每日用量：按账号 + 服务 + 北京日期计数
@@ -32,7 +33,8 @@ CREATE TABLE IF NOT EXISTS grants (
   remaining INTEGER NOT NULL,              -- 剩余句数
   note TEXT,
   created_at INTEGER NOT NULL,
-  expires_at INTEGER                       -- 可选过期时间（ms），NULL 表示长期有效
+  expires_at INTEGER,                      -- 可选过期时间（ms），NULL 表示长期有效
+  source TEXT NOT NULL DEFAULT 'paid'      -- free=站方赠送 / paid=付费语音包
 );
 CREATE INDEX IF NOT EXISTS idx_grants_lookup ON grants(account_id, kind);
 

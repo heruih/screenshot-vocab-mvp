@@ -204,9 +204,19 @@ function accountRenderGroup() {
   const M = s.entitlements.monthly;
   const yuan = micro => (micro / 1_000_000).toFixed(2);
   const status = ['active','pending','disabled'].includes(s.account.status) ? s.account.status : 'disabled';
-  const voiceBalance = status !== 'disabled' && L.tts.hasPackage
-    ? '站方语音包剩余 ' + Number(L.tts.grantRemaining) + ' 句'
-    : '暂无可用的站方语音包';
+  const tts = L.tts || {};
+  let voiceBalance;
+  if (status === 'disabled' || !tts.hasPackage) {
+    voiceBalance = '暂无可用的站方语音包';
+  } else {
+    const free = Number(tts.freeRemaining) || 0;
+    const paid = Number(tts.paidRemaining) || 0;
+    if (free + paid > 0) {
+      voiceBalance = '站方语音：免费剩余 ' + free + ' 句' + (paid > 0 ? '，付费剩余 ' + paid + ' 句' : '');
+    } else {
+      voiceBalance = '免费语音已用完，当前使用系统朗读';
+    }
+  }
 
   body.innerHTML =
     '<div class="st-field"><div class="meta"><b id="stAccountEmail"></b> ' +
@@ -214,7 +224,8 @@ function accountRenderGroup() {
     '<div class="st-field"><label>今日剩余（已用 / 每日免费）</label>' +
       '<p class="a-note">AI 对话免费批改剩余 ' + L.text.freeLeft + ' 句（今日已用 ' + L.text.used + ' / ' + L.text.freeDaily + '）' +
       (L.text.grantRemaining ? '，加练包剩 ' + L.text.grantRemaining + ' 句' : '') + '</p>' +
-      '<p class="a-note">' + voiceBalance + '</p></div>' +
+      '<p class="a-note">' + voiceBalance + '</p>' +
+      '<p class="a-note">当前朗读方式：' + (typeof currentReadingMethodLabel === 'function' ? currentReadingMethodLabel() : '系统朗读') + '</p></div>' +
     '<div class="st-field"><label>本月站方成本（100 元提醒 / 150 元封顶）</label>' +
       '<p class="a-note">已累计 ¥' + yuan(M.totalMicro) + '，跨月自动重置。</p></div>' +
     '<button class="btn" id="stAccountRefresh" type="button">刷新状态</button>' +

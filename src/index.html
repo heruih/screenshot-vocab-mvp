@@ -583,8 +583,9 @@
       <div class="st-field" id="stCommercialSpeech" hidden>
         <label for="stCommercialSpeechSource">英文朗读来源</label>
         <select id="stCommercialSpeechSource" aria-describedby="stCommercialSpeechStatus">
-          <option value="auto">自配豆包 Key／系统朗读（默认）</option>
-          <option value="site" disabled>站方语音包 · CosyVoice</option>
+          <option value="auto">自动（优先站方语音包，用完回退）</option>
+          <option value="system">系统朗读</option>
+          <option value="doubao">自配豆包语音</option>
         </select>
         <p class="a-note" id="stCommercialSpeechStatus" role="status"></p>
         <button class="btn" id="stCommercialSpeechRefresh" type="button">刷新语音包状态</button>
@@ -923,9 +924,9 @@
    <details class="a-guide-fold">
     <summary>API Key 与为什么要付费</summary>
     <div class="a-fold-body">
-     <p>AI 对话每天免费批改 10 句。每句成功批改后扣 1 句，生成场景、试听或批改失败都不扣。系统朗读免费，站方 CosyVoice 语音包单独发放。</p>
+     <p>AI 对话每天免费批改 10 句。每句成功批改后扣 1 句，生成场景、试听或批改失败都不扣。开通账号即送一次性站方语音句数，先用免费的、再用付费的，用完自动回退系统朗读；付费语音包由我们单独发放。</p>
      <p>当天免费额度用完、还想继续练，可以领加练包；现阶段加练包由我们手动发放，不接在线支付，也不会主动催你。</p>
-     <p class="a-fold-note">可以填自己的豆包语音 Key，费用走自己的豆包。收到站方语音包后，在「发音与配图」选择「站方语音包」。同一句已生成语音可在本机重播，重播不扣句数。</p>
+     <p class="a-fold-note">可以填自己的豆包语音 Key，费用走自己的豆包。朗读来源在「发音与配图」里选：默认「自动」优先用站方语音，免费句数用完回退系统朗读；也可改「系统朗读」或「自配豆包语音」。同一句已生成语音可在本机重播，重播不扣句数。</p>
     </div>
    </details>
    <details class="a-guide-fold">

@@ -56,13 +56,11 @@ if(speechPreviewEnabled&&speechPreviewSource){
 }
 const COMMERCIAL_SPEECH_SOURCE_KEY='en-tts-commercial-source-v1';
 const commercialSpeechSource=document.getElementById('stCommercialSpeechSource');
-let preferSiteSpeech=false;
 if(commercialSpeechEnabled&&commercialSpeechSource){
-  try{preferSiteSpeech=localStorage.getItem(COMMERCIAL_SPEECH_SOURCE_KEY)==='site';}catch(_){}
+  try{ const saved=commercialSpeechMode(); if(['auto','system','doubao'].includes(saved)) commercialSpeechSource.value=saved; }catch(_){}
   document.getElementById('stCommercialSpeech').hidden=false;
   commercialSpeechSource.addEventListener('change',()=>{
-    preferSiteSpeech=commercialSpeechSource.value==='site';
-    try{localStorage.setItem(COMMERCIAL_SPEECH_SOURCE_KEY,preferSiteSpeech?'site':'auto');}catch(_){}
+    try{localStorage.setItem(COMMERCIAL_SPEECH_SOURCE_KEY,commercialSpeechSource.value);}catch(_){}
     stopSpeech();
   });
   document.getElementById('stCommercialSpeechListen').addEventListener('click',()=>
@@ -70,23 +68,53 @@ if(commercialSpeechEnabled&&commercialSpeechSource){
   document.getElementById('stCommercialSpeechRefresh').addEventListener('click',()=>accountRefresh());
 }
 
+/* 用户显式选择的英文朗读来源：auto（默认，优先站方语音包）/ system（系统朗读）/ doubao（自配豆包） */
+function commercialSpeechMode(){
+  let m='auto';
+  try{ const v=localStorage.getItem(COMMERCIAL_SPEECH_SOURCE_KEY); if(v==='auto'||v==='system'||v==='doubao') m=v; }catch(_){}
+  return m;
+}
+
+/* 当前是否有站方语音包（已开通且发放过，含已用尽的情况）；是否可用看 freeRemaining+paidRemaining */
 function activeSiteVoicePack(){
   const status=accountStatusCache;
   if(!accountLoggedIn()||!status||status.account.email!==accountEmail()||status.account.status==='disabled')return null;
   const pack=status.entitlements?.limits?.tts;
-  return pack?.hasPackage===true?pack:null;
+  return pack&&pack.hasPackage===true?pack:null;
+}
+function siteVoiceTotal(pack){ return pack?((pack.freeRemaining||0)+(pack.paidRemaining||0)):0; }
+/* auto（默认）模式下，有站方额度就用站方 CosyVoice；显式选 system/doubao 则不用 */
+function useSiteSpeech(){
+  if(commercialSpeechMode()!=='auto')return false;
+  return !!activeSiteVoicePack()&&siteVoiceTotal(activeSiteVoicePack())>0;
+}
+
+/* 当前实际朗读方式（供账号页与设置页显示） */
+function currentReadingMethodLabel(){
+  if(!commercialSpeechEnabled) return '';
+  const mode=commercialSpeechMode();
+  if(mode==='system') return '系统朗读';
+  if(mode==='doubao') return ownVolcTtsConfig()?'自配豆包语音':'系统朗读（未填豆包 Key）';
+  const pack=activeSiteVoicePack();
+  if(pack&&siteVoiceTotal(pack)>0) return '站方语音包（CosyVoice）';
+  return ownVolcTtsConfig()?'自配豆包语音':'系统朗读';
 }
 
 function refreshCommercialSpeechSettings(){
   if(!commercialSpeechEnabled||!commercialSpeechSource)return;
   const pack=activeSiteVoicePack();
-  commercialSpeechSource.options[1].disabled=!pack;
-  commercialSpeechSource.value=pack&&preferSiteSpeech?'site':'auto';
+  const mode=commercialSpeechMode();
+  commercialSpeechSource.value=['auto','system','doubao'].includes(mode)?mode:'auto';
   document.getElementById('stCommercialSpeechRefresh').hidden=!accountLoggedIn();
   const status=document.getElementById('stCommercialSpeechStatus');
-  status.textContent=pack
-    ? '站方语音包剩余 '+pack.grantRemaining+' 句'+(pack.grantRemaining===0?'。已生成的本机语音仍可重播。':'。')
-    : (accountLoggedIn()?'暂无可用的站方语音包。收到语音包后可刷新状态。':'登录后可使用管理员发放的站方语音包。');
+  if(pack&&siteVoiceTotal(pack)>0){
+    const free=pack.freeRemaining||0, paid=pack.paidRemaining||0;
+    status.textContent='站方语音：免费剩余 '+free+' 句'+(paid>0?'，付费剩余 '+paid+' 句':'')+'。已生成的本机语音仍可重播。';
+  }else if(accountLoggedIn()&&pack){
+    status.textContent='免费语音已用完，当前使用'+(mode==='system'?'系统朗读':(mode==='doubao'?'自配豆包语音':'系统朗读'))+'。';
+  }else{
+    status.textContent=accountLoggedIn()?'暂无可用的站方语音包，收到语音包后可刷新状态。':'登录后开通账号即送站方语音句数。';
+  }
 }
 
 const VOLC_TTS_KEY='en-tts-v1';
@@ -180,8 +208,8 @@ function playSiteSpeech(text,lang,onend){
   const token=accountToken();
   const key=JSON.stringify(['cosyvoice-site-v1',accountEmail(),lang,text]);
   return playCachedCloudSpeech(text,lang,onend,key,()=>{
-    if(token!==accountToken()||!activeSiteVoicePack())throw new Error('站方语音包尚未开通');
-    if(activeSiteVoicePack().grantRemaining<=0)throw new Error('站方语音包句数已用完');
+    const pack=activeSiteVoicePack();
+    if(token!==accountToken()||!pack||siteVoiceTotal(pack)<=0)throw new Error('站方语音包尚未开通或句数已用完');
     if(siteSpeechPending.has(key))return siteSpeechPending.get(key);
     const pending=fetch(accountBase()+'/v1/tts/synthesize',{
       method:'POST',signal:AbortSignal.timeout(12000),
@@ -344,7 +372,16 @@ function speak(text,lang,onend){
     return;
   }
   if(locale.toLowerCase().startsWith('en')&&commercialSpeechEnabled){
-    if(preferSiteSpeech&&activeSiteVoicePack()){playSiteSpeech(value,locale,onend);return;}
+    const mode=commercialSpeechMode();
+    if(mode==='system'){ speakQueued(value,locale,onend); return; }
+    if(mode==='doubao'){
+      const own=ownVolcTtsConfig();
+      if(own) playVolcAudio(value,locale,onend,own);
+      else { toast('还未填写自己的豆包 Key，已使用系统朗读','warn'); speakQueued(value,locale,onend); }
+      return;
+    }
+    /* auto（默认）：优先站方语音包，用完或未开通再回退自配豆包/系统朗读 */
+    if(useSiteSpeech()){ playSiteSpeech(value,locale,onend); return; }
     const own=ownVolcTtsConfig();
     if(own)playVolcAudio(value,locale,onend,own);
     else speakQueued(value,locale,onend);

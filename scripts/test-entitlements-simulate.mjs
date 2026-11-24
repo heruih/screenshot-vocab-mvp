@@ -80,7 +80,7 @@ function createD1(sqlite) {
   };
 }
 
-function makeEnv({ simMicro } = {}) {
+function makeEnv({ simMicro, welcomeTts = 0 } = {}) {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(schemaSql);
   const env = {
@@ -89,7 +89,9 @@ function makeEnv({ simMicro } = {}) {
     ADMIN_TOKEN: 'test-admin-secret',
     BILLING_MODE: 'simulate',
     ALLOW_DEV_AUTH: '1',
-    ALLOWED_ORIGIN: 'https://heruih.github.io'
+    ALLOWED_ORIGIN: 'https://heruih.github.io',
+    // 默认关闭站方赠送语音，避免影响既有语音包测试；新场景按需开启 welcomeTts
+    ENTITLEMENT_CONFIG: JSON.stringify({ welcomeTts })
   };
   if (simMicro !== undefined) env.SIMULATE_COST_MICRO = String(simMicro);
   return env;
@@ -780,6 +782,60 @@ setBeijing(2026, 11, 24, 10);
   const adminScript = page.data.match(/<script>([\s\S]*)<\/script>/)?.[1] || '';
   check('管理页有收件箱，反馈内容由纯文本写入', Boolean(new Script(adminScript)) &&
     adminScript.includes('body.textContent = entry.message') && !/onclick\s*=/.test(page.data));
+}
+
+section('场景20：站方赠送语音（一次性、免费优先、用完回退、付费恢复）');
+setBeijing(2026, 11, 24, 10);
+{
+  const env = makeEnv({ welcomeTts: 3 });
+  const email = 'gift-voice@example.test';
+  const token = await login(env, email);
+  const authH = auth(token);
+  const endpoint = '/v1/tts/synthesize';
+  const speak = (text = 'A gift sentence.') => call(env, 'POST', endpoint, { text }, authH);
+  const tts = async () => (await call(env, 'GET', '/v1/me/status', null, authH)).data.entitlements.limits.tts;
+
+  const before = await tts();
+  check('未开通账号没有赠送语音', before.freeRemaining === 0 && before.paidRemaining === 0 && before.hasPackage === false);
+
+  await call(env, 'POST', '/v1/admin/activate', { email }, { 'X-Admin-Token': env.ADMIN_TOKEN });
+  const afterActivate = await tts();
+  check('开通即发放一次性免费语音', afterActivate.freeRemaining === 3 && afterActivate.paidRemaining === 0 && afterActivate.grantRemaining === 3);
+
+  await login(env, email); // 再登录一次（新 token）
+  const afterRelogin = await tts();
+  check('重复登录不重复发放试用额度', afterRelogin.freeRemaining === 3 && afterRelogin.grantRemaining === 3);
+
+  await speak(); await speak();
+  const mid = await tts();
+  check('先用免费句数', mid.freeRemaining === 1 && mid.paidRemaining === 0);
+
+  await speak();
+  const exhausted = await tts();
+  check('免费用完：剩余归零', exhausted.freeRemaining === 0 && exhausted.grantRemaining === 0);
+  const next = await speak();
+  check('免费句数用完，下一句拦截并提示', next.status === 402);
+
+  await grantVoice(env, email, 2);
+  const afterPaid = await tts();
+  check('付费语音包与免费分开显示', afterPaid.freeRemaining === 0 && afterPaid.paidRemaining === 2);
+  const paidSpeak = await speak();
+  check('发包后恢复 CosyVoice', paidSpeak.status === 200);
+  const afterPaidUse = await tts();
+  check('付费句数被消费', afterPaidUse.paidRemaining === 1 && afterPaidUse.freeRemaining === 0);
+}
+
+section('场景21：免费与付费并存时优先用免费');
+setBeijing(2026, 11, 24, 10);
+{
+  const env = makeEnv({ welcomeTts: 3 });
+  const email = 'free-first@example.test';
+  const token = await login(env, email);
+  await call(env, 'POST', '/v1/admin/activate', { email }, { 'X-Admin-Token': env.ADMIN_TOKEN });
+  await grantVoice(env, email, 2);
+  await call(env, 'POST', '/v1/tts/synthesize', { text: 'Free first.' }, auth(token));
+  const tts = (await call(env, 'GET', '/v1/me/status', null, auth(token))).data.entitlements.limits.tts;
+  check('免费付费并存时优先用免费', tts.freeRemaining === 2 && tts.paidRemaining === 2);
 }
 
 /* ---------- 汇总 ---------- */

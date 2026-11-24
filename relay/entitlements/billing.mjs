@@ -18,6 +18,7 @@ import { beijingDay, beijingMonth } from './time.mjs';
 function config(env) {
   const c = {
     freeDaily: { text: 10, text_aux: 30, tts: 0 },
+    welcomeTts: 20,           // 每账号一次性赠送的站方语音句数（可配置）
     warnMicro: 100_000_000,   // 100 元
     capMicro: 150_000_000     // 150 元
   };
@@ -25,6 +26,7 @@ function config(env) {
     const raw = env.ENTITLEMENT_CONFIG ? JSON.parse(env.ENTITLEMENT_CONFIG) : null;
     if (raw) {
       if (Number.isSafeInteger(raw.freeDaily?.text) && raw.freeDaily.text >= 0) c.freeDaily.text = raw.freeDaily.text;
+      if (Number.isSafeInteger(raw.welcomeTts) && raw.welcomeTts >= 0) c.welcomeTts = raw.welcomeTts;
       if (raw.warnMicro) c.warnMicro = raw.warnMicro;
       if (raw.capMicro) c.capMicro = raw.capMicro;
     }
@@ -180,14 +182,14 @@ export async function reserveSlot(env, accountId, kind, now = new Date()) {
     if (upd.meta.changes === 1) return { source: 'free', day, freeDaily };
   }
 
-  /* 同一句 SQL 选中并扣减，优先用即将到期的包。 */
+  /* 同一句 SQL 选中并扣减：先用免费（source='free'），再用付费；同源内优先用即将到期的包。 */
   const grant = await db.prepare(
     'UPDATE grants SET remaining = remaining - 1 WHERE id = (' +
     'SELECT id FROM grants WHERE account_id = ? AND kind = ? AND remaining > 0 ' +
     'AND (expires_at IS NULL OR expires_at > ?) ' +
-    'ORDER BY (expires_at IS NULL), expires_at, id LIMIT 1) RETURNING id'
+    'ORDER BY (source = \'paid\'), (expires_at IS NULL), expires_at, id LIMIT 1) RETURNING id, source'
   ).bind(accountId, kind, now.getTime()).first();
-  if (grant) return { source: 'grant', day, grantId: grant.id, freeDaily };
+  if (grant) return { source: 'grant', day, grantId: grant.id, grantSource: grant.source || 'paid', freeDaily };
   return { source: 'none', day, freeDaily };
 }
 
@@ -206,10 +208,18 @@ export async function releaseSlot(env, accountId, kind, reservation, now = new D
 
 export async function getGrantBalance(env, accountId, kind, now = new Date()) {
   const row = await env.DB.prepare(
-    'SELECT COUNT(*) AS packs, COALESCE(SUM(remaining), 0) AS remaining FROM grants ' +
+    'SELECT COUNT(*) AS packs, COALESCE(SUM(remaining), 0) AS remaining, ' +
+    "COALESCE(SUM(CASE WHEN source = 'free' THEN remaining ELSE 0 END), 0) AS freeRemaining, " +
+    "COALESCE(SUM(CASE WHEN source = 'paid' THEN remaining ELSE 0 END), 0) AS paidRemaining " +
+    'FROM grants ' +
     'WHERE account_id = ? AND kind = ? AND (expires_at IS NULL OR expires_at > ?)'
   ).bind(accountId, kind, now.getTime()).first();
-  return { hasPackage: row.packs > 0, remaining: row.remaining };
+  return {
+    hasPackage: row.packs > 0,
+    remaining: row.remaining,
+    freeRemaining: row.freeRemaining,
+    paidRemaining: row.paidRemaining
+  };
 }
 
 export async function getStatus(env, accountId, now = new Date()) {
@@ -221,13 +231,15 @@ export async function getStatus(env, accountId, now = new Date()) {
     const freeDaily = config(env).freeDaily[kind];
     const daily = await getDaily(db, accountId, kind === 'text' ? 'dialogue_review' : kind, day);
     const used = daily ? daily.count : 0;
-    const { hasPackage, remaining: grantRemaining } = await getGrantBalance(env, accountId, kind, now);
+    const { hasPackage, remaining: grantRemaining, freeRemaining, paidRemaining } = await getGrantBalance(env, accountId, kind, now);
     out[kind] = {
       freeDaily,
       used,
       freeLeft: Math.max(0, freeDaily - used),
       hasPackage,
       grantRemaining,
+      freeRemaining,
+      paidRemaining,
       totalLeft: Math.max(0, freeDaily - used) + grantRemaining
     };
   }

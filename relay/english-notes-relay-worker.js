@@ -15,7 +15,7 @@ import {
 import { deepseekMicro, cosyvoiceMicro, maxDeepseekMicro, deepseekOutputLimit } from './entitlements/pricing.mjs';
 import { notifyOwner } from './entitlements/notify.mjs';
 import { simulateText, simulateTts } from './entitlements/simulate.mjs';
-import { isAdmin, listAccounts, activate, grant, setStatus } from './entitlements/admin.mjs';
+import { isAdmin, listAccounts, activate, grant, setStatus, ensureWelcomeTts } from './entitlements/admin.mjs';
 import { renderAdminPage } from './entitlements/admin-page.mjs';
 import { submitFeedback, listFeedback } from './entitlements/feedback.mjs';
 import { isPeakHour } from './entitlements/time.mjs';
@@ -213,6 +213,10 @@ async function handleVerify(request, env, headers) {
 async function handleMeStatus(request, env, headers) {
   const account = await getSession(env, bearerToken(request));
   if (!account) return jerr(401, '登录已失效，请重新登录', headers);
+  /* 已开通但尚未发过赠送语音的账号补发一次（幂等；失败不影响读取状态） */
+  if (account.status === 'active' && !account.welcome_tts_granted) {
+    try { await ensureWelcomeTts(env, account); } catch (_) {}
+  }
   const status = await getStatus(env, account.id);
   return jbody(200, { account: publicAccount(account), entitlements: status }, headers);
 }
