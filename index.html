@@ -95,6 +95,19 @@ html[data-theme="study"]{
   --shadow-sm:0 4px 16px rgba(0,0,0,.35);--shadow-lg:0 14px 36px rgba(0,0,0,.45);
   --radius-card:18px;--radius-control:14px;
 }
+/* 纯白主题（默认）：白底黑字，最简洁 */
+html[data-theme="white"]{
+  color-scheme:light;
+  --bg:#ffffff;--sidebar:#f7f7f8;--sep:#e7e7ea;--line:#e7e7ea;
+  --text:#1c1c1e;--text-body:#2c2c2e;--text2:#6e6e73;--text3:#a8a8ad;--ph:#c7c7cc;
+  --s0:#ffffff;--s1:#fafafa;--s2:#f4f4f5;--s3:#ececee;--s4:#e2e2e6;--s5:#d1d1d6;
+  --hover:#eef0f4;--hover-soft:rgba(0,0,0,.05);--active-soft:rgba(0,0,0,.08);
+  --accent:#0a7dff;--accent-fg:#0066d6;--accent-soft:rgba(10,125,255,.12);
+  --danger:#d92b20;--ok:#1a8f42;--ok-soft:#eaf7ee;--ok-line:#bfe3ca;--warn:#c47b00;
+  --chip-bg:#ececee;--chip-text:#3a3a3c;
+  --bar-bg:rgba(255,255,255,.97);--toast-bg:rgba(28,28,30,.94);
+  --shadow-sm:0 2px 10px rgba(0,0,0,.06);--shadow-lg:0 10px 30px rgba(0,0,0,.10);
+}
 /* 字号档位 */
 html[data-fs="s"]{--fs-body:15.5px}
 html[data-fs="l"]{--fs-body:19.5px}
@@ -233,10 +246,24 @@ body.mode-edit #noteListPane{display:none}
 #edBreadcrumb{flex:1;min-width:0;font-size:13px;color:var(--text3);padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .note-organize-btn{flex:none;min-height:40px;padding:0 12px;border:1px solid var(--sep);border-radius:10px;background:var(--s2);color:var(--accent-fg);font-size:13px;font-weight:600}
 .note-organize-btn:active{transform:scale(.96);background:var(--accent-soft)}
+.note-organize-btn{display:inline-flex;align-items:center;gap:5px}
+.note-organize-btn .icon-sm{width:15px;height:15px;flex:none}
+#btnLook{width:auto;min-width:44px;padding:0 8px;gap:5px}
+#btnLook .hdr-aa{font-size:16px;font-weight:800;line-height:1;letter-spacing:-.5px;color:var(--accent-fg)}
+#btnLook .hdr-lbl{font-size:12px;font-weight:600}
 #editorWrap{flex:1;overflow-y:auto;padding:24px 22px 140px;width:100%;max-width:860px;margin:0 auto}
 .note-editor-label{display:flex;align-items:center;gap:10px;padding:2px 0 14px;border-bottom:1px solid var(--sep)}
 .note-editor-kicker{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--accent-fg);text-transform:uppercase}
 .note-editor-context{font-size:12px;color:var(--text3)}
+.empower-guide-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 2px;padding:8px 12px;border:1px dashed var(--sep);border-radius:12px;background:var(--accent-soft)}
+.empower-guide-hint{font-size:12px;color:var(--text2);flex:1;min-width:0}
+.empower-guide-btn{flex:none;font-size:13px;font-weight:800;color:var(--accent-fg);background:none;border:none;padding:6px 10px;border-radius:8px;white-space:nowrap}
+.empower-guide-btn:active{background:var(--accent-soft)}
+.emp-demo-step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--sep)}
+.emp-demo-step:last-child{border-bottom:none}
+.emp-demo-num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.emp-demo-txt b{font-size:15px}
+.emp-demo-txt p{font-size:13px;color:var(--text2);margin:4px 0 0}
 #noteTitle{font-family:var(--font-display);letter-spacing:.01em;font-size:clamp(26px,3.2vw,34px);font-weight:700;line-height:1.25;padding:6px 0 6px;outline:none;min-height:1.2em;word-break:break-word}
 .note-body-label{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--text3);padding:18px 0 7px;border-bottom:1px solid var(--sep);text-transform:uppercase}
 #noteBody{font-family:var(--font-body);font-size:var(--fs-body);line-height:1.75;padding-top:16px;outline:none;min-height:55vh;word-break:break-word;color:var(--text-body)}
@@ -1169,9 +1196,10 @@ body.mode-flash .global-search,body.mode-speak .global-search{display:none}
 .tg-ops i:active{background:var(--s4)}
 
 /* ============ 例句里点单词：可点词 + 快查小卡 ============ */
-.ex-card .ex-en-text .qw{cursor:pointer;-webkit-tap-highlight-color:transparent}
-.ex-card .ex-en-text:active .qw:active{background:var(--accent-soft);border-radius:4px}
+.ex-card .ex-en-text .qw{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s ease;border-radius:4px}
+.ex-card .ex-en-text:active .qw:active{background:var(--accent-soft)}
 .qw.hl{color:var(--accent-fg);font-weight:600}
+@media (hover:hover){.ex-card .ex-en-text .qw:hover{background:var(--accent-soft)}}
 
 #qdMask{position:fixed;inset:0;z-index:148;background:rgba(0,0,0,.45);display:none}
 #qdMask.show{display:block}
@@ -2031,10 +2059,10 @@ body.drag-select #noteBody .en-word.sel-pick{
       </button>
       <button class="note-organize-btn" id="btnClipPaste" type="button" hidden>粘贴</button>
       <span id="edBreadcrumb"></span>
-      <button class="icon-btn" id="btnLook" title="外观（配色）" aria-label="外观">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="9.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><path d="M12 21a3 3 0 0 1 0-6c2 0 3-1.5 3-3"/></svg>
+      <button class="icon-btn" id="btnLook" title="字体与配色" aria-label="字体与配色">
+        <span class="hdr-aa">Aa</span><span class="hdr-lbl">字体</span>
       </button>
-      <button class="note-organize-btn" id="btnNoteOrganize" type="button" title="整理这篇笔记">整理</button>
+      <button class="note-organize-btn" id="btnNoteOrganize" type="button" title="整理这篇笔记"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>整理</button>
       <button class="kb-btn" id="btnKb" title="收起键盘" aria-label="收起键盘">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="10" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 13h12"/><path d="M9 19l3 2 3-2"/></svg>
         <span>收起键盘</span>
@@ -2060,6 +2088,10 @@ body.drag-select #noteBody .en-word.sel-pick{
         <span class="nib-go">去处理 ›</span>
       </div>
       <div class="note-editor-label"><span class="note-editor-kicker">笔记</span><span class="note-editor-context">原始语境 · 个人表达</span></div>
+      <div class="empower-guide-bar" id="empowerGuideBar">
+        <span class="empower-guide-hint">长按选中英文 → 点底部 Empower，就能收进词库</span>
+        <button class="empower-guide-btn" id="btnEmpowerGuide" type="button">看 Empower 怎么用 ›</button>
+      </div>
       <div id="noteTitle" class="ce" contenteditable="true" data-ph="标题"></div>
       <div id="edHint" class="ed-hint hidden">选中文字或长按词卡后，底部可以剪贴、改样式或开始练习。iPhone 上长按若先弹系统复制菜单，先点「收起键盘」再长按选中英文。</div>
       <div class="note-body-label">正文</div>
@@ -2243,7 +2275,7 @@ body.drag-select #noteBody .en-word.sel-pick{
         <button class="wm-tab" type="button" data-wmtab="tags">标签</button>
       </div>
       <div class="wm-pane" id="wmPane-examples">
-        <div class="wm-label">例句<span class="wm-tip">点句子里的单词就能查词</span><button class="mini-btn" id="wmRegen">换一批</button><button class="mini-btn" id="wmCnAll">显示全部中文</button></div>
+        <div class="wm-label">例句<span class="wm-tip">点单词可查词 · 再点标亮</span><button class="mini-btn" id="wmRegen">换一批</button></div>
         <div id="wmExamples"></div>
       </div>
       <div class="wm-pane hidden" id="wmPane-colls">
@@ -2527,6 +2559,7 @@ body.drag-select #noteBody .en-word.sel-pick{
         <label>主题与字号</label>
         <div class="st-inline">
           <div class="seg theme-seg" id="stTheme">
+            <button data-theme-val="white">纯白</button>
             <button data-theme-val="study">暖纸书房</button>
             <button data-theme-val="midnight">午夜编辑</button>
             <button data-theme-val="paper">温暖纸张</button>
@@ -2537,17 +2570,6 @@ body.drag-select #noteBody .en-word.sel-pick{
             <button data-fs-val="m">中</button>
             <button data-fs-val="l">大</button>
           </div>
-        </div>
-      </div>
-      <div class="st-field">
-        <label>正文词条配色</label>
-        <div class="seg seg-wide" id="stWordColor">
-          <button data-wc-val="sky">晴空蓝</button>
-          <button data-wc-val="mint">薄荷绿</button>
-          <button data-wc-val="amber">暖杏橙</button>
-          <button data-wc-val="lilac">丁香紫</button>
-          <button data-wc-val="pearl">珍珠白</button>
-          <button data-wc-val="capsule">复古胶囊</button>
         </div>
       </div>
         </div>
@@ -2869,6 +2891,16 @@ body.drag-select #noteBody .en-word.sel-pick{
   <div class="a-guide-tip">浏览器里的数据清缓存会消失，只有“装到主屏幕”的独立 App 能豁免；记得定期导出完整备份。</div>
  </div></div>
 </div>
+<div class="modal" id="empowerDemoModal" role="dialog" aria-modal="true" aria-label="Empower 操作演示">
+ <div class="modal-card">
+  <div class="wm-head"><div><b>Empower 怎么用</b><div class="a-note">三步把英文收进词库</div></div><button class="modal-close" id="empowerDemoClose" aria-label="关闭演示">×</button></div>
+  <div class="wm-body a-stack">
+   <div class="emp-demo-step"><div class="emp-demo-num">1</div><div class="emp-demo-txt"><b>长按选中英文</b><p>在正文里长按一个单词或句子。iPhone 若先弹出系统菜单，先点顶栏「收起键盘」，再长按。</p></div></div>
+   <div class="emp-demo-step"><div class="emp-demo-num">2</div><div class="emp-demo-txt"><b>点底部蓝色 Empower</b><p>选中后屏幕底部会弹出蓝色「Empower」按钮，点它。</p></div></div>
+   <div class="emp-demo-step"><div class="emp-demo-num">3</div><div class="emp-demo-txt"><b>加入词库 / 查看词卡</b><p>AI 自动填好释义和三句例句，你只需确认或微调。点「加入词库」收进表达库；已收过的词显示「查看词卡」。</p></div></div>
+  </div>
+ </div>
+</div>
 <div class="modal" id="aBridge" role="dialog" aria-modal="true" aria-label="ChatGPT 任务">
  <div class="modal-card"><div class="wm-head"><div><b>用 ChatGPT 完成这一步</b><div class="a-note">复制任务 → 在 ChatGPT 完成练习 → 粘回结果。Plus 或免费账号均可，额度以账号为准。</div></div><button class="modal-close" id="aBridgeClose" aria-label="关闭 ChatGPT 任务">×</button></div>
  <div class="wm-body a-stack"><label for="aPrompt">任务内容</label><textarea id="aPrompt" class="a-prompt" readonly></textarea>
@@ -3174,7 +3206,7 @@ let ui={sideOpen:false,mode:'today',folder:'all',note:null,tag:null,lastNote:nul
 function defaultState(){
   const t=Date.now();
   return {folders:[],notes:[],words:[],aiLog:[],grave:[],tagList:['职场','日常'],meta:{backupAt:null,sync:{provider:'gist',ghToken:'',ghGistId:'',url:'',user:'',pass:'',auto:true,lastAt:0,lastBy:''}},
-    settings:{baseUrl:'',apiKey:'',model:'',tone:'friend',theme:'midnight',fs:'m'}};
+    settings:{baseUrl:'',apiKey:'',model:'',tone:'friend',theme:'white',fs:'m'}};
 }
 /* ============ 间隔复习（Leitner 分箱） ============ */
 const SRS_DAYS=[0,0,1,3,7,15,30];   // 箱位 -> 间隔天数
@@ -3257,11 +3289,11 @@ function load(){
 /* 主题 / 字号 */
 function applyTheme(){
   const st=state&&state.settings||{};
-  const theme=st.theme==='dark'?'midnight':(st.theme==='light'?'paper':(['midnight','paper','lavender','study'].includes(st.theme)?st.theme:'study'));
+  const theme=st.theme==='dark'?'midnight':(st.theme==='light'?'paper':(['midnight','paper','lavender','study','white'].includes(st.theme)?st.theme:'white'));
   document.documentElement.setAttribute('data-theme',theme);
   document.documentElement.setAttribute('data-fs',st.fs||'m');
   const mt=document.querySelector('meta[name="theme-color"]');
-  if(mt) mt.setAttribute('content',theme==='paper'?'#f5efe7':(theme==='lavender'?'#f3f0fa':(theme==='study'?'#1e1a15':'#141416')));
+  if(mt) mt.setAttribute('content',theme==='white'?'#ffffff':(theme==='paper'?'#f5efe7':(theme==='lavender'?'#f3f0fa':(theme==='study'?'#1e1a15':'#141416'))));
 }
 function save(skipSync){
   if(!aStore(LS_KEY,JSON.stringify(state))) throw new Error('保存失败：请先导出完整备份并释放浏览器空间');
@@ -3346,10 +3378,17 @@ function commercialSpeechMode(){
   return m;
 }
 
-/* 当前是否有站方语音包（已开通且发放过，含已用尽的情况）；是否可用看 freeRemaining+paidRemaining */
+/* 当前账号是否永久免费（站方给自己/内测账号开的不限量标记） */
+function accountUnlimited(){
+  const status=accountStatusCache;
+  return !!(accountLoggedIn()&&status&&status.account.email===accountEmail()&&status.account.status!=='disabled'&&status.account.unlimited===true);
+}
+/* 当前是否有站方语音包（已开通且发放过，含已用尽的情况）；是否可用看 freeRemaining+paidRemaining。
+ * 永久免费账号返回一个"不限量"虚拟包，走站方 CosyVoice 且不扣额度。 */
 function activeSiteVoicePack(){
   const status=accountStatusCache;
   if(!accountLoggedIn()||!status||status.account.email!==accountEmail()||status.account.status==='disabled')return null;
+  if(status.account.unlimited===true) return { hasPackage:true, unlimited:true, freeRemaining:Infinity, paidRemaining:0 };
   const pack=status.entitlements?.limits?.tts;
   return pack&&pack.hasPackage===true?pack:null;
 }
@@ -3366,6 +3405,7 @@ function currentReadingMethodLabel(){
   const mode=commercialSpeechMode();
   if(mode==='system') return '系统朗读';
   if(mode==='doubao') return ownVolcTtsConfig()?'自配豆包语音':'系统朗读（未填豆包 Key）';
+  if(accountUnlimited()) return '永久免费（CosyVoice）';
   const pack=activeSiteVoicePack();
   if(pack&&siteVoiceTotal(pack)>0) return '站方语音包（CosyVoice）';
   return ownVolcTtsConfig()?'自配豆包语音':'系统朗读';
@@ -3378,7 +3418,9 @@ function refreshCommercialSpeechSettings(){
   commercialSpeechSource.value=['auto','system','doubao'].includes(mode)?mode:'auto';
   document.getElementById('stCommercialSpeechRefresh').hidden=!accountLoggedIn();
   const status=document.getElementById('stCommercialSpeechStatus');
-  if(pack&&siteVoiceTotal(pack)>0){
+  if(accountUnlimited()){
+    status.textContent='永久免费账号：不限量使用站方 CosyVoice，不扣句数。';
+  }else if(pack&&siteVoiceTotal(pack)>0){
     const free=pack.freeRemaining||0, paid=pack.paidRemaining||0;
     status.textContent='站方语音：免费剩余 '+free+' 句'+(paid>0?'，付费剩余 '+paid+' 句':'')+'。已生成的本机语音仍可重播。';
   }else if(accountLoggedIn()&&pack){
@@ -8737,7 +8779,6 @@ function syncSettingsUI(){
   const activeTheme=st.theme==='dark'?'midnight':(st.theme==='light'?'paper':(st.theme||'midnight'));
   $$('#stTheme [data-theme-val]').forEach(b=>b.classList.toggle('on',activeTheme===b.dataset.themeVal));
   $$('#stFs [data-fs-val]').forEach(b=>b.classList.toggle('on',(st.fs||'m')===b.dataset.fsVal));
-  $$('#stWordColor [data-wc-val]').forEach(b=>b.classList.toggle('on',getWordColor()===b.dataset.wcVal));
   const n=$('#stBackupNote');
   if(n){
     n.textContent=backupNoteText();
@@ -9472,6 +9513,10 @@ function bindEvents(){
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('#cfOk').click(); } });
   });
   $('#btnSettings').addEventListener('click',openSettings);
+  /* empower 操作演示：笔记页顶部常驻入口 */
+  $('#btnEmpowerGuide').addEventListener('click',()=>$('#empowerDemoModal').classList.add('show'));
+  $('#empowerDemoClose').addEventListener('click',()=>$('#empowerDemoModal').classList.remove('show'));
+  $('#empowerDemoModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove('show'); });
   $('#stClose').addEventListener('click',()=>$('#settingsModal').classList.remove('show'));
   $('#stSave').addEventListener('click',saveSettings);
   /* 设置分组：手风琴，点开一个就收起别的。
@@ -9515,9 +9560,6 @@ function bindEvents(){
   }));
   $$('#stFs [data-fs-val]').forEach(b=>b.addEventListener('click',()=>{
     state.settings.fs=b.dataset.fsVal; save(); applyTheme(); syncSettingsUI();
-  }));
-  $$('#stWordColor [data-wc-val]').forEach(b=>b.addEventListener('click',()=>{
-    setWordColor(b.dataset.wcVal); syncSettingsUI();
   }));
   $('#stAnki').addEventListener('click',exportAnki);
   /* 云同步 */
@@ -10025,11 +10067,6 @@ function bindEvents(){
     const chip=e.target.closest('[data-tag]');
     if(!chip) return;
     toggleWmTag(chip.dataset.tag);
-  });
-  $('#wmCnAll').addEventListener('click',()=>{
-    const list=$$('#wmExamples .ex-cn-text');
-    const allShown=list.length>0&&list.every(el=>!el.classList.contains('hided'));
-    setExCnAll(!allShown);
   });
 
   /* 核心搭配：添加 / 删除 */
@@ -13737,7 +13774,9 @@ function accountRenderGroup() {
   const status = ['active','pending','disabled'].includes(s.account.status) ? s.account.status : 'disabled';
   const tts = L.tts || {};
   let voiceBalance;
-  if (status === 'disabled' || !tts.hasPackage) {
+  if (s.account.unlimited === true) {
+    voiceBalance = '永久免费账号：站方语音不限量，不扣句数';
+  } else if (status === 'disabled' || !tts.hasPackage) {
     voiceBalance = '暂无可用的站方语音包';
   } else {
     const free = Number(tts.freeRemaining) || 0;
@@ -13749,12 +13788,18 @@ function accountRenderGroup() {
     }
   }
 
+  const textBalance = s.account.unlimited === true
+    ? 'AI 对话与场景生成：永久免费，不限量'
+    : 'AI 对话免费批改剩余 ' + L.text.freeLeft + ' 句（今日已用 ' + L.text.used + ' / ' + L.text.freeDaily + '）' +
+      (L.text.grantRemaining ? '，加练包剩 ' + L.text.grantRemaining + ' 句' : '');
+
   body.innerHTML =
     '<div class="st-field"><div class="meta"><b id="stAccountEmail"></b> ' +
-      '<span class="badge ' + status + '">' + statusLabel(status) + '</span></div></div>' +
+      '<span class="badge ' + status + '">' + statusLabel(status) + '</span>' +
+      (s.account.unlimited === true ? '<span class="badge active">永久免费</span>' : '') +
+      '</div></div>' +
     '<div class="st-field"><label>今日剩余（已用 / 每日免费）</label>' +
-      '<p class="a-note">AI 对话免费批改剩余 ' + L.text.freeLeft + ' 句（今日已用 ' + L.text.used + ' / ' + L.text.freeDaily + '）' +
-      (L.text.grantRemaining ? '，加练包剩 ' + L.text.grantRemaining + ' 句' : '') + '</p>' +
+      '<p class="a-note">' + textBalance + '</p>' +
       '<p class="a-note">' + voiceBalance + '</p>' +
       '<p class="a-note">当前朗读方式：' + (typeof currentReadingMethodLabel === 'function' ? currentReadingMethodLabel() : '系统朗读') + '</p></div>' +
     '<div class="st-field"><label>本月站方成本（100 元提醒 / 150 元封顶）</label>' +
