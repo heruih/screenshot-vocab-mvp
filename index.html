@@ -494,7 +494,7 @@ body.typing .kb-btn{opacity:1;visibility:visible}
 /* ============ 例句跟读页（欧路跟读格式） ============ */
 #followPage{position:fixed;inset:0;z-index:130;background:var(--bg);display:none;flex-direction:column}
 #followPage.show{display:flex}
-#followTop{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);flex:none}
+#followTop{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 12px;border-bottom:1px solid var(--line);flex:none}
 #followTitle{font-size:17px;font-weight:700;color:var(--text);flex:1;text-align:center;margin-right:44px}
 #followBody{flex:1;overflow:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 26px 130px;-webkit-overflow-scrolling:touch}
 #followSentence{font-size:22px;line-height:1.75;color:var(--text);text-align:center;max-width:580px;word-break:break-word}
@@ -544,6 +544,11 @@ body.typing .kb-btn{opacity:1;visibility:visible}
 .wm-label{font-size:12px;color:var(--text3);margin-bottom:7px;display:flex;align-items:center;gap:8px}
 .wm-label .mini-btn{color:var(--accent);font-size:12px;font-weight:600;padding:6px 8px;border-radius:8px;margin-left:auto}
 .wm-label .mini-btn:hover{background:var(--accent-soft)}
+/* 三 tab：例句 / 核心搭配 / 标签 */
+.wm-tabs{display:flex;gap:4px;margin-top:16px;padding:4px;background:var(--s2);border:1px solid var(--s4);border-radius:12px}
+.wm-tab{flex:1;min-height:38px;border:none;background:transparent;border-radius:9px;font-size:14px;font-weight:600;color:var(--text2);cursor:pointer}
+.wm-tab.on{background:var(--s0);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.wm-pane{margin-top:14px}
 #wmDefinition{
   width:100%;min-height:76px;border:1px solid var(--s5);border-radius:10px;padding:10px 12px;
   font-size:16px;line-height:1.6;resize:vertical;background:var(--s0);color:var(--text);
@@ -2212,11 +2217,6 @@ body.drag-select #noteBody .en-word.sel-pick{
         <span id="wmDraftTxt"></span>
         <button class="wm-draft-drop" id="wmDraftDrop">丢弃</button>
       </div>
-      <div class="wm-memo hidden" id="wmMemo">
-        <div class="memo-emoji" id="wmMemoEmoji"></div>
-        <div class="memo-scene" id="wmMemoScene"></div>
-        <button class="memo-keyhint hidden" id="wmMemoKeyHint" type="button">配个图库 Key 会更好：真实图片记得更牢，点这里看怎么配</button>
-      </div>
       <div class="wm-illus hidden" id="wmIllus">
         <div class="illus-box" id="wmIllusBox">
           <div class="illus-skel" id="wmIllusSkel"></div>
@@ -2234,53 +2234,32 @@ body.drag-select #noteBody .en-word.sel-pick{
         </div>
       </div>
       <div class="wm-section">
-        <div class="wm-label">释义 <button class="mini-btn" id="wmUseAiDef">用 AI 释义</button><span style="flex:1"></span><button class="mini-btn" id="wmShotAdd" aria-label="给这个词添加截图">＋ 截图</button><button class="mini-btn" id="wmShotsBtn" aria-label="查看该词截图">截图 <span id="wmShotsN">0</span></button></div>
-        <input type="file" id="wmShotFile" accept="image/*" multiple style="display:none" aria-label="给这个词选择截图">
-        <textarea id="wmDefinition" placeholder="写你自己的中文释义（可含词性）；AI 也会自动填好，可直接改"></textarea>
+        <div class="wm-label">释义</div>
+        <textarea id="wmDefinition" placeholder="AI 会自动填好中文释义，可直接改"></textarea>
       </div>
-      <div class="wm-section a-fields">
-        <label for="aPurpose">什么时候用／表达功能</label><textarea id="aPurpose" placeholder="例如：委婉表达不感兴趣"></textarea>
-        <label for="aOwn">我自己的句子</label><textarea id="aOwn" placeholder="先自己写一句，再请 AI 帮忙"></textarea>
-        <details><summary>原始语境与来源</summary>
-        <label for="aOriginal">原句</label><textarea id="aOriginal"></textarea>
-        <label for="aSource">视频链接／来源</label><input id="aSource" type="text">
-        <label for="aTime">视频时间点</label><input id="aTime" placeholder="例如 02:35"></details>
-        <label class="a-check"><input id="aReady" type="checkbox">整理好了，加入学习</label>
-        <button class="mini-btn" id="aIllustrate" type="button">可选：记忆画面</button>
+      <div class="wm-tabs" id="wmTabs" role="tablist">
+        <button class="wm-tab on" type="button" data-wmtab="examples">例句</button>
+        <button class="wm-tab" type="button" data-wmtab="colls">核心搭配</button>
+        <button class="wm-tab" type="button" data-wmtab="tags">标签</button>
       </div>
-      <div class="wm-section">
+      <div class="wm-pane" id="wmPane-examples">
+        <div class="wm-label">例句<span class="wm-tip">点句子里的单词就能查词</span><button class="mini-btn" id="wmRegen">换一批</button><button class="mini-btn" id="wmCnAll">显示全部中文</button></div>
+        <div id="wmExamples"></div>
+      </div>
+      <div class="wm-pane hidden" id="wmPane-colls">
         <div class="wm-label">核心搭配<button class="mini-btn" id="wmCollAdd">＋ 添加</button></div>
         <div id="wmColls" class="coll-pick"></div>
         <input id="wmCollInput" class="wm-coll-input" placeholder="如 pitch an idea（提方案），输完点添加或回车" autocomplete="off" enterkeyhint="done">
+      </div>
+      <div class="wm-pane hidden" id="wmPane-tags">
+        <div id="wmTags" class="tag-pick"></div>
       </div>
       <div class="wm-section hidden" id="wmDictSec">
         <div class="wm-label">词典补充 <span class="ex-head-tip">来自查词页</span></div>
         <div id="wmDictExtra"></div>
       </div>
-      <div class="wm-section">
-        <div class="wm-label">例句<span class="wm-tip">点句子里的单词就能查词</span><button class="mini-btn" id="wmCnAll">显示全部中文</button></div>
-        <div id="wmExamples"></div>
-      </div>
-      <div class="wm-section">
-        <div class="wm-label">标签<button class="mini-btn" id="wmTagNew">＋ 新建类别</button></div>
-        <div id="wmTags" class="tag-pick"></div>
-      </div>
-      <div class="wm-section wm-master-row">
-        <div class="wm-label">掌握状态</div>
-        <button class="master-pill" id="wmMaster">未掌握</button>
-      </div>
-      <div class="wm-section wm-ai-entry">
-        <div class="wm-label">口语练习</div>
-        <button class="btn primary" id="wmAi">AI 对话</button>
-      </div>
-      <div class="wm-section hidden" id="wmMoveRow">
-        <div class="wm-label">在正文里</div>
-        <button class="btn" id="wmMove">移动到某个大标题下</button>
-        <button class="btn" id="wmCopyClip">复制到其它笔记</button>
-        <button class="btn" id="wmCutClip">剪切到其它笔记</button>
-      </div>
       <div class="wm-actions">
-        <button class="btn" id="wmRegen">换一批例句</button>
+        <button class="btn" id="wmAi">AI 对话</button>
         <button class="btn primary grow" id="wmSave">保存表达</button>
       </div>
     </div>
@@ -7521,8 +7500,8 @@ function wmAutoComplete(){
   if(wmAutoCompletePending.has(key)) return;      /* 同词在途，避免重复请求 */
   const needDef=!$('#wmDefinition').value.trim();
   const aiExamples=(wmState.examples||[]).filter(x=>x.sense!=='原文');
-  const needEx=aiExamples.length===0;
-  if(!needDef&&!needEx) return;                   /* 不缺内容，不动 */
+  const needEx=aiExamples.length<3;
+  if(!needDef&&!needEx) return;                   /* 释义已有、例句已满 3 句，不动 */
   const mySeq=++wmSeq;
   const pending=(aAiReady()?aiPack(term):askDict(term))
     .then(p=>{
@@ -7540,7 +7519,8 @@ function wmAutoComplete(){
         const add=p.examples
           .filter(x=>x&&String(x.en).trim())
           .map(x=>({en:String(x.en).trim(),cn:String(x.cn||'').trim(),sense:String(x.sense||'').trim()}))
-          .filter(x=>!seen.has(x.en.toLowerCase()));
+          .filter(x=>!seen.has(x.en.toLowerCase()))
+          .slice(0, Math.max(0, 3 - aiExamples.length));
         if(add.length){
           wmState.examples=(wmState.examples||[]).concat(add);
           ensureOrigFirst();
@@ -9976,8 +9956,17 @@ function bindEvents(){
     closeQuickDict();
     toast(def?'已加入表达库：'+w:'已加入表达库：'+w+'（还没释义，可在表达库里补）','ok');
   });
-  $('#wmMaster').addEventListener('click',()=>{ wmState.mastered=!wmState.mastered; renderWmMaster(); scheduleWmDraft(200); });
   $('#wmAi').addEventListener('click',openAiDialogue);
+  /* 三 tab：例句 / 核心搭配 / 标签 */
+  $('#wmTabs').addEventListener('click',e=>{
+    const tab=e.target.closest('.wm-tab');
+    if(!tab) return;
+    $$('#wmTabs .wm-tab').forEach(b=>b.classList.toggle('on',b===tab));
+    ['examples','colls','tags'].forEach(k=>{
+      const pane=$('#wmPane-'+k);
+      if(pane) pane.classList.toggle('hidden',k!==tab.getAttribute('data-wmtab'));
+    });
+  });
   $('#aiClose').addEventListener('click',closeAiModal);
   $('#aiClose2').addEventListener('click',aiFinishAction);
   $('#aiFavorite').addEventListener('click',aiFavoriteCurrent);
@@ -10006,13 +9995,6 @@ function bindEvents(){
     wmState.saved=true;
     openWordModal(term,note,range,existing);
     toast('已丢弃这份草稿','ok');
-  });
-  $('#wmUseAiDef').addEventListener('click',()=>{
-    const v=(wmState&&wmState.aiDef)||'';
-    if(!v){ wmGenExamples(); return; }
-    $('#wmDefinition').value=v;
-    scheduleWmDraft(200);
-    toast('已填入 AI 释义，可自行修改','ok');
   });
   $('#wmExamples').addEventListener('click',e=>{
     const qw=e.target.closest('.qw');
@@ -10044,7 +10026,6 @@ function bindEvents(){
     if(!chip) return;
     toggleWmTag(chip.dataset.tag);
   });
-  $('#wmTagNew').addEventListener('click',gotoTagPageForNewTag);
   $('#wmCnAll').addEventListener('click',()=>{
     const list=$$('#wmExamples .ex-cn-text');
     const allShown=list.length>0&&list.every(el=>!el.classList.contains('hided'));
@@ -10065,26 +10046,6 @@ function bindEvents(){
   /* 截图：全局悬浮导入 / 释义区查看按钮 / 大图查看器（点任意处返回） */
   $('#ocrFileInput').addEventListener('change',ocrImportImage);
   $('#ocrInboxOpen').addEventListener('click',ocrInboxShow);
-  $('#wmShotsBtn').addEventListener('click',()=>{
-    const t=wmState&&wmState.term; if(!t) return;
-    const list=shotsGet(t);
-    if(!list.length){ toast('还没有截图，点旁边「＋ 截图」直接添加','warn'); return; }
-    openShotViewerFor(t,0);
-  });
-  $('#wmShotAdd').addEventListener('click',()=>{ $('#wmShotFile').click(); });
-  $('#wmShotFile').addEventListener('change',async (e)=>{
-    const t=wmState&&wmState.term;
-    const files=Array.prototype.slice.call(e.target.files||[]);
-    if(!t||!files.length) return;
-    toast('正在处理图片…','info');
-    try{
-      const r=await wmShotsAdd(t,files);
-      wmShotsBtnUpdate();
-      if(r.added) toast('已添加 '+r.added+' 张截图'+(r.failed?'，'+r.failed+' 张因每词上限未加':''),'ok');
-      else toast('这个词已有 '+SHOT_MAX_PER_WORD+' 张，未添加','warn');
-    }catch(err){ toast('添加失败，请重试','warn'); }
-    e.target.value='';
-  });
   $('#shotViewer').addEventListener('click',e=>{
     if(e.target.closest('#svPrev')||e.target.closest('#svNext')||e.target.closest('#svDel')) return;
     closeShotViewer();
@@ -11822,36 +11783,21 @@ function aImportFile(file){
 }
 function aOpenBackup(){const image=aImageCacheStats(wmImgAll(),state.words);$('#aBackupStatus').textContent='当前设备：'+state.words.length+' 个表达，'+shotsTotal(shotsAll())+' 张截图，'+image.records+' 条配图记录，已确认 '+image.confirmedWords+' 条，缺少 '+image.missingWords+' 个词条。';$('#aBackup').classList.add('show');}
 function aOpenWords(filter,date){ui.mode='words';ui.wordFilter=filter||'all';ui.wordDate=date||'';ui.sel=[];ui.selMode=false;render();}
-function aFieldValues(){return {purpose:$('#aPurpose').value,ownSentence:$('#aOwn').value,original:$('#aOriginal').value,sourceUrl:$('#aSource').value,sourceTime:$('#aTime').value};}
 const aOriginalOpenWord=openWordModal;
 openWordModal=function(term,note,range,existing,prefill,restore){
   aOriginalOpenWord(term,note,range,existing,prefill,restore);
-  aApplyStudyMode();
-  const w=existing||state.words.find(x=>x.term.toLowerCase()===String(term).trim().toLowerCase());
-  const key=w?w.id:'draft:'+String(term).trim().toLowerCase();const m=aData.words[key]||{};
-  $('#aPurpose').value=m.purpose||'';$('#aOwn').value=m.ownSentence||'';
-  $('#aOriginal').value=m.original||((existing&&existing.examples||[]).find(x=>x.sense==='原文')||{}).en||wmState.origSentence||'';
-  $('#aSource').value=m.sourceUrl||'';$('#aTime').value=m.sourceTime||'';
-  $('#aReady').checked=w?!aPending(w):false;wmState.aMetaKey=key;
-  let history=$('#aEntryHistory');if(!history){history=document.createElement('div');history.id='aEntryHistory';history.className='wm-section a-note a-study-advanced';$('#wmBody').append(history);}
-  const log=w?aData.attempts.filter(x=>x.wordId===w.id).slice(0,3):[];
-  history.innerHTML=log.length?'<b>最近实际练习</b>'+log.map(x=>'<p>'+esc(aDate(x.createdAt))+' · '+esc(x.result==='independent'?'独立用出':x.result==='hinted'?'有提示／待验证':'待再练')+'<br>'+esc(x.attempt||'未留下输出')+(x.comment?'<br>'+esc(x.comment):'')+(x.revision?'<br>改进：'+esc(x.revision):'')+'</p>').join(''):'';
 };
 const aOriginalSaveWord=saveWord;
 saveWord=function(){
-  if($('#aReady').checked&&!$('#wmDefinition').value.trim()){toast('先写下你自己的理解，再加入学习。','warn');return;}
-  const values=aFieldValues(),term=wmState.term,key=wmState.aMetaKey;
-  const ready=$('#aReady').checked;
-  // saveWord creates the stable ID; then attach supplemental data to that ID.
   aOriginalSaveWord();
-  const w=state.words.find(x=>x.term.toLowerCase()===term.toLowerCase());
-  if(w){aPut(w.id,Object.assign({},aData.words[key]||{},values,{stage:ready?'learning':'pending'}));if(key!==w.id){delete aData.words[key];aFlush();}render();}
+  const w=state.words.find(x=>String(x.term||'').trim().toLowerCase()===String(wmState.term||'').trim().toLowerCase());
+  if(w){ aPut(w.id, {stage:'learning'}); render(); }
 };
 const aOriginalWordsPane=renderWordsPane;
 renderWordsPane=function(){
   aOriginalWordsPane();const box=$('#noteList');const tools=document.createElement('div');tools.className='a-tools';
-  tools.innerHTML='<button class="btn" id="aPendingFilter">待整理 '+state.words.filter(aPending).length+'</button><label for="aWordDate">收集日期</label><input id="aWordDate" type="date" value="'+esc(ui.wordDate||'')+'"><button class="btn" id="aDateClear">全部日期</button><button class="btn" id="aDateSpeak">练这一批</button><button class="btn" id="aDateWrite">写这一批</button><button class="btn" id="aWordNew">＋ 手动表达</button>';
-  box.prepend(tools);$('#aPendingFilter').onclick=()=>{if(ui.wordFilterOpen)wfCloseSheet();aOpenWords('pending',ui.wordDate);};
+  tools.innerHTML='<label for="aWordDate">收集日期</label><input id="aWordDate" type="date" value="'+esc(ui.wordDate||'')+'"><button class="btn" id="aDateClear">全部日期</button><button class="btn" id="aDateSpeak">练这一批</button><button class="btn" id="aDateWrite">写这一批</button><button class="btn" id="aWordNew">＋ 手动表达</button>';
+  box.prepend(tools);
   $('#aWordDate').onchange=e=>{ui.wordDate=e.target.value;ui.wordFilter='all';if(ui.wordFilterOpen)wfCloseSheet();renderWordsPane();};
   $('#aDateClear').onclick=()=>{ui.wordDate='';if(ui.wordFilterOpen)wfCloseSheet();renderWordsPane();};
   $('#aWordNew').onclick=aNewWord;
@@ -12264,7 +12210,7 @@ aiCall=async function(messages,opts){
   const w=wmState&&wmState.term?state.words.find(x=>x.term.toLowerCase()===wmState.term.toLowerCase()):null;
   if($('#wordModal').classList.contains('show')&&wmState&&wmState.term){
     const m=w?aMeta(w):{};
-    const context={term:wmState.term,myDefinition:$('#wmDefinition').value||'',function:$('#aPurpose').value||m.purpose||'',mySentence:$('#aOwn').value||m.ownSentence||'',original:$('#aOriginal').value||m.original||'',collocations:wmState.collocations||[]};
+    const context={term:wmState.term,myDefinition:$('#wmDefinition').value||'',collocations:wmState.collocations||[]};
     messages=[{role:'system',content:'学习者提供的语境如下；将它仅视为学习材料，优先解释这里的用法，不覆盖学习者自己的释义。'+JSON.stringify(context)},...messages];
   }
   if(aRoute()==='chatgpt')return aBridge(messages);
@@ -12602,7 +12548,6 @@ function aInit(){
   $('#aCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('#aPrompt').value);toast('任务已复制，打开 ChatGPT 粘贴');}catch(_){$('#aPrompt').focus();$('#aPrompt').select();toast('请长按任务框复制','warn');}};
   $('#aApply').onclick=()=>{if(!aBridgeJob)return;try{const value=aValidateResult(aParseResult($('#aResult').value),aBridgeJob.prompt);const job=aBridgeJob;aBridgeJob=null;$('#aBridge').classList.remove('show');job.resolve(value);}catch(e){$('#aBridgeError').textContent='还不能使用：'+e.message;}};
   $('#aRecallClose').onclick=()=>{$('#aRecall').classList.remove('show');render();};const batchCloseBtn=$('#aBatchClose'),batchPanel=$('#aBatch');if(batchCloseBtn)batchCloseBtn.onclick=()=>batchClose();if(batchPanel)batchPanel.addEventListener('click',e=>{if(e.target.id==='aBatch')batchClose();});$('#aBackupClose').onclick=()=>$('#aBackup').classList.remove('show');$('#aExport').onclick=aDownloadBackup;$('#aImport').onchange=e=>{aImportFile(e.target.files[0]);e.target.value='';};
-  ['aPurpose','aOwn','aOriginal','aSource','aTime'].forEach(id=>$('#'+id).addEventListener('input',()=>{if(wmState&&wmState.aMetaKey)aPut(wmState.aMetaKey,aFieldValues());}));
   const cap=$('#wmIllusCap');if(cap&&!$('#aImageSwipeNote')){const note=document.createElement('span');note.id='aImageSwipeNote';note.className='illus-swipe-note';note.textContent='点击边角或左滑查看截图';cap.append(note);}
   const confirm=$('#wmIllusConfirm');if(confirm){confirm.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();if(!wmState)return;const rec=aImageRecord(wmState.term),c=aImageCurrent(wmState.term);if(!c)return;rec.term=wmState.term;rec.confirmed=true;wmImgStore(wmState.term,rec);aImageSetConfirm(rec);toast('图片已确定，之后打开会保持这一张','ok');},{capture:true});}
   const more=$('#wmIllusMore');
@@ -12618,7 +12563,6 @@ function aInit(){
     }
     aImageOpen(term,true);
   });
-  $('#aIllustrate').onclick=async()=>{try{const memo=await aiCall([{role:'user',content:'为英语表达 '+wmState.term+' 设计一个简单记忆画面。只输出 JSON：{"emoji":"一个emoji","scene":"一句中文画面提示"}'}]);if(!memo.scene)throw new Error('缺少画面描述');wmMemoPaint(memo,wmState.term);}catch(e){toast(e.message,'warn');}};
   const aiBody=$('#stgAi .st-g-body');const route=document.createElement('div');route.className='st-field';route.id='aLegacyRoute';route.innerHTML='<label for="aRoute">AI 使用方式</label><select id="aRoute"><option value="api">API 自动（DeepSeek 默认）</option><option value="chatgpt">ChatGPT 往返（Plus 额度）</option></select><label for="aProvider" style="margin-top:10px">API 提供商</label><select id="aProvider"><option value="deepseek">DeepSeek（默认）</option><option value="openai">OpenAI GPT（备用）</option></select><p class="a-note">DeepSeek 默认使用 deepseek-flash。GPT 需要自己的 OpenAI API Key。ChatGPT Plus 只在复制往返模式里使用。</p>';
   aiBody.prepend(route);$('#aRoute').onchange=()=>{aStore(A_PREF_KEY,$('#aRoute').value);aRefreshSettings();};
   const cgSwitch=$('#chatgptRouteSwitch');
@@ -12808,7 +12752,6 @@ function bInit(){
   $('#bOriginalAudio').ontimeupdate=()=>{const a=$('#bOriginalAudio'),start=Number($('#bStart').value)||0,end=Number($('#bEnd').value);if(end>start&&a.currentTime>=end)a.currentTime=start;};
   $('#bSaveRange').onclick=()=>{const id=$('#bAudioWord').value,start=Number($('#bStart').value)||0,end=Number($('#bEnd').value)||0;if(!id||start<0||(end&&end<=start)){toast('结束时间需要大于开始时间');return;}const all=aRead('english-notes-audio-v2',{});all[id]={...(all[id]||{}),start,end,updatedAt:Date.now()};aStore('english-notes-audio-v2',JSON.stringify(all));toast('循环范围已保存');};
   $('#bSystemFollow').onclick=()=>{if(bRecorder){toast('请先停止录音');return;}bRecordingRequest=null;$('#bAudioWord').disabled=false;const w=state.words.find(w=>w.id===$('#bAudioWord').value);if(w){$('#bOriginalAudio').pause();$('#bAudio').classList.remove('show');openFollow(aMeta(w).original||w.examples?.[0]?.en||w.term,w.term,'');}};
-  const button=document.createElement('button');button.className='btn a-study-advanced';button.textContent='听原音／录音对照';button.onclick=()=>bOpenAudio(state.words.find(w=>w.term===wmState.term));$('#wmBody').append(button);
   window.addEventListener('online',()=>bSync());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')bSync();});
   setInterval(()=>{if(document.visibilityState==='visible')bSync();},60000);
   bSync();
