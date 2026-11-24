@@ -187,19 +187,21 @@ function ocrInboxShowNote(noteId){
   $('#ocrSheet').classList.add('show');$('#ocrImgWrap').classList.add('hidden');$('#ocrSelected').classList.add('hidden');$('#ocrBatch').classList.remove('hidden');
   const st=$('#ocrStatus');if(st)st.textContent='这篇笔记的待处理截图：确认后挂到对应词条。';ocrInboxRender();
 }
-/* 更新笔记编辑器顶部的"待处理 N 张"入口（正常流，不遮挡正文） */
+/* 更新笔记编辑器顶部的情境条：无待处理截图时显示 empower 提示，有则切换成「待处理 N 张」 */
 function updateNoteInboxBar(){
-  const bar=$('#noteInboxBar');
-  if(!bar)return;
-  if(ui.mode!=='edit'||!ui.note){ bar.classList.add('hidden'); return; }
+  const inbox=$('#situInbox');
+  const empower=$('#situEmpower');
+  if(!inbox||!empower)return;
+  if(ui.mode!=='edit'||!ui.note){ inbox.classList.add('hidden'); empower.classList.remove('hidden'); return; }
   const n=ocrInboxRead().filter(x=>x.noteId===ui.note).length;
   const numEl=$('#noteInboxN'); if(numEl)numEl.textContent=String(n);
-  bar.classList.toggle('hidden',n===0);
-  if(!bar.__bound){
+  inbox.classList.toggle('hidden',n===0);
+  empower.classList.toggle('hidden',n>0);
+  if(!inbox.__bound){
     const open=()=>ocrInboxShowNote(ui.note);
-    bar.addEventListener('click',open);
-    bar.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } });
-    bar.__bound=true;
+    inbox.addEventListener('click',open);
+    inbox.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } });
+    inbox.__bound=true;
   }
 }
 /* 导入多文件前选择归属文件夹：返回 folderId；用户取消则 resolve(null) */

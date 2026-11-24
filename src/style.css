@@ -231,29 +231,28 @@ body.mode-edit #noteListPane{display:none}
 .editor-header{
   display:flex;align-items:center;gap:4px;padding:calc(env(safe-area-inset-top,0px) + 6px) 10px 6px;border-bottom:1px solid var(--sep);min-height:56px;
 }
-#edBreadcrumb{flex:1;min-width:0;font-size:13px;color:var(--text3);padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.note-organize-btn{flex:none;min-height:40px;padding:0 12px;border:1px solid var(--sep);border-radius:10px;background:var(--s2);color:var(--accent-fg);font-size:13px;font-weight:600}
-.note-organize-btn:active{transform:scale(.96);background:var(--accent-soft)}
-.note-organize-btn{display:inline-flex;align-items:center;gap:5px}
-.note-organize-btn .icon-sm{width:15px;height:15px;flex:none}
-#btnLook{width:auto;min-width:44px;padding:0 8px;gap:5px}
-#btnLook .hdr-aa{font-size:16px;font-weight:800;line-height:1;letter-spacing:-.5px;color:var(--accent-fg)}
-#btnLook .hdr-lbl{font-size:12px;font-weight:600}
+.hdr-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:40px;padding:0 10px;border:1px solid var(--sep);border-radius:10px;background:var(--s2);color:var(--text2);font-size:13px;font-weight:600}
+.hdr-btn:active{transform:scale(.96);background:var(--accent-soft)}
+.hdr-btn .icon{width:16px;height:16px;flex:none}
+.hdr-btn .icon-sm{width:15px;height:15px;flex:none}
+.hdr-btn.accent{color:var(--accent-fg);background:var(--accent-soft)}
+.hdr-btn.danger{color:var(--danger)}
+.hdr-btn .hdr-aa{font-size:16px;font-weight:800;line-height:1;letter-spacing:-.5px}
+.hdr-btn .hdr-lbl{font-size:12px;font-weight:600}
+.hdr-spacer{flex:1;min-width:0}
 #editorWrap{flex:1;overflow-y:auto;padding:24px 22px 140px;width:100%;max-width:860px;margin:0 auto}
-.note-editor-label{display:flex;align-items:center;gap:10px;padding:2px 0 14px;border-bottom:1px solid var(--sep)}
-.note-editor-kicker{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--accent-fg);text-transform:uppercase}
-.note-editor-context{font-size:12px;color:var(--text3)}
-.empower-guide-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 2px;padding:8px 12px;border:1px dashed var(--sep);border-radius:12px;background:var(--accent-soft)}
-.empower-guide-hint{font-size:12px;color:var(--text2);flex:1;min-width:0}
-.empower-guide-btn{flex:none;font-size:13px;font-weight:800;color:var(--accent-fg);background:none;border:none;padding:6px 10px;border-radius:8px;white-space:nowrap}
-.empower-guide-btn:active{background:var(--accent-soft)}
+.situ-bar{display:flex;flex-direction:column;margin:0 0 4px}
+.situ-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 12px;border:1px dashed var(--sep);border-radius:12px;background:var(--accent-soft)}
+.situ-hint{font-size:12px;color:var(--text2);flex:1;min-width:0}
+.situ-hint b{color:var(--accent);font-weight:700}
+.situ-action{flex:none;font-size:13px;font-weight:700;color:var(--accent-fg);background:none;border:none;padding:6px 10px;border-radius:8px;white-space:nowrap}
+.situ-action:active{background:var(--accent-soft)}
 .emp-demo-step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--sep)}
 .emp-demo-step:last-child{border-bottom:none}
 .emp-demo-num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center}
 .emp-demo-txt b{font-size:15px}
 .emp-demo-txt p{font-size:13px;color:var(--text2);margin:4px 0 0}
 #noteTitle{font-family:var(--font-display);letter-spacing:.01em;font-size:clamp(26px,3.2vw,34px);font-weight:700;line-height:1.25;padding:6px 0 6px;outline:none;min-height:1.2em;word-break:break-word}
-.note-body-label{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--text3);padding:18px 0 7px;border-bottom:1px solid var(--sep);text-transform:uppercase}
 #noteBody{font-family:var(--font-body);font-size:var(--fs-body);line-height:1.75;padding-top:16px;outline:none;min-height:55vh;word-break:break-word;color:var(--text-body)}
 /* 每 10 行（每按一次回车算一行）多留一小档，长文读起来有节奏 */
 #noteBody>*:nth-child(10n+1):not(:first-child){margin-top:18px}
@@ -327,9 +326,6 @@ body.mode-edit #noteListPane{display:none}
 #empowerPill #edClearSelection{flex:none;background:transparent;color:var(--text2)}
 #empowerPill button[aria-expanded="true"]{background:var(--accent-soft);color:var(--accent-fg)}
 #empowerPill #edQuickUndo{color:var(--accent-fg)}
-#btnHistUndo{width:auto;min-width:44px;padding:0 7px;gap:3px;font-size:12px}
-#btnHistUndo .icon{width:16px;height:16px}
-#btnClipPaste{min-height:44px}
 #empowerPill button:active{transform:scale(.97)}
 .ed-work-panel{display:grid;gap:6px;border-top:1px solid var(--sep);padding-top:6px}
 .ed-work-panel>div{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:4px;color:var(--text2);font-size:12px}
@@ -446,13 +442,8 @@ body.mv-bar,body.undo-bar{--lift:52px}
 .ed-hint.out{opacity:0;transition:opacity .45s ease}
 
 /* ============ 收起键盘 ============ */
-.kb-btn{
-  flex:none;display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 10px;border-radius:10px;
-  background:var(--s4);color:var(--text2);font-size:12.5px;font-weight:600;
-  opacity:0;visibility:hidden;transition:opacity .15s ease;
-}
+.kb-btn{opacity:0;visibility:hidden;transition:opacity .15s ease}
 body.typing .kb-btn{opacity:1;visibility:visible}
-.kb-btn:active{transform:scale(.95)}
 #kbChip{
   position:fixed;right:10px;top:10px;z-index:141;display:none;align-items:center;justify-content:center;
   width:44px;height:44px;border-radius:14px;background:var(--bar-bg);color:var(--text);
@@ -1449,10 +1440,6 @@ body.mode-flash #fabShot{ display:none; }
 #feedbackStatus{margin:0;min-height:1.4em}
 #feedbackSend{min-height:44px}
 /* OCR 图片框选（iPhone 文字识别样式） */
-.note-inbox-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 12px;padding:11px 14px;border-radius:12px;background:var(--s3);color:var(--text);cursor:pointer;border:1px solid var(--sep);font-size:14px}
-.note-inbox-bar:active{background:var(--s4)}
-.note-inbox-bar .nib-text b{color:var(--accent);font-weight:700}
-.note-inbox-bar .nib-go{color:var(--text3);flex:none;font-size:13px}
 /* 批量进度条 */
 .ocr-progress{margin:6px 0 10px}
 .ocr-progress-meta{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--text2);margin-bottom:7px}

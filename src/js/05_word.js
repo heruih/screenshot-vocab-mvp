@@ -83,12 +83,8 @@ function syncEditorBar(){
   $('#btnEmpower').textContent=words.length?'查看词卡':'加入词库';
   $('#edSpeak').hidden=!ready.length;
   $('#edWrite').hidden=!ready.length;
-  $('#edDrag').hidden=!hasCards||showStyle||showEmpower;
-  const canPlaceCaret=hasCards&&selSpans.length===1&&!showStyle&&!showEmpower;
-  $('#edCaretBefore').hidden=!canPlaceCaret;
-  $('#edCaretAfter').hidden=!canPlaceCaret;
   $('#edQuickUndo').hidden=!editorUndoLabel;
-  $('#edClipboardActions').hidden=!editorUndoLabel&&$('#edDrag').hidden;
+  $('#edClipboardActions').hidden=!editorUndoLabel;
   placePill();
 }
 function editorUndoFeedback(message){
@@ -186,15 +182,6 @@ function initEditorBar(){
     if(clipPaste(null,caret)){pillHoldAt=0;checkSelection();editorUndoFeedback('已粘贴');}
   };
   $('#edQuickUndo').onclick=histUndo;
-  $('#edDrag').onclick=confirmSelect;
-  function placeSelectedCardCaret(after){
-    if(!selActive||selSpans.length!==1)return;
-    const card=selSpans[0];
-    endSelect();placeWordCaret(card,after);
-    pillHoldAt=0;checkSelection();
-  }
-  $('#edCaretBefore').onclick=()=>placeSelectedCardCaret(false);
-  $('#edCaretAfter').onclick=()=>placeSelectedCardCaret(true);
   $('#edStyle').onclick=()=>{editorPanel=editorPanel==='style'?'':'style';syncEditorBar();};
   $('#edEmpower').onclick=()=>{editorPanel=editorPanel==='empower'?'':'empower';syncEditorBar();};
   $('#btnDict').onclick=()=>{

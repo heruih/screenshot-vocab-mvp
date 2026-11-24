@@ -84,24 +84,24 @@
 
   <main id="editorPane">
     <div class="editor-header">
-      <button class="icon-btn" id="btnBack" title="返回列表" aria-label="返回列表">
+      <button class="hdr-btn" id="btnBack" title="返回列表" aria-label="返回列表">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
-      <button class="icon-btn" id="btnHistUndo" title="撤销" aria-label="撤销">
+      <button class="hdr-btn" id="btnHistUndo" title="撤销" aria-label="撤销">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>
         <span>撤销</span>
       </button>
-      <button class="note-organize-btn" id="btnClipPaste" type="button" hidden>粘贴</button>
-      <span id="edBreadcrumb"></span>
-      <button class="icon-btn" id="btnLook" title="字体与配色" aria-label="字体与配色">
+      <button class="hdr-btn" id="btnClipPaste" type="button" hidden>粘贴</button>
+      <span class="hdr-spacer"></span>
+      <button class="hdr-btn" id="btnLook" title="字体与配色" aria-label="字体与配色">
         <span class="hdr-aa">Aa</span><span class="hdr-lbl">字体</span>
       </button>
-      <button class="note-organize-btn" id="btnNoteOrganize" type="button" title="整理这篇笔记"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>整理</button>
-      <button class="kb-btn" id="btnKb" title="收起键盘" aria-label="收起键盘">
+      <button class="hdr-btn accent" id="btnNoteOrganize" type="button" title="整理这篇笔记"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>整理</button>
+      <button class="hdr-btn kb-btn" id="btnKb" title="收起键盘" aria-label="收起键盘">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="10" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 13h12"/><path d="M9 19l3 2 3-2"/></svg>
         <span>收起键盘</span>
       </button>
-      <button class="icon-btn danger-color" id="btnDelNote" title="删除这篇笔记" aria-label="删除笔记">
+      <button class="hdr-btn danger" id="btnDelNote" title="删除这篇笔记" aria-label="删除笔记">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/></svg>
       </button>
     </div>
@@ -117,18 +117,18 @@
       </div>
     </div>
     <div id="editorWrap">
-      <div id="noteInboxBar" class="note-inbox-bar hidden" role="button" tabindex="0" aria-label="处理这篇笔记的待处理截图">
-        <span class="nib-text">这篇笔记有 <b id="noteInboxN">0</b> 张待处理截图</span>
-        <span class="nib-go">去处理 ›</span>
-      </div>
-      <div class="note-editor-label"><span class="note-editor-kicker">笔记</span><span class="note-editor-context">原始语境 · 个人表达</span></div>
-      <div class="empower-guide-bar" id="empowerGuideBar">
-        <span class="empower-guide-hint">长按选中英文 → 点底部 Empower，就能收进词库</span>
-        <button class="empower-guide-btn" id="btnEmpowerGuide" type="button">看 Empower 怎么用 ›</button>
+      <div class="situ-bar" id="situBar">
+        <div class="situ-row" id="situEmpower">
+          <span class="situ-hint">长按选中英文 → 点底部 Empower 收进词库</span>
+          <button class="situ-action" id="btnEmpowerGuide" type="button">看 Empower 怎么用 ›</button>
+        </div>
+        <div class="situ-row hidden" id="situInbox" role="button" tabindex="0" aria-label="处理这篇笔记的待处理截图">
+          <span class="situ-hint">这篇笔记有 <b id="noteInboxN">0</b> 张待处理截图</span>
+          <span class="situ-action">去处理 ›</span>
+        </div>
       </div>
       <div id="noteTitle" class="ce" contenteditable="true" data-ph="标题"></div>
       <div id="edHint" class="ed-hint hidden">选中文字或长按词卡后，底部可以剪贴、改样式或开始练习。iPhone 上长按若先弹系统复制菜单，先点「收起键盘」再长按选中英文。</div>
-      <div class="note-body-label">正文</div>
       <div id="noteBody" class="ce" contenteditable="true" data-ph="写点什么…"></div>
     </div>
     <div id="noteOrganize" aria-hidden="true">
@@ -160,8 +160,6 @@
     <button id="edSpeak" type="button">对话</button><button id="edWrite" type="button">写作</button>
   </div>
   <div id="edClipboardActions" class="ed-work-row" hidden>
-    <button id="edCaretBefore" type="button">光标放前</button><button id="edCaretAfter" type="button">光标放后</button>
-    <button id="edDrag" type="button">拖动</button>
     <button id="edQuickUndo" type="button">撤销</button>
   </div>
 </div>

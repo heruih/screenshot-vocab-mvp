@@ -253,7 +253,6 @@ function renderEditor(){
   const n=state.notes.find(x=>x.id===ui.note);
   if(!n||ui.mode!=='edit'){ editorWrap.classList.add('hidden'); closeNoteOrganize(); resetEditorBar(); return; }
   editorWrap.classList.remove('hidden');
-  $('#edBreadcrumb').textContent=folderName()+' / '+(n.title||'无标题');
   if(ui.lastNote!==ui.note){
     resetEditorBar();
     titleEl.innerText=(n.title==='无标题')?'':n.title;
