@@ -68,6 +68,24 @@ export function renderAdminPage() {
   <button id="btnGrant" type="button">发放</button>
 </div>
 
+<div class="card">
+  <h2 style="margin-top:0">付费订单（线下收款登记）</h2>
+  <label>邮箱</label><input id="oEmail" type="email" autocomplete="off" placeholder="user@example.com">
+  <div class="grid2">
+    <div><label>类型</label>
+      <select id="oKind"><option value="tts">CosyVoice 语音</option><option value="text">AI 加练</option></select>
+    </div>
+    <div><label>句数</label><input id="oUnits" type="number" min="1" value="100"></div>
+  </div>
+  <div class="grid2">
+    <div><label>金额（元）</label><input id="oAmount" type="number" min="0.01" step="0.01" value="9.9"></div>
+    <div><label>套餐名</label><input id="oPlan" type="text" placeholder="体验包 100 句"></div>
+  </div>
+  <button id="btnOrderCreate" type="button">登记订单</button>
+  <button id="btnOrderList" class="ghost" type="button">刷新订单</button>
+  <div id="orders" class="meta" style="margin-top:8px"></div>
+</div>
+
 <div id="msg"></div>
 
 <div class="card">
@@ -109,7 +127,7 @@ async function api(path, body){
 
 async function loadAccounts(){
   try {
-    var data = await api('/v1/admin/accounts', {});
+    var data = await api('/v1/admin/accounts-detail', {});
     var box = document.getElementById('accounts');
     box.textContent = '';
     if (!data.accounts.length) {
@@ -122,9 +140,11 @@ async function loadAccounts(){
     data.accounts.forEach(function(a){
       var row = document.createElement('div');
       row.className = 'row';
+      row.style.alignItems = 'flex-start';
 
       var left = document.createElement('div');
       left.className = 'meta';
+      left.style.flex = '1';
       var emailDiv = document.createElement('div');
       emailDiv.textContent = a.email;                 /* 邮箱：纯文本，不拼 HTML */
       var badge = document.createElement('span');
@@ -132,20 +152,57 @@ async function loadAccounts(){
       badge.textContent = a.status;
       left.appendChild(emailDiv);
       left.appendChild(badge);
+      if (a.unlimited) {
+        var ub = document.createElement('span');
+        ub.className = 'badge active';
+        ub.textContent = '永久免费';
+        left.appendChild(ub);
+      }
+      var ent = a.entitlements;
+      if (ent && ent.limits) {
+        var det = document.createElement('div');
+        det.style.marginTop = '4px';
+        var tts = ent.limits.tts || {}, txt = ent.limits.text || {};
+        det.textContent = '语音：免费剩 ' + (tts.freeRemaining || 0) + ' / 付费剩 ' + (tts.paidRemaining || 0) +
+          ' 句 · AI 批改今日剩 ' + (txt.freeLeft || 0) + ' 句（加练包 ' + (txt.grantRemaining || 0) + '）' +
+          ' · 本月成本 ¥' + (((ent.monthly && ent.monthly.totalMicro) || 0) / 1000000).toFixed(2);
+        left.appendChild(det);
+      }
+      if (a.verifiedAt) {
+        var login = document.createElement('div');
+        login.style.marginTop = '2px';
+        login.textContent = '最近验证 ' + new Date(a.verifiedAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'});
+        left.appendChild(login);
+      }
       row.appendChild(left);
 
+      var btns = document.createElement('div');
       if (a.status !== 'active') {
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'ghost';
         btn.textContent = '开通';
         btn.addEventListener('click', function(){ doActivate(a.email); }); /* 事件绑定 */
-        row.appendChild(btn);
+        btns.appendChild(btn);
+      } else {
+        var unb = document.createElement('button');
+        unb.type = 'button';
+        unb.className = 'ghost';
+        unb.textContent = a.unlimited ? '取消永久免费' : '设为永久免费';
+        unb.addEventListener('click', function(){ doUnlimited(a.email, !a.unlimited); });
+        btns.appendChild(unb);
       }
+      row.appendChild(btns);
       box.appendChild(row);
     });
     setMsg('共 ' + data.accounts.length + ' 个账号', true);
   } catch (e) { setMsg(e.message, false); }
+}
+
+async function doUnlimited(email, on){
+  try { await api('/v1/admin/set-unlimited', { email: email, unlimited: on });
+    setMsg((on ? '已设为' : '已取消') + '永久免费：' + email, true); loadAccounts(); }
+  catch (e) { setMsg(e.message, false); }
 }
 
 async function doActivate(email){
@@ -162,6 +219,55 @@ async function doGrant(){
     if (!body.email || !body.amount) { setMsg('请填邮箱和数量', false); return; }
     await api('/v1/admin/grant', body);
     setMsg('加练包已发放', true); loadAccounts();
+  } catch (e) { setMsg(e.message, false); }
+}
+
+async function doOrderCreate(){
+  try {
+    var amountYuan = parseFloat(document.getElementById('oAmount').value);
+    var body = { action: 'create',
+      email: document.getElementById('oEmail').value.trim(),
+      kind: document.getElementById('oKind').value,
+      units: parseInt(document.getElementById('oUnits').value, 10),
+      amountCents: Math.round(amountYuan * 100),
+      plan: document.getElementById('oPlan').value.trim() };
+    if (!body.email || !body.units || !(body.amountCents > 0)) { setMsg('请填邮箱、句数和金额', false); return; }
+    await api('/v1/admin/orders', body);
+    setMsg('订单已登记', true); loadOrders();
+  } catch (e) { setMsg(e.message, false); }
+}
+
+async function loadOrders(){
+  try {
+    var data = await api('/v1/admin/orders', {});
+    var box = document.getElementById('orders');
+    box.textContent = '';
+    if (!data.orders.length) { box.textContent = '还没有订单。'; return; }
+    data.orders.forEach(function(o){
+      var row = document.createElement('div');
+      row.className = 'row';
+      var info = document.createElement('span');
+      info.textContent = '#' + o.id + ' ' + o.email + ' · ' + (o.kind === 'tts' ? '语音' : '加练') +
+        ' ' + o.units + ' 句 · ¥' + (o.amount_cents / 100).toFixed(2) +
+        (o.plan ? ' · ' + o.plan : '') + ' · ' + (o.status === 'paid' ? '已收款' : '待收款');
+      row.appendChild(info);
+      if (o.status === 'pending') {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ghost';
+        btn.textContent = '已收款并发包';
+        btn.addEventListener('click', function(){ doMarkPaid(o.id); });
+        row.appendChild(btn);
+      }
+      box.appendChild(row);
+    });
+  } catch (e) { setMsg(e.message, false); }
+}
+
+async function doMarkPaid(orderId){
+  try {
+    var r = await api('/v1/admin/orders/paid', { orderId: orderId });
+    setMsg('已收款并发包 ' + r.granted + ' 句', true); loadOrders(); loadAccounts();
   } catch (e) { setMsg(e.message, false); }
 }
 
@@ -246,6 +352,8 @@ async function retryBudgetAlert(){
 
 document.getElementById('btnEnter').addEventListener('click', loadAccounts);
 document.getElementById('btnGrant').addEventListener('click', doGrant);
+document.getElementById('btnOrderCreate').addEventListener('click', doOrderCreate);
+document.getElementById('btnOrderList').addEventListener('click', loadOrders);
 document.getElementById('btnFeedbackList').addEventListener('click', function(){ loadFeedbackInbox(false); });
 document.getElementById('btnFeedbackMore').addEventListener('click', function(){ loadFeedbackInbox(true); });
 document.getElementById('btnBudgetList').addEventListener('click', loadBudgetHolds);

@@ -15,7 +15,7 @@ import {
 import { deepseekMicro, cosyvoiceMicro, maxDeepseekMicro, deepseekOutputLimit } from './entitlements/pricing.mjs';
 import { notifyOwner } from './entitlements/notify.mjs';
 import { simulateText, simulateTts } from './entitlements/simulate.mjs';
-import { isAdmin, listAccounts, activate, grant, setStatus, ensureWelcomeTts } from './entitlements/admin.mjs';
+import { isAdmin, listAccounts, listAccountsDetailed, activate, grant, setStatus, setUnlimited, ensureWelcomeTts, createOrder, listOrders, markOrderPaid } from './entitlements/admin.mjs';
 import { renderAdminPage } from './entitlements/admin-page.mjs';
 import { submitFeedback, listFeedback } from './entitlements/feedback.mjs';
 import { isPeakHour } from './entitlements/time.mjs';
@@ -175,6 +175,10 @@ export default {
     if (path === '/v1/admin/activate') return handleAdminActivate(request, env, headers);
     if (path === '/v1/admin/grant') return handleAdminGrant(request, env, headers);
     if (path === '/v1/admin/status') return handleAdminStatus(request, env, headers);
+    if (path === '/v1/admin/set-unlimited') return handleAdminSetUnlimited(request, env, headers);
+    if (path === '/v1/admin/accounts-detail') return handleAdminAccountsDetail(request, env, headers);
+    if (path === '/v1/admin/orders') return handleAdminOrders(request, env, headers);
+    if (path === '/v1/admin/orders/paid') return handleAdminOrderPaid(request, env, headers);
     if (path === '/v1/admin/feedback') return handleFeedbackInbox(request, env, { ...headers, 'Cache-Control': 'no-store' });
     if (path === '/v1/admin/budget-holds' || path === '/v1/admin/budget-holds/resolve') {
       return handleAdminBudget(request, env, headers, ctx, path.endsWith('/resolve'));
@@ -224,7 +228,8 @@ async function handleMeStatus(request, env, headers) {
 function publicAccount(acc) {
   return {
     id: acc.id, email: acc.email, status: acc.status,
-    createdAt: acc.created_at, verifiedAt: acc.verified_at, activatedAt: acc.activated_at
+    createdAt: acc.created_at, verifiedAt: acc.verified_at, activatedAt: acc.activated_at,
+    unlimited: acc.unlimited === 1
   };
 }
 
@@ -298,13 +303,15 @@ async function handleTextEntitled(request, env, headers, ctx, isReview = false) 
     }
 
     if (review) {
-      if (!await reserveDialogueUnits(env, account.id, review)) {
+      if (!account.unlimited && !await reserveDialogueUnits(env, account.id, review)) {
         await releaseBudget(env, budget);
         budget = null;
         return jerr(402, review.count === 1
           ? '今日 10 句免费批改已用完。明天可继续，也可使用已开通的加练包。'
           : '剩余批改额度不够批改整组答案，请减少句数后重试或使用加练包。', headers);
       }
+    } else if (account.unlimited) {
+      reservation = { source: 'unlimited' };
     } else {
       reservation = await reserveSlot(env, account.id, 'text_aux');
       if (reservation.source === 'none') {
@@ -449,9 +456,12 @@ async function handleTts(request, env, headers, ctx) {
   const account = await getSession(env, bearerToken(request));
   if (!account) return jerr(401, '请先登录', headers);
   if (account.status === 'disabled') return jerr(403, '账号已停用', headers);
-  const pack = await getGrantBalance(env, account.id, 'tts');
-  if (!pack.hasPackage) return jerr(403, '站方语音包未开通或已到期', headers);
-  if (pack.remaining <= 0) return jerr(402, '站方语音包句数已用完', headers);
+  const unlimited = account.unlimited === 1;
+  if (!unlimited) {
+    const pack = await getGrantBalance(env, account.id, 'tts');
+    if (!pack.hasPackage) return jerr(403, '站方语音包未开通或已到期', headers);
+    if (pack.remaining <= 0) return jerr(402, '站方语音包句数已用完', headers);
+  }
   const input = await readJson(request);
   const text = String(input && input.text || '').trim();
   if (!text) return jerr(400, '缺少 text', headers);
@@ -466,10 +476,14 @@ async function handleTts(request, env, headers, ctx) {
   }
   let reservation;
   try {
-    reservation = await reserveSlot(env, account.id, 'tts');
-    if (reservation.source === 'none') {
-      await releaseBudget(env, budget);
-      return jerr(402, '站方语音包已用完或到期', headers);
+    if (unlimited) {
+      reservation = { source: 'unlimited' };
+    } else {
+      reservation = await reserveSlot(env, account.id, 'tts');
+      if (reservation.source === 'none') {
+        await releaseBudget(env, budget);
+        return jerr(402, '站方语音包已用完或到期', headers);
+      }
     }
     let audio, characters;
     if (isSimulate(env)) {
@@ -572,6 +586,40 @@ async function handleAdminStatus(request, env, headers) {
   const result = await setStatus(env, normalizeEmail(input && input.email), input.status);
   if (!result.ok) return jerr(result.status, result.message, headers);
   return jbody(200, { ok: true }, headers);
+}
+async function handleAdminSetUnlimited(request, env, headers) {
+  if (!isAdmin(env, adminTokenOf(request))) return jerr(403, '管理员密钥无效', headers);
+  const input = await readJson(request);
+  const result = await setUnlimited(env, normalizeEmail(input && input.email), input && input.unlimited === true);
+  if (!result.ok) return jerr(result.status, result.message, headers);
+  return jbody(200, { ok: true }, headers);
+}
+async function handleAdminAccountsDetail(request, env, headers) {
+  if (!env.DB) return jerr(500, '账号服务未配置', headers);
+  if (!isAdmin(env, adminTokenOf(request))) return jerr(403, '管理员密钥无效', headers);
+  const input = await readJson(request);
+  const accounts = await listAccountsDetailed(env, input && input.status);
+  return jbody(200, { accounts }, headers);
+}
+async function handleAdminOrders(request, env, headers) {
+  if (!env.DB) return jerr(500, '账号服务未配置', headers);
+  if (!isAdmin(env, adminTokenOf(request))) return jerr(403, '管理员密钥无效', headers);
+  const input = await readJson(request);
+  if (input && input.action === 'create') {
+    const result = await createOrder(env, normalizeEmail(input.email), input.kind,
+      input.units, input.amountCents, input.plan, input.note);
+    if (!result.ok) return jerr(result.status, result.message, headers);
+    return jbody(200, { ok: true }, headers);
+  }
+  const orders = await listOrders(env);
+  return jbody(200, { orders }, headers);
+}
+async function handleAdminOrderPaid(request, env, headers) {
+  if (!isAdmin(env, adminTokenOf(request))) return jerr(403, '管理员密钥无效', headers);
+  const input = await readJson(request);
+  const result = await markOrderPaid(env, input && input.orderId);
+  if (!result.ok) return jerr(result.status, result.message, headers);
+  return jbody(200, result, headers);
 }
 
 /* ---------- 旧匿名 DeepSeek（无 D1 时） ---------- */
