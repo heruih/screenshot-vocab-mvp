@@ -774,8 +774,8 @@ function wmAutoComplete(){
   if(wmAutoCompletePending.has(key)) return;      /* 同词在途，避免重复请求 */
   const needDef=!$('#wmDefinition').value.trim();
   const aiExamples=(wmState.examples||[]).filter(x=>x.sense!=='原文');
-  const needEx=aiExamples.length===0;
-  if(!needDef&&!needEx) return;                   /* 不缺内容，不动 */
+  const needEx=aiExamples.length<3;
+  if(!needDef&&!needEx) return;                   /* 释义已有、例句已满 3 句，不动 */
   const mySeq=++wmSeq;
   const pending=(aAiReady()?aiPack(term):askDict(term))
     .then(p=>{
@@ -793,7 +793,8 @@ function wmAutoComplete(){
         const add=p.examples
           .filter(x=>x&&String(x.en).trim())
           .map(x=>({en:String(x.en).trim(),cn:String(x.cn||'').trim(),sense:String(x.sense||'').trim()}))
-          .filter(x=>!seen.has(x.en.toLowerCase()));
+          .filter(x=>!seen.has(x.en.toLowerCase()))
+          .slice(0, Math.max(0, 3 - aiExamples.length));
         if(add.length){
           wmState.examples=(wmState.examples||[]).concat(add);
           ensureOrigFirst();

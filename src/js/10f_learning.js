@@ -104,7 +104,7 @@ aiCall=async function(messages,opts){
   const w=wmState&&wmState.term?state.words.find(x=>x.term.toLowerCase()===wmState.term.toLowerCase()):null;
   if($('#wordModal').classList.contains('show')&&wmState&&wmState.term){
     const m=w?aMeta(w):{};
-    const context={term:wmState.term,myDefinition:$('#wmDefinition').value||'',function:$('#aPurpose').value||m.purpose||'',mySentence:$('#aOwn').value||m.ownSentence||'',original:$('#aOriginal').value||m.original||'',collocations:wmState.collocations||[]};
+    const context={term:wmState.term,myDefinition:$('#wmDefinition').value||'',collocations:wmState.collocations||[]};
     messages=[{role:'system',content:'学习者提供的语境如下；将它仅视为学习材料，优先解释这里的用法，不覆盖学习者自己的释义。'+JSON.stringify(context)},...messages];
   }
   if(aRoute()==='chatgpt')return aBridge(messages);
@@ -442,7 +442,6 @@ function aInit(){
   $('#aCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('#aPrompt').value);toast('任务已复制，打开 ChatGPT 粘贴');}catch(_){$('#aPrompt').focus();$('#aPrompt').select();toast('请长按任务框复制','warn');}};
   $('#aApply').onclick=()=>{if(!aBridgeJob)return;try{const value=aValidateResult(aParseResult($('#aResult').value),aBridgeJob.prompt);const job=aBridgeJob;aBridgeJob=null;$('#aBridge').classList.remove('show');job.resolve(value);}catch(e){$('#aBridgeError').textContent='还不能使用：'+e.message;}};
   $('#aRecallClose').onclick=()=>{$('#aRecall').classList.remove('show');render();};const batchCloseBtn=$('#aBatchClose'),batchPanel=$('#aBatch');if(batchCloseBtn)batchCloseBtn.onclick=()=>batchClose();if(batchPanel)batchPanel.addEventListener('click',e=>{if(e.target.id==='aBatch')batchClose();});$('#aBackupClose').onclick=()=>$('#aBackup').classList.remove('show');$('#aExport').onclick=aDownloadBackup;$('#aImport').onchange=e=>{aImportFile(e.target.files[0]);e.target.value='';};
-  ['aPurpose','aOwn','aOriginal','aSource','aTime'].forEach(id=>$('#'+id).addEventListener('input',()=>{if(wmState&&wmState.aMetaKey)aPut(wmState.aMetaKey,aFieldValues());}));
   const cap=$('#wmIllusCap');if(cap&&!$('#aImageSwipeNote')){const note=document.createElement('span');note.id='aImageSwipeNote';note.className='illus-swipe-note';note.textContent='点击边角或左滑查看截图';cap.append(note);}
   const confirm=$('#wmIllusConfirm');if(confirm){confirm.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();if(!wmState)return;const rec=aImageRecord(wmState.term),c=aImageCurrent(wmState.term);if(!c)return;rec.term=wmState.term;rec.confirmed=true;wmImgStore(wmState.term,rec);aImageSetConfirm(rec);toast('图片已确定，之后打开会保持这一张','ok');},{capture:true});}
   const more=$('#wmIllusMore');
@@ -458,7 +457,6 @@ function aInit(){
     }
     aImageOpen(term,true);
   });
-  $('#aIllustrate').onclick=async()=>{try{const memo=await aiCall([{role:'user',content:'为英语表达 '+wmState.term+' 设计一个简单记忆画面。只输出 JSON：{"emoji":"一个emoji","scene":"一句中文画面提示"}'}]);if(!memo.scene)throw new Error('缺少画面描述');wmMemoPaint(memo,wmState.term);}catch(e){toast(e.message,'warn');}};
   const aiBody=$('#stgAi .st-g-body');const route=document.createElement('div');route.className='st-field';route.id='aLegacyRoute';route.innerHTML='<label for="aRoute">AI 使用方式</label><select id="aRoute"><option value="api">API 自动（DeepSeek 默认）</option><option value="chatgpt">ChatGPT 往返（Plus 额度）</option></select><label for="aProvider" style="margin-top:10px">API 提供商</label><select id="aProvider"><option value="deepseek">DeepSeek（默认）</option><option value="openai">OpenAI GPT（备用）</option></select><p class="a-note">DeepSeek 默认使用 deepseek-flash。GPT 需要自己的 OpenAI API Key。ChatGPT Plus 只在复制往返模式里使用。</p>';
   aiBody.prepend(route);$('#aRoute').onchange=()=>{aStore(A_PREF_KEY,$('#aRoute').value);aRefreshSettings();};
   const cgSwitch=$('#chatgptRouteSwitch');

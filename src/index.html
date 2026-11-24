@@ -279,11 +279,6 @@
         <span id="wmDraftTxt"></span>
         <button class="wm-draft-drop" id="wmDraftDrop">丢弃</button>
       </div>
-      <div class="wm-memo hidden" id="wmMemo">
-        <div class="memo-emoji" id="wmMemoEmoji"></div>
-        <div class="memo-scene" id="wmMemoScene"></div>
-        <button class="memo-keyhint hidden" id="wmMemoKeyHint" type="button">配个图库 Key 会更好：真实图片记得更牢，点这里看怎么配</button>
-      </div>
       <div class="wm-illus hidden" id="wmIllus">
         <div class="illus-box" id="wmIllusBox">
           <div class="illus-skel" id="wmIllusSkel"></div>
@@ -301,53 +296,32 @@
         </div>
       </div>
       <div class="wm-section">
-        <div class="wm-label">释义 <button class="mini-btn" id="wmUseAiDef">用 AI 释义</button><span style="flex:1"></span><button class="mini-btn" id="wmShotAdd" aria-label="给这个词添加截图">＋ 截图</button><button class="mini-btn" id="wmShotsBtn" aria-label="查看该词截图">截图 <span id="wmShotsN">0</span></button></div>
-        <input type="file" id="wmShotFile" accept="image/*" multiple style="display:none" aria-label="给这个词选择截图">
-        <textarea id="wmDefinition" placeholder="写你自己的中文释义（可含词性）；AI 也会自动填好，可直接改"></textarea>
+        <div class="wm-label">释义</div>
+        <textarea id="wmDefinition" placeholder="AI 会自动填好中文释义，可直接改"></textarea>
       </div>
-      <div class="wm-section a-fields">
-        <label for="aPurpose">什么时候用／表达功能</label><textarea id="aPurpose" placeholder="例如：委婉表达不感兴趣"></textarea>
-        <label for="aOwn">我自己的句子</label><textarea id="aOwn" placeholder="先自己写一句，再请 AI 帮忙"></textarea>
-        <details><summary>原始语境与来源</summary>
-        <label for="aOriginal">原句</label><textarea id="aOriginal"></textarea>
-        <label for="aSource">视频链接／来源</label><input id="aSource" type="text">
-        <label for="aTime">视频时间点</label><input id="aTime" placeholder="例如 02:35"></details>
-        <label class="a-check"><input id="aReady" type="checkbox">整理好了，加入学习</label>
-        <button class="mini-btn" id="aIllustrate" type="button">可选：记忆画面</button>
+      <div class="wm-tabs" id="wmTabs" role="tablist">
+        <button class="wm-tab on" type="button" data-wmtab="examples">例句</button>
+        <button class="wm-tab" type="button" data-wmtab="colls">核心搭配</button>
+        <button class="wm-tab" type="button" data-wmtab="tags">标签</button>
       </div>
-      <div class="wm-section">
+      <div class="wm-pane" id="wmPane-examples">
+        <div class="wm-label">例句<span class="wm-tip">点句子里的单词就能查词</span><button class="mini-btn" id="wmRegen">换一批</button><button class="mini-btn" id="wmCnAll">显示全部中文</button></div>
+        <div id="wmExamples"></div>
+      </div>
+      <div class="wm-pane hidden" id="wmPane-colls">
         <div class="wm-label">核心搭配<button class="mini-btn" id="wmCollAdd">＋ 添加</button></div>
         <div id="wmColls" class="coll-pick"></div>
         <input id="wmCollInput" class="wm-coll-input" placeholder="如 pitch an idea（提方案），输完点添加或回车" autocomplete="off" enterkeyhint="done">
+      </div>
+      <div class="wm-pane hidden" id="wmPane-tags">
+        <div id="wmTags" class="tag-pick"></div>
       </div>
       <div class="wm-section hidden" id="wmDictSec">
         <div class="wm-label">词典补充 <span class="ex-head-tip">来自查词页</span></div>
         <div id="wmDictExtra"></div>
       </div>
-      <div class="wm-section">
-        <div class="wm-label">例句<span class="wm-tip">点句子里的单词就能查词</span><button class="mini-btn" id="wmCnAll">显示全部中文</button></div>
-        <div id="wmExamples"></div>
-      </div>
-      <div class="wm-section">
-        <div class="wm-label">标签<button class="mini-btn" id="wmTagNew">＋ 新建类别</button></div>
-        <div id="wmTags" class="tag-pick"></div>
-      </div>
-      <div class="wm-section wm-master-row">
-        <div class="wm-label">掌握状态</div>
-        <button class="master-pill" id="wmMaster">未掌握</button>
-      </div>
-      <div class="wm-section wm-ai-entry">
-        <div class="wm-label">口语练习</div>
-        <button class="btn primary" id="wmAi">AI 对话</button>
-      </div>
-      <div class="wm-section hidden" id="wmMoveRow">
-        <div class="wm-label">在正文里</div>
-        <button class="btn" id="wmMove">移动到某个大标题下</button>
-        <button class="btn" id="wmCopyClip">复制到其它笔记</button>
-        <button class="btn" id="wmCutClip">剪切到其它笔记</button>
-      </div>
       <div class="wm-actions">
-        <button class="btn" id="wmRegen">换一批例句</button>
+        <button class="btn" id="wmAi">AI 对话</button>
         <button class="btn primary grow" id="wmSave">保存表达</button>
       </div>
     </div>

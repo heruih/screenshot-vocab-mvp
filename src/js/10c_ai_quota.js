@@ -364,36 +364,21 @@ function aImportFile(file){
 }
 function aOpenBackup(){const image=aImageCacheStats(wmImgAll(),state.words);$('#aBackupStatus').textContent='当前设备：'+state.words.length+' 个表达，'+shotsTotal(shotsAll())+' 张截图，'+image.records+' 条配图记录，已确认 '+image.confirmedWords+' 条，缺少 '+image.missingWords+' 个词条。';$('#aBackup').classList.add('show');}
 function aOpenWords(filter,date){ui.mode='words';ui.wordFilter=filter||'all';ui.wordDate=date||'';ui.sel=[];ui.selMode=false;render();}
-function aFieldValues(){return {purpose:$('#aPurpose').value,ownSentence:$('#aOwn').value,original:$('#aOriginal').value,sourceUrl:$('#aSource').value,sourceTime:$('#aTime').value};}
 const aOriginalOpenWord=openWordModal;
 openWordModal=function(term,note,range,existing,prefill,restore){
   aOriginalOpenWord(term,note,range,existing,prefill,restore);
-  aApplyStudyMode();
-  const w=existing||state.words.find(x=>x.term.toLowerCase()===String(term).trim().toLowerCase());
-  const key=w?w.id:'draft:'+String(term).trim().toLowerCase();const m=aData.words[key]||{};
-  $('#aPurpose').value=m.purpose||'';$('#aOwn').value=m.ownSentence||'';
-  $('#aOriginal').value=m.original||((existing&&existing.examples||[]).find(x=>x.sense==='原文')||{}).en||wmState.origSentence||'';
-  $('#aSource').value=m.sourceUrl||'';$('#aTime').value=m.sourceTime||'';
-  $('#aReady').checked=w?!aPending(w):false;wmState.aMetaKey=key;
-  let history=$('#aEntryHistory');if(!history){history=document.createElement('div');history.id='aEntryHistory';history.className='wm-section a-note a-study-advanced';$('#wmBody').append(history);}
-  const log=w?aData.attempts.filter(x=>x.wordId===w.id).slice(0,3):[];
-  history.innerHTML=log.length?'<b>最近实际练习</b>'+log.map(x=>'<p>'+esc(aDate(x.createdAt))+' · '+esc(x.result==='independent'?'独立用出':x.result==='hinted'?'有提示／待验证':'待再练')+'<br>'+esc(x.attempt||'未留下输出')+(x.comment?'<br>'+esc(x.comment):'')+(x.revision?'<br>改进：'+esc(x.revision):'')+'</p>').join(''):'';
 };
 const aOriginalSaveWord=saveWord;
 saveWord=function(){
-  if($('#aReady').checked&&!$('#wmDefinition').value.trim()){toast('先写下你自己的理解，再加入学习。','warn');return;}
-  const values=aFieldValues(),term=wmState.term,key=wmState.aMetaKey;
-  const ready=$('#aReady').checked;
-  // saveWord creates the stable ID; then attach supplemental data to that ID.
   aOriginalSaveWord();
-  const w=state.words.find(x=>x.term.toLowerCase()===term.toLowerCase());
-  if(w){aPut(w.id,Object.assign({},aData.words[key]||{},values,{stage:ready?'learning':'pending'}));if(key!==w.id){delete aData.words[key];aFlush();}render();}
+  const w=state.words.find(x=>String(x.term||'').trim().toLowerCase()===String(wmState.term||'').trim().toLowerCase());
+  if(w){ aPut(w.id, {stage:'learning'}); render(); }
 };
 const aOriginalWordsPane=renderWordsPane;
 renderWordsPane=function(){
   aOriginalWordsPane();const box=$('#noteList');const tools=document.createElement('div');tools.className='a-tools';
-  tools.innerHTML='<button class="btn" id="aPendingFilter">待整理 '+state.words.filter(aPending).length+'</button><label for="aWordDate">收集日期</label><input id="aWordDate" type="date" value="'+esc(ui.wordDate||'')+'"><button class="btn" id="aDateClear">全部日期</button><button class="btn" id="aDateSpeak">练这一批</button><button class="btn" id="aDateWrite">写这一批</button><button class="btn" id="aWordNew">＋ 手动表达</button>';
-  box.prepend(tools);$('#aPendingFilter').onclick=()=>{if(ui.wordFilterOpen)wfCloseSheet();aOpenWords('pending',ui.wordDate);};
+  tools.innerHTML='<label for="aWordDate">收集日期</label><input id="aWordDate" type="date" value="'+esc(ui.wordDate||'')+'"><button class="btn" id="aDateClear">全部日期</button><button class="btn" id="aDateSpeak">练这一批</button><button class="btn" id="aDateWrite">写这一批</button><button class="btn" id="aWordNew">＋ 手动表达</button>';
+  box.prepend(tools);
   $('#aWordDate').onchange=e=>{ui.wordDate=e.target.value;ui.wordFilter='all';if(ui.wordFilterOpen)wfCloseSheet();renderWordsPane();};
   $('#aDateClear').onclick=()=>{ui.wordDate='';if(ui.wordFilterOpen)wfCloseSheet();renderWordsPane();};
   $('#aWordNew').onclick=aNewWord;

@@ -1566,8 +1566,17 @@ function bindEvents(){
     closeQuickDict();
     toast(def?'已加入表达库：'+w:'已加入表达库：'+w+'（还没释义，可在表达库里补）','ok');
   });
-  $('#wmMaster').addEventListener('click',()=>{ wmState.mastered=!wmState.mastered; renderWmMaster(); scheduleWmDraft(200); });
   $('#wmAi').addEventListener('click',openAiDialogue);
+  /* 三 tab：例句 / 核心搭配 / 标签 */
+  $('#wmTabs').addEventListener('click',e=>{
+    const tab=e.target.closest('.wm-tab');
+    if(!tab) return;
+    $$('#wmTabs .wm-tab').forEach(b=>b.classList.toggle('on',b===tab));
+    ['examples','colls','tags'].forEach(k=>{
+      const pane=$('#wmPane-'+k);
+      if(pane) pane.classList.toggle('hidden',k!==tab.getAttribute('data-wmtab'));
+    });
+  });
   $('#aiClose').addEventListener('click',closeAiModal);
   $('#aiClose2').addEventListener('click',aiFinishAction);
   $('#aiFavorite').addEventListener('click',aiFavoriteCurrent);
@@ -1596,13 +1605,6 @@ function bindEvents(){
     wmState.saved=true;
     openWordModal(term,note,range,existing);
     toast('已丢弃这份草稿','ok');
-  });
-  $('#wmUseAiDef').addEventListener('click',()=>{
-    const v=(wmState&&wmState.aiDef)||'';
-    if(!v){ wmGenExamples(); return; }
-    $('#wmDefinition').value=v;
-    scheduleWmDraft(200);
-    toast('已填入 AI 释义，可自行修改','ok');
   });
   $('#wmExamples').addEventListener('click',e=>{
     const qw=e.target.closest('.qw');
@@ -1634,7 +1636,6 @@ function bindEvents(){
     if(!chip) return;
     toggleWmTag(chip.dataset.tag);
   });
-  $('#wmTagNew').addEventListener('click',gotoTagPageForNewTag);
   $('#wmCnAll').addEventListener('click',()=>{
     const list=$$('#wmExamples .ex-cn-text');
     const allShown=list.length>0&&list.every(el=>!el.classList.contains('hided'));
@@ -1655,26 +1656,6 @@ function bindEvents(){
   /* 截图：全局悬浮导入 / 释义区查看按钮 / 大图查看器（点任意处返回） */
   $('#ocrFileInput').addEventListener('change',ocrImportImage);
   $('#ocrInboxOpen').addEventListener('click',ocrInboxShow);
-  $('#wmShotsBtn').addEventListener('click',()=>{
-    const t=wmState&&wmState.term; if(!t) return;
-    const list=shotsGet(t);
-    if(!list.length){ toast('还没有截图，点旁边「＋ 截图」直接添加','warn'); return; }
-    openShotViewerFor(t,0);
-  });
-  $('#wmShotAdd').addEventListener('click',()=>{ $('#wmShotFile').click(); });
-  $('#wmShotFile').addEventListener('change',async (e)=>{
-    const t=wmState&&wmState.term;
-    const files=Array.prototype.slice.call(e.target.files||[]);
-    if(!t||!files.length) return;
-    toast('正在处理图片…','info');
-    try{
-      const r=await wmShotsAdd(t,files);
-      wmShotsBtnUpdate();
-      if(r.added) toast('已添加 '+r.added+' 张截图'+(r.failed?'，'+r.failed+' 张因每词上限未加':''),'ok');
-      else toast('这个词已有 '+SHOT_MAX_PER_WORD+' 张，未添加','warn');
-    }catch(err){ toast('添加失败，请重试','warn'); }
-    e.target.value='';
-  });
   $('#shotViewer').addEventListener('click',e=>{
     if(e.target.closest('#svPrev')||e.target.closest('#svNext')||e.target.closest('#svDel')) return;
     closeShotViewer();
