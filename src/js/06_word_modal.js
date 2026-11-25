@@ -1709,5 +1709,29 @@ function aiFinishAction(){
     return;
   }
   closeAiModal();
-}function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} if(aiReturnToReview){ aiReturnToReview=false; if(ui&&ui.flash&&(!ui.flash.ids.length||ui.flash.idx>=ui.flash.ids.length)&&typeof buildReview==='function'){ buildReview('due'); } if(typeof renderFlash==='function') renderFlash(); } }
+}
+/* 练完一轮鼓励：随机文案 + 轻快叮咚音（Web Audio 合成，零依赖、不联网） */
+const PRAISE_LINES=['又练完一轮啦，你真棒！🎉','这一轮开口练完，太棒了！','完成一轮，继续保持！','练完啦，休息一下也很棒～'];
+function playPraiseChime(){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC) return;
+  try{
+    const ctx=new AC();
+    if(ctx.state==='suspended') ctx.resume();
+    const now=ctx.currentTime;
+    [660,880].forEach((freq,i)=>{
+      const osc=ctx.createOscillator(), gain=ctx.createGain();
+      osc.type='sine'; osc.frequency.value=freq;
+      const t=now+i*0.12;
+      gain.gain.setValueAtTime(0.0001,t);
+      gain.gain.exponentialRampToValueAtTime(0.25,t+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001,t+0.5);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t); osc.stop(t+0.55);
+    });
+    setTimeout(()=>{ try{ctx.close();}catch(_){} },1000);
+  }catch(_){}
+}
+function praiseReview(){ toast(PRAISE_LINES[Math.floor(Math.random()*PRAISE_LINES.length)]); playPraiseChime(); }
+function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} if(aiReturnToReview){ aiReturnToReview=false; if(ui&&ui.flash&&(!ui.flash.ids.length||ui.flash.idx>=ui.flash.ids.length)&&typeof buildReview==='function'){ buildReview('due'); } if(typeof renderFlash==='function') renderFlash(); if(typeof praiseReview==='function') praiseReview(); } }
 
