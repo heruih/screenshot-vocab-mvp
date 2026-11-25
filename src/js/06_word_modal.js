@@ -1711,7 +1711,8 @@ function aiFinishAction(){
   closeAiModal();
 }
 /* 练完一轮鼓励：随机文案 + 轻快叮咚音（Web Audio 合成，零依赖、不联网） */
-const PRAISE_LINES=['又练完一轮啦，你真棒！🎉','这一轮开口练完，太棒了！','完成一轮，继续保持！','练完啦，休息一下也很棒～'];
+let praiseTimer=null;
+const PRAISE_LINES=['又练完一轮啦，你真棒！','这一轮开口练完，太棒了！','完成一轮，继续保持！','练完啦，休息一下也很棒～'];
 function playPraiseChime(){
   const AC=window.AudioContext||window.webkitAudioContext;
   if(!AC) return;
@@ -1734,6 +1735,18 @@ function playPraiseChime(){
     setTimeout(()=>{ try{ctx.close();}catch(_){} },1200);
   }catch(_){}
 }
-function praiseReview(){ toast(PRAISE_LINES[Math.floor(Math.random()*PRAISE_LINES.length)]); playPraiseChime(); }
+function praiseReview(){
+  const line=PRAISE_LINES[Math.floor(Math.random()*PRAISE_LINES.length)];
+  const p=$('#praise');
+  if(p){
+    p.innerHTML='<span class="praise-emoji">🎉</span>'+esc(line);
+    p.classList.add('show');
+    clearTimeout(praiseTimer);
+    praiseTimer=setTimeout(()=>{ p.classList.remove('show'); },1800);
+  }else{
+    toast(line);
+  }
+  playPraiseChime();
+}
 function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} if(aiReturnToReview){ aiReturnToReview=false; if(typeof praiseReview==='function'){ try{ praiseReview(); }catch(_){} } if(ui&&ui.flash&&(!ui.flash.ids.length||ui.flash.idx>=ui.flash.ids.length)&&typeof buildReview==='function'){ try{ buildReview('due'); }catch(_){} } if(typeof renderFlash==='function'){ try{ renderFlash(); }catch(_){} } } }
 

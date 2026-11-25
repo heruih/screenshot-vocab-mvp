@@ -631,6 +631,16 @@ body.typing .kb-btn{opacity:1;visibility:visible}
   #toast{bottom:calc(78px + var(--lift,0px) + env(safe-area-inset-bottom,0px))}
 }
 
+/* 练完一轮鼓励：居中弹出，比 toast 更醒目，不打断自动开新轮 */
+#praise{
+  position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(.6);z-index:300;
+  background:rgba(0,0,0,.74);color:#fff;border-radius:20px;padding:22px 30px;
+  font-size:20px;font-weight:700;text-align:center;line-height:1.5;max-width:82vw;
+  opacity:0;pointer-events:none;transition:opacity .28s ease,transform .34s cubic-bezier(.2,1.4,.4,1);
+}
+#praise .praise-emoji{display:block;font-size:46px;line-height:1;margin-bottom:8px}
+#praise.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+
 /* 遮罩 */
 #scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:55;display:none}
 body.side-open #scrim{display:block}

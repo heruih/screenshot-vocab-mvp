@@ -34,16 +34,19 @@ self.addEventListener('fetch',e=>{
   const url=new URL(req.url);
   if(url.origin!==self.location.origin)return; // 跨域 AI 接口等不缓存
 
-  // 页面导航：stale-while-revalidate（有缓存秒开，同时后台更新）
+  // 页面导航：network-first（在线永远拿最新版，离线才回退缓存）
   if(req.mode==='navigation'){
     e.respondWith(
-      caches.open(CACHE_NAME).then(async cache=>{
-        const cached=await cache.match(req);
-        const network=fetch(req)
-          .then(res=>{ if(res&&res.ok)cache.put(req,res.clone()); return res; })
-          .catch(()=>cached);
-        return cached||network;
-      })
+      fetch(req)
+        .then(res=>{
+          if(res&&res.ok){
+            const copy=res.clone();
+            caches.open(CACHE_NAME).then(c=>c.put(req,copy));
+            return res;
+          }
+          return caches.match(req);
+        })
+        .catch(()=>caches.match(req))
     );
     return;
   }
