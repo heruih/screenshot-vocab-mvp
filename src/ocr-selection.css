@@ -1,0 +1,81 @@
+.ocr-preview-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+.ocr-image-tools, .ocr-picker-actions, .ocr-picked-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ocr-image-tools { padding: 8px; }
+.ocr-picker-actions, .ocr-picked-list { margin: 6px 0; }
+.ocr-image-tools > button { white-space: nowrap; }
+.ocr-inbox-preview .ocr-frame-row { margin: 6px 0; }
+
+#ocrImageViewer {
+  position: fixed;
+  inset: 0;
+  width: min(100%, 850px);
+  max-width: 100%;
+  height: min(100%, 800px);
+  height: min(100dvh, 800px);
+  max-height: 100%;
+  margin: auto;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  border: 0;
+  color: var(--text);
+  background: var(--s2);
+}
+#ocrImageViewer[open] { display: flex; flex-direction: column; }
+#ocrImageViewer::backdrop { background: rgba(0, 0, 0, .72); }
+.ocr-viewer-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ocr-viewer-head h2 { margin: 0 0 8px; font-size: 19px; }
+#ocrImageViewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+  background: #141414;
+  border-radius: 10px;
+  cursor: grab;
+}
+#ocrImageViewport.is-framing { cursor: crosshair; }
+#ocrViewerImage, #ocrRegionBox { position: absolute; pointer-events: none; }
+#ocrViewerImage { max-width: none; max-height: none; user-select: none; }
+#ocrRegionBox {
+  z-index: 1;
+  border: 2px solid #60a5fa;
+  outline: 1px solid #fff;
+  box-shadow: 0 0 0 200vmax rgba(0, 0, 0, .44);
+}
+.ocr-viewer-hint { margin: 8px 0 0; color: var(--text2); font-size: 13px; }
+
+[data-ocr-picker] { margin: 8px 0; }
+.ocr-token-list {
+  max-height: 30vh;
+  overflow: auto;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--sep);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+.ocr-token {
+  display: inline;
+  padding: 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.ocr-token[aria-pressed="true"] { outline: 1px solid var(--accent); background: var(--s3); }
+.ocr-picked-term { cursor: pointer; }

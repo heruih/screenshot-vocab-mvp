@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { prepareOcrEngine } from './prepare-ocr-engine.mjs';
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -22,7 +23,7 @@ const output = path.join(project, 'dist', cosyVoicePreview ? 'cosyvoice-preview'
 const read = (file) => fs.readFile(path.join(source, file), 'utf8');
 
 const template = await read('index.html');
-const style = await read('style.css');
+const style = (await Promise.all(['style.css','ocr-selection.css'].map(read))).join('\n');
 const modules = [
   '00_capabilities.js',
   '01_core.js',
@@ -37,6 +38,7 @@ const modules = [
   '09_screenshot_data.js',
   '10a_inbox.js',
   '10b_ocr.js',
+  '10ab_ocr_selection.js',
   '10c_ai_quota.js',
   '10d_drawer.js',
   '10e_dialogue.js',
@@ -112,6 +114,9 @@ await fs.writeFile(target, finalHtml, 'utf8');
 console.log(`built ${target} (${Buffer.byteLength(finalHtml, 'utf8')} bytes, product=${product}, pages=${publishPages})`);
 
 if (publishPages) {
+  if (await prepareOcrEngine(output)) {
+    console.log('OCR engine with whole-image and region modes ready');
+  }
   await fs.writeFile(path.join(output, manifestFile), JSON.stringify(manifest, null, 2), 'utf8');
   const iconsOut = path.join(output, 'icons');
   await fs.mkdir(iconsOut, { recursive: true });

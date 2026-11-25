@@ -808,13 +808,19 @@
       </button>
     </div>
     <div class="wm-body">
-      <div id="ocrImgWrap" class="hidden"><img id="ocrImg" alt="识别图"></div>
+      <div id="ocrImgWrap" class="hidden">
+        <button class="ocr-preview-button" type="button" data-ocr-preview aria-label="放大截图"><img id="ocrImg" alt="待识别截图"></button>
+        <div class="ocr-image-tools">
+          <button class="btn primary" type="button" data-ocr-whole>识别整图</button>
+          <button class="btn" type="button" data-ocr-frame>框选识别</button>
+        </div>
+      </div>
       <div id="ocrStatus" class="ocr-tip"></div>
       <div id="ocrSelected" class="hidden" data-ocr-area>
         <label class="ocr-match-label">识别原句<textarea id="ocrEdit" data-ocr-text placeholder="可补写识别文字" rows="2"></textarea></label>
         <div data-ocr-matches></div>
         <input id="ocrTerm" data-ocr-term aria-label="手动搜词或输入表达" placeholder="搜词或输入表达，多个用逗号分隔">
-        <div class="ocr-foot"><button class="btn primary" id="ocrMount" type="button">确认匹配</button></div>
+        <div class="ocr-foot"><button class="btn primary" id="ocrMount" type="button">保存表达</button></div>
       </div>
       <div id="ocrFolderPick" class="hidden">
         <div class="wm-label" style="margin-top:14px">这批截图归到哪篇笔记？</div>
@@ -856,6 +862,24 @@
     </div>
   </div>
 </div>
+
+<dialog id="ocrImageViewer" aria-labelledby="ocrImageTitle">
+  <header class="ocr-viewer-head">
+    <h2 id="ocrImageTitle">截图预览</h2>
+    <button id="ocrViewerClose" class="mini-btn" type="button">返回</button>
+  </header>
+  <div id="ocrImageViewport" data-no-swipe aria-label="截图预览区域">
+    <img id="ocrViewerImage" alt="待识别截图" draggable="false">
+    <div id="ocrRegionBox" hidden></div>
+  </div>
+  <p id="ocrViewerHint" class="ocr-viewer-hint" aria-live="polite"></p>
+  <footer class="ocr-image-tools">
+    <button id="ocrZoomOut" class="mini-btn" type="button" aria-label="缩小截图">−</button>
+    <button id="ocrZoomIn" class="mini-btn" type="button" aria-label="放大截图">＋</button>
+    <button id="ocrViewerMode" class="btn" type="button">框选识别</button>
+    <button id="ocrRegionApply" class="btn primary" type="button" hidden>识别框内</button>
+  </footer>
+</dialog>
 
 <!-- 截图大图查看器：点任意位置返回 -->
 <div id="shotViewer" role="dialog" aria-modal="true">

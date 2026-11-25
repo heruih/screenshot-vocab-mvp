@@ -48,7 +48,7 @@ async function init({ wasmPaths, modelBase }) {
   ready = true
 }
 
-async function recognize(blobUrl) {
+async function recognize(blobUrl, allRows = false) {
   if (!ready) throw new Error('engine-not-ready')
   const result = await ocr.detect(blobUrl)
   const h = result.resizedImageHeight
@@ -58,11 +58,15 @@ async function recognize(blobUrl) {
     top: Math.min(...t.box.map((p) => p[1])),
   }))
   return rows
-    .filter((r) => r.top > h * TOP_RATIO)
+    .filter((r) => allRows || r.top > h * TOP_RATIO)
     .sort((a, b) => a.top - b.top)
     .map((r) => clean(r.text))
     .filter(Boolean)
     .join(' ')
 }
 
-export { init, recognize }
+function recognizeWholeImage(blobUrl) {
+  return recognize(blobUrl, true)
+}
+
+export { init, recognize, recognizeWholeImage }

@@ -107,6 +107,7 @@ function ocrRenderMatches(container,text,query){
 }
 function ocrRenderMatchArea(area){
   ocrRenderMatches(area.querySelector('[data-ocr-matches]'),area.querySelector('[data-ocr-text]')?.value||'',area.querySelector('[data-ocr-term]').value);
+  ocrRenderTermPicker(area);
 }
 function ocrToggleMatch(chip,area){
   const on=chip.classList.toggle('on');
@@ -117,11 +118,15 @@ function ocrToggleMatch(chip,area){
     input.value=input.value.replace(/[^,，、;；]*$/,'');
     ocrRenderMatchArea(area);
   }
+  ocrRefreshTermPicker(area);
 }
 function ocrMatchTargets(area){
   const ids=new Set(Array.from(area.querySelectorAll('[data-cand].on')).map(chip=>chip.dataset.cand));
   const targets=new Map();
   const existing=new Map(state.words.map(w=>[ocrNorm(w.term),w.term]));
+  if(area.querySelector('[data-ocr-text]')){
+    for(const [key,pick] of ocrDraftFor(area).picks) targets.set(key,existing.get(key)||pick.term);
+  }
   for(const word of state.words){if(ids.has(word.id))targets.set(ocrNorm(word.term),word.term);}
   for(const term of ocrManualTerms(area.querySelector('[data-ocr-term]').value)){
     const key=ocrNorm(term);
@@ -150,7 +155,16 @@ function ocrInboxRender(){
     return;
   }
   const itemHtml=item=>{
-    return '<article class="ocr-inbox-item" data-inbox-id="'+esc(item.id)+'" data-ocr-area><div class="ocr-inbox-preview"><img src="'+esc(item.dataUrl)+'" loading="lazy" alt="待匹配截图"><label><input type="checkbox" data-inbox-pick> 批量选中</label></div><div class="ocr-inbox-main"><label class="ocr-match-label">识别原句<textarea class="ocr-inbox-text" data-ocr-text rows="2" placeholder="可补写识别文字">'+esc(item.text||'')+'</textarea></label><div data-ocr-matches></div><input data-ocr-term aria-label="手动搜词或输入表达" placeholder="搜词或输入表达，多个用逗号分隔"><div class="ocr-inbox-actions"><button class="mini-btn" type="button" data-inbox-confirm>确认匹配</button><button class="mini-btn danger" type="button" data-inbox-delete>删除</button></div></div></article>';
+    return '<article class="ocr-inbox-item" data-inbox-id="'+esc(item.id)+'" data-ocr-area>'+
+      '<div class="ocr-inbox-preview"><button class="ocr-preview-button" type="button" data-ocr-preview aria-label="放大截图">'+
+      '<img src="'+esc(item.dataUrl)+'" loading="lazy" alt="待匹配截图"></button>'+
+      '<button class="mini-btn ocr-frame-row" type="button" data-ocr-frame>框选识别</button>'+
+      '<label><input type="checkbox" data-inbox-pick> 批量选中</label></div>'+
+      '<div class="ocr-inbox-main"><label class="ocr-match-label">识别原句<textarea class="ocr-inbox-text" data-ocr-text rows="2" placeholder="可补写识别文字">'+esc(item.text||'')+'</textarea></label>'+
+      '<div data-ocr-row-status class="ocr-tip" role="status"></div><div data-ocr-matches></div>'+
+      '<input data-ocr-term aria-label="手动搜词或输入表达" placeholder="搜词或输入表达，多个用逗号分隔">'+
+      '<div class="ocr-inbox-actions"><button class="mini-btn" type="button" data-inbox-confirm>保存表达</button>'+
+      '<button class="mini-btn danger" type="button" data-inbox-delete>删除</button></div></div></article>';
   };
   /* 总收件箱：按笔记分组，组内已按时间倒序；noteId 为空或笔记已删的归到「未分到笔记」 */
   const groups=[],gmap={};
