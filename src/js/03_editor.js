@@ -146,8 +146,6 @@ function renderFlash(){
   const total=f.ids.length;
   const pos=f.idx+1;
   const pct=Math.round((f.idx/total)*100);
-  const recentCount=typeof batchRecentCount==='function'?batchRecentCount():0;
-  const recentThreshold=typeof dialogueThreshold==='function'?dialogueThreshold():3;
   /* 保留原始序号：标亮的存储键是（词, 例句序号, 原文快照），过滤后序号会错位就查不到 */
   const indexedExamples=(w.examples||[]).map((x,oi)=>({x,oi}));
   const examples=indexedExamples.filter(o=>o.x.sense!=='原文');
@@ -210,7 +208,6 @@ function renderFlash(){
           '<button class="grade-btn hard" data-grade="1">有点难<small>缩短间隔</small></button>'+
           '<button class="grade-btn good" data-grade="2">记住了<small>拉长间隔</small></button>'+
         '</div>':'<div class="flash-hint-row">先回想，再点卡片翻开</div>')+
-      (dueMode&&recentCount>=recentThreshold?'<div class="review-pause-choice"><span>已完成 '+recentCount+' 个词，下一步？</span><div><button class="btn" id="reviewContinue">继续复习</button><button class="btn primary" id="reviewPause">AI 对话这组</button></div></div>':'')+
       '<div class="review-exit-row"><button class="btn" id="reviewExit" type="button">结束复习，返回首页</button></div>'
         :'<div class="flash-actions">'+
           '<button class="btn" id="flashPrev"'+(f.idx===0?' disabled':'')+'>上一张</button>'+
@@ -277,8 +274,6 @@ function renderFlash(){
     renderFlash();
   }));
   $$('.grade-btn').forEach(b=>b.addEventListener('click',()=>gradeCurrent(Number(b.dataset.grade))));
-  const pause=$('#reviewPause');if(pause)pause.addEventListener('click',()=>{if(typeof batchPauseRecent==='function')batchPauseRecent();});
-  const cont=$('#reviewContinue');if(cont)cont.addEventListener('click',()=>{if(typeof batchContinueRecent==='function')batchContinueRecent();});
   const rex=$('#reviewExit');if(rex)rex.addEventListener('click',()=>{ ui.mode='today'; ui.sideOpen=false; render(); });
   const pv=$('#flashPrev'), nx=$('#flashNext'), ex=$('#flashExit');
   if(pv) pv.addEventListener('click',()=>stepFlash(-1));
