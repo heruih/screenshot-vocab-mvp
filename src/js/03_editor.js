@@ -44,8 +44,11 @@ function resumeReview(){
     const activeIds=new Set(state.words.filter(w=>!aPending(w)).map(w=>w.id));
     const round=stored.filter(card=>card&&activeIds.has(card.id)&&Number.isInteger(card.reps)&&card.reps>=0);
     // Reconstruct the cursor from the same saved rating that increments reps.
-    const idx=nextReviewIndex(round);
-    if(idx<round.length) return setReview('due',round,idx);
+    // 全部评完时 idx==round.length：恢复总结页（含难词推荐），不再跳过直接开新轮。
+    if(round.length){
+      const idx=nextReviewIndex(round);
+      return setReview('due',round,idx);
+    }
   }
   return buildReview('due');
 }
@@ -129,7 +132,7 @@ function renderFlash(){
         '</div>'+
         '<div style="font-size:12px;color:var(--text3)">记忆曲线：1 → 3 → 7 → 15 → 30 天</div>'+
       '</div>';
-    const rh=$('#rvHome'); if(rh) rh.addEventListener('click',()=>{ ui.mode='today'; ui.sideOpen=false; render(); });
+    const rh=$('#rvHome'); if(rh) rh.addEventListener('click',()=>{ try{ localStorage.removeItem(REVIEW_ROUND_KEY); }catch(_){} ui.mode='today'; ui.sideOpen=false; render(); });
     const ra=$('#rvAgain'); if(ra) ra.addEventListener('click',()=>{ buildReview('due'); renderFlash(); });
     const rp=$('#rvPickSpeak'); if(rp) rp.addEventListener('click',()=>{ ui.mode='words'; ui.selMode=true; ui.sel=[]; ui.wordFilter='all'; render(); });
     const rg=$('#rvSpeakGo'); if(rg) rg.addEventListener('click',()=>{

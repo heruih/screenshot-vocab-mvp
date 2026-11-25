@@ -1697,17 +1697,21 @@ function openAiDialogue(ev){
     const r=$('#aiRetry'); if(r) r.addEventListener('click',openAiDialogue);
   });
 }
+let aiFinishedAll=false;  /* 整组流程是否走完：只有整组走完才触发鼓励 + 自动开下一轮 */
 function aiFinishAction(){
   /* 批量对话：有下一个场景就自动进入，全部练完才关闭并回到分组列表 */
   if(aiState&&aiState.multiTurn){
     if(typeof batchAdvanceDialogueScene==='function'&&batchAdvanceDialogueScene()) return;
     if(typeof batchMarkActiveGroup==='function') batchMarkActiveGroup();
     if(typeof batchMarkActiveSegment==='function') batchMarkActiveSegment();
+    aiFinishedAll=true;  /* 没有下一个场景 = 整组全部走完 */
     const backToReview=aiReturnToReview;
     closeAiModal();
     if(!backToReview&&typeof batchOpen==='function') setTimeout(batchOpen,120);
     return;
   }
+  /* 单词对话：只有已收到批改（review 阶段）才算整组完成；练到一半点「完成」按退出处理 */
+  if(aiState&&aiState.phase==='review') aiFinishedAll=true;
   closeAiModal();
 }
 /* 练完一轮鼓励：随机文案 + 轻快叮咚音（Web Audio 合成，零依赖、不联网） */
@@ -1748,5 +1752,5 @@ function praiseReview(){
   }
   playPraiseChime();
 }
-function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} if(aiReturnToReview){ aiReturnToReview=false; if(typeof praiseReview==='function'){ try{ praiseReview(); }catch(_){} } if(ui&&ui.flash&&(!ui.flash.ids.length||ui.flash.idx>=ui.flash.ids.length)&&typeof buildReview==='function'){ try{ buildReview('due'); }catch(_){} } if(typeof renderFlash==='function'){ try{ renderFlash(); }catch(_){} } } }
+function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} const finishedAll=aiFinishedAll; aiFinishedAll=false; if(aiReturnToReview){ aiReturnToReview=false; if(finishedAll){ if(typeof praiseReview==='function'){ try{ praiseReview(); }catch(_){} } if(ui&&ui.flash&&(!ui.flash.ids.length||ui.flash.idx>=ui.flash.ids.length)&&typeof buildReview==='function'){ try{ buildReview('due'); }catch(_){} } if(typeof renderFlash==='function'){ try{ renderFlash(); }catch(_){} } } } }
 
