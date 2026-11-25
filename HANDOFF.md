@@ -1,9 +1,9 @@
 # 截图词库商业版交接
 
-- **源码**　`heruih/screenshot-vocab-mvp`，本地分支 `codex/review-dialogue-closure`。修复提交 `8221ec2` 基于 `workbuddy/phase1-commercial` 的 `ed8ec5c`。
-- **线上**　[商业版首页](https://heruih.github.io/screenshot-vocab-mvp/)，Pages 发布提交 `995a994`。本地候选等待 iPhone 验收与发布确认。
-- **已验证**　复习测试 21 项、权益模拟 106 项、商业单页及 Pages 构建通过。先运行 `node scripts/build.mjs --pages`，再运行 `node scripts/test-review-flow.mjs`。隔离 Chrome 用模拟回复验收实际按钮、两处刷新、难词勾选和口语收尾。
-- **下一步**　在 iPhone 候选页练一轮，挑两个难词。第一句收到反馈后点「完成」，确认回到总结且勾选还在。刷新后再进复习，确认总结仍在。重新开口并逐句确认到最后一句，确认仅此时出现鼓励和叮咚，并接到下一轮。通过后确认发布，再邀请 2–3 位试用。
+- **源码**　`heruih/screenshot-vocab-mvp`，GitHub 分支 `codex/review-dialogue-closure`。修复提交 `8221ec2`，本次发布所用源码 `9233a6f`。
+- **线上**　[商业版首页](https://heruih.github.io/screenshot-vocab-mvp/)，Pages 发布提交 `7fc8f53`，前一版本 `995a994`。
+- **已验证**　Simon 确认 iPhone 候选通过。发布前复习 21 项、权益模拟 106 项、Pages 构建和 Chrome 浏览器回归通过，发布后首页和缓存脚本与本地构建 SHA-256 一致。复跑浏览器回归，先运行 `node scripts/build.mjs --pages`，再运行 `node scripts/test-review-flow.mjs`。
+- **下一步**　回访首批已收到邀请的用户，确认做到哪一步和遇到的第一个阻碍。站长后台已有账号与反馈，按时间汇总的用量页待确认。
 
 <details>
 <summary>历史交接（旧自用版，保留作历史参考）</summary>
