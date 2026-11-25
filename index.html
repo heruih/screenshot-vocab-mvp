@@ -643,6 +643,16 @@ body.typing .kb-btn{opacity:1;visibility:visible}
   #toast{bottom:calc(78px + var(--lift,0px) + env(safe-area-inset-bottom,0px))}
 }
 
+/* 练完一轮鼓励：居中弹出，比 toast 更醒目，不打断自动开新轮 */
+#praise{
+  position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(.6);z-index:300;
+  background:rgba(0,0,0,.74);color:#fff;border-radius:20px;padding:22px 30px;
+  font-size:20px;font-weight:700;text-align:center;line-height:1.5;max-width:82vw;
+  opacity:0;pointer-events:none;transition:opacity .28s ease,transform .34s cubic-bezier(.2,1.4,.4,1);
+}
+#praise .praise-emoji{display:block;font-size:46px;line-height:1;margin-bottom:8px}
+#praise.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+
 /* 遮罩 */
 #scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:55;display:none}
 body.side-open #scrim{display:block}
@@ -2725,6 +2735,7 @@ body.drag-select #noteBody .en-word.sel-pick{
 </div>
 
 <div id="toast"></div>
+<div id="praise"></div>
 
 <!-- 全局截图导入悬浮按钮：打开网页就能用 -->
 <label id="fabShot" title="从相册选择截图">
@@ -8496,7 +8507,8 @@ function aiFinishAction(){
   closeAiModal();
 }
 /* 练完一轮鼓励：随机文案 + 轻快叮咚音（Web Audio 合成，零依赖、不联网） */
-const PRAISE_LINES=['又练完一轮啦，你真棒！🎉','这一轮开口练完，太棒了！','完成一轮，继续保持！','练完啦，休息一下也很棒～'];
+let praiseTimer=null;
+const PRAISE_LINES=['又练完一轮啦，你真棒！','这一轮开口练完，太棒了！','完成一轮，继续保持！','练完啦，休息一下也很棒～'];
 function playPraiseChime(){
   const AC=window.AudioContext||window.webkitAudioContext;
   if(!AC) return;
@@ -8519,7 +8531,19 @@ function playPraiseChime(){
     setTimeout(()=>{ try{ctx.close();}catch(_){} },1200);
   }catch(_){}
 }
-function praiseReview(){ toast(PRAISE_LINES[Math.floor(Math.random()*PRAISE_LINES.length)]); playPraiseChime(); }
+function praiseReview(){
+  const line=PRAISE_LINES[Math.floor(Math.random()*PRAISE_LINES.length)];
+  const p=$('#praise');
+  if(p){
+    p.innerHTML='<span class="praise-emoji">🎉</span>'+esc(line);
+    p.classList.add('show');
+    clearTimeout(praiseTimer);
+    praiseTimer=setTimeout(()=>{ p.classList.remove('show'); },1800);
+  }else{
+    toast(line);
+  }
+  playPraiseChime();
+}
 function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} if(aiReturnToReview){ aiReturnToReview=false; if(typeof praiseReview==='function'){ try{ praiseReview(); }catch(_){} } if(ui&&ui.flash&&(!ui.flash.ids.length||ui.flash.idx>=ui.flash.ids.length)&&typeof buildReview==='function'){ try{ buildReview('due'); }catch(_){} } if(typeof renderFlash==='function'){ try{ renderFlash(); }catch(_){} } } }
 
 /* ============ 云同步（GitHub Gist / WebDAV / 自建地址） ============
