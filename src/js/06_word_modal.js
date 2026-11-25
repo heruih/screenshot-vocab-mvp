@@ -1097,8 +1097,8 @@ async function aiSuggestScenes(forceFresh){
   try{ localStorage.setItem(aiScenePlanCacheKey(),JSON.stringify({at:Date.now(),data:normalized})); }catch(e){}
   return normalized;
 }
-function aiFallbackSceneGroups(){
-  const ids=aiState.allTermIds||aiState.termIds||[],groups=[];
+function aiFallbackSceneGroups(ids=aiState.allTermIds||aiState.termIds||[]){
+  const groups=[];
   for(let i=0;i<ids.length;i+=2){const part=ids.slice(i,i+2);groups.push({title:'情景 '+(groups.length+1),desc:'把这组词放进一个自然对话',wordIds:part});}
   return groups.slice(0,3);
 }
@@ -1379,9 +1379,8 @@ function aiSchedulePrefetch(delay){
 }
 function aiPrefetchNextScene(){
   if(!aiState.multiTurn||!Array.isArray(aiState.scenes)) return;
-  const nextIdx=(Number(aiState.sceneIndex)||0)+1;
-  if(nextIdx>=aiState.scenes.length) return;
-  const sc=aiState.scenes[nextIdx];
+  const sc=aiState.scenes.find((scene,index)=>index!==aiState.sceneIndex&&
+    scene.wordIds?.some(id=>!aiState.completedWordIds?.has(id)));
   if(!sc) return;
   const key=aiSceneKey(sc);
   if(aiPrefetch[key]) return;
@@ -1697,24 +1696,11 @@ function openAiDialogue(ev){
     const r=$('#aiRetry'); if(r) r.addEventListener('click',openAiDialogue);
   });
 }
-let aiFinishedAll=false;  /* 整组流程是否走完：只有整组走完才触发鼓励 + 自动开下一轮 */
 function aiFinishAction(){
-  /* 批量对话：当前场景已收到批改（review）才进下一个场景；全部练完才关闭并回到分组列表 */
-  if(aiState&&aiState.multiTurn){
-    if(aiState.phase==='review'){
-      if(typeof batchAdvanceDialogueScene==='function'&&batchAdvanceDialogueScene()) return;
-      aiFinishedAll=true;  /* review 且没有下一个场景 = 整组全部走完 */
-    }
-    if(typeof batchMarkActiveGroup==='function') batchMarkActiveGroup();
-    if(typeof batchMarkActiveSegment==='function') batchMarkActiveSegment();
-    const backToReview=aiReturnToReview;
-    closeAiModal();
-    if(!backToReview&&typeof batchOpen==='function') setTimeout(batchOpen,120);
-    return;
-  }
-  /* 单词对话：只有已收到批改（review 阶段）才算整组完成；练到一半/选场景点「完成」按退出处理 */
-  if(aiState&&aiState.phase==='review') aiFinishedAll=true;
-  closeAiModal();
+  const returnToBatch=aiState.multiTurn&&!aiReturnToReview;
+  // 多词练习只有逐句确认按钮能推进进度，底部按钮只是结束当前会话。
+  closeAiModal(!aiState.multiTurn&&aiState.phase==='review');
+  if(returnToBatch) setTimeout(batchOpen,120);
 }
 /* 练完一轮鼓励：随机文案 + 轻快叮咚音（Web Audio 合成，零依赖、不联网） */
 let praiseTimer=null;
@@ -1754,5 +1740,30 @@ function praiseReview(){
   }
   playPraiseChime();
 }
-function closeAiModal(){ aiResetPrefetch(); if(aiState.dialogueSessionId&&typeof aiDialogueHistoryFinish==='function')aiDialogueHistoryFinish(aiState.phase==='review'?'completed':'interrupted'); stopAiDictation(); $('#aiModal').classList.remove('show'); $('#aiContextStrip').classList.add('hidden'); aiSession++; aiState.seq++; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} const finishedAll=aiFinishedAll; aiFinishedAll=false; if(aiReturnToReview){ aiReturnToReview=false; if(finishedAll){ if(typeof praiseReview==='function'){ try{ praiseReview(); }catch(_){} } if(ui&&ui.flash&&(!ui.flash.ids.length||ui.flash.idx>=ui.flash.ids.length)&&typeof buildReview==='function'){ try{ buildReview('due'); }catch(_){} } if(typeof renderFlash==='function'){ try{ renderFlash(); }catch(_){} } } } }
+function closeAiModal(completed=false){
+  const modal=$('#aiModal');
+  if(!modal.classList.contains('show')) return;
+  // 返回按钮通过事件监听器调用此函数，只有显式的 true 表示练习已完成。
+  const finished=completed===true;
+  const returnToReview=aiReturnToReview;
+  aiReturnToReview=false;
+  if(finished){
+    batchMarkActiveGroup();
+    batchMarkActiveSegment();
+  }
+  batchActiveGroup=-1;
+  batchActiveSegment=null;
+  aiResetPrefetch();
+  if(aiState.dialogueSessionId) aiDialogueHistoryFinish(finished?'completed':'interrupted');
+  stopAiDictation();
+  modal.classList.remove('show');
+  $('#aiContextStrip').classList.add('hidden');
+  aiSession++;
+  aiState.seq++;
+  try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(_){}
+  if(!returnToReview||!finished) return;
+  try{ praiseReview(); }catch(_){}
+  if(ui.flash&&ui.flash.idx>=ui.flash.ids.length) buildReview('due');
+  renderFlash();
+}
 

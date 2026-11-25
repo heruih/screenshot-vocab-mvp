@@ -56,7 +56,28 @@ aiRenderReview=function(d,attempt){
     const target=aiState.currentTargetWord||aiState.term,w=state.words.find(x=>x.id===target||x.term===target),you=aiState.lines.filter(l=>l.who==='YOU'),last=aiState.turnIndex>=you.length-1;
     el.innerHTML='<p class="a-note">本回合目标词：<b>'+esc(w?w.term:target)+'</b>。确认这一句是否算独立用出。</p><div class="a-actions"><button class="btn" id="aTurnNeedsWork">还要再练</button><button class="btn primary" id="aTurnUsed">记为已用出</button></div>';
     $('#aiScene').append(el);
-    const finish=result=>{if(w)aRecord(w,result,attempt,'dialogue-turn');if(typeof aiDialogueHistoryTurn==='function')aiDialogueHistoryTurn({wordId:target,result,attempt,promptCn:aiState.attemptPromptCn||'',score:Number(d&&d.score)||0});aiState.turnResults.push({wordId:target,result,attempt});if(last){if(batchAdvanceDialogueScene())return;batchMarkActiveGroup();batchMarkActiveSegment();aiDialogueHistoryFinish('completed');toast('这一组对话完成了');closeAiModal();return;}aiState.turnIndex++;const next=you[aiState.turnIndex];aiState.currentTargetWord=next&&next.wordId||aiState.term;aiState.phase='practice';aiShowBody();aiSetChatbar('practice');aiRenderDialogue();$('#aiInput').focus();};
+    const session=aiState;
+    let confirmed=false;
+    const finish=result=>{
+      if(confirmed||aiState!==session||aiState.phase!=='review') return;
+      confirmed=true;
+      if(w) aRecord(w,result,attempt,'dialogue-turn');
+      aiDialogueHistoryTurn({wordId:target,result,attempt,promptCn:aiState.attemptPromptCn||'',score:Number(d?.score)||0});
+      aiState.turnResults.push({wordId:target,result,attempt});
+      if(last){
+        if(batchAdvanceDialogueScene()) return;
+        if(!aiReturnToReview) toast('这一组对话完成了');
+        closeAiModal(true);
+        return;
+      }
+      aiState.turnIndex++;
+      aiState.currentTargetWord=you[aiState.turnIndex]?.wordId||aiState.term;
+      aiState.phase='practice';
+      aiShowBody();
+      aiSetChatbar('practice');
+      aiRenderDialogue();
+      $('#aiInput').focus();
+    };
     $('#aTurnNeedsWork').onclick=()=>finish('forgot');$('#aTurnUsed').onclick=()=>finish('independent');
     return;
   }

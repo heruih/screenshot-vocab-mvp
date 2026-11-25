@@ -106,6 +106,7 @@ function renderFlash(){
   if(!f.ids.length||f.idx>=f.ids.length){
     const results=f.results||[];
     const cands=rankSpeakCandidates(results);
+    const excluded=new Set(f.round.filter(card=>card.speakExcluded).map(card=>card.id));
     let body;
     if(!f.graded){
       const nxt=state.words.filter(w=>!aPending(w)).sort((a,b)=>srsDue(a)-srsDue(b))[0];
@@ -116,7 +117,7 @@ function renderFlash(){
       if(cands.length){
         body+='<div class="speak-rec">'+
           '<div class="speak-rec-title">这几个词还没拿稳，建议开口练一下</div>'+
-          '<div class="speak-rec-list">'+cands.map(r=>{const ww=state.words.find(x=>x.id===r.id);return ww?'<label class="a-check speak-rec-item"><input type="checkbox" data-speak="'+esc(ww.id)+'" checked>'+esc(ww.term)+' <span class="gtag'+(r.grade===0?' forgot':' hard')+'">'+(r.grade===0?'忘了':'有点难')+'</span></label>':'';}).join('')+'</div>'+
+          '<div class="speak-rec-list">'+cands.map(r=>{const ww=state.words.find(x=>x.id===r.id);return ww?'<label class="a-check speak-rec-item"><input type="checkbox" data-speak="'+esc(ww.id)+'"'+(excluded.has(r.id)?'':' checked')+'>'+esc(ww.term)+' <span class="gtag'+(r.grade===0?' forgot':' hard')+'">'+(r.grade===0?'忘了':'有点难')+'</span></label>':'';}).join('')+'</div>'+
           '<button class="btn primary" id="rvSpeakGo">开始对话</button>'+
         '</div>';
       }else{
@@ -135,12 +136,18 @@ function renderFlash(){
     const rh=$('#rvHome'); if(rh) rh.addEventListener('click',()=>{ try{ localStorage.removeItem(REVIEW_ROUND_KEY); }catch(_){} ui.mode='today'; ui.sideOpen=false; render(); });
     const ra=$('#rvAgain'); if(ra) ra.addEventListener('click',()=>{ buildReview('due'); renderFlash(); });
     const rp=$('#rvPickSpeak'); if(rp) rp.addEventListener('click',()=>{ ui.mode='words'; ui.selMode=true; ui.sel=[]; ui.wordFilter='all'; render(); });
+    $$('[data-speak]').forEach(input=>input.addEventListener('change',()=>{
+      const card=f.round.find(item=>item.id===input.dataset.speak);
+      if(!card) return;
+      card.speakExcluded=!input.checked;
+      aStore(REVIEW_ROUND_KEY,JSON.stringify(f.round));
+    }));
     const rg=$('#rvSpeakGo'); if(rg) rg.addEventListener('click',()=>{
       const ids=$$('[data-speak]:checked').map(el=>el.dataset.speak);
       const words=ids.map(id=>state.words.find(w=>w.id===id)).filter(Boolean);
       if(!words.length){ toast('先勾选要练的词','warn'); return; }
-      aiReturnToReview=true;
       openAiPackPractice(words);
+      aiReturnToReview=$('#aiModal').classList.contains('show');
     });
     return;
   }

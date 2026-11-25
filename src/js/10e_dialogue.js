@@ -164,12 +164,18 @@ function batchStartGroup(index){const d=dialogueBatchState(),g=d.plan&&d.plan.gr
 function batchMarkActiveGroup(){if(batchActiveGroup<0)return;const d=dialogueBatchState();if(!d.completed.includes(batchActiveGroup))d.completed.push(batchActiveGroup);d.active=-1;batchSave(d);batchActiveGroup=-1;}
 function batchMarkActiveSegment(){if(!batchActiveSegment||!batchActiveSegment.length)return;const d=dialogueBatchState();const ids=batchActiveSegment.slice();d.segmentHistory=Array.isArray(d.segmentHistory)?d.segmentHistory:[];d.segmentHistory.push({ids,completedAt:Date.now()});d.recentIds=(d.recentIds||[]).filter(id=>!ids.includes(id));d.activeSegment=null;batchSave(d);batchActiveSegment=null;}
 function batchAdvanceDialogueScene(){
-  if(!aiState.multiTurn||!Array.isArray(aiState.scenes)) return false;
-  const next=(Number(aiState.sceneIndex)||0)+1;
-  if(next>=aiState.scenes.length) return false;
-  aiState.sceneIndex=next;
+  const completed=aiState.completedWordIds||(aiState.completedWordIds=new Set());
+  for(const turn of aiState.turnResults) completed.add(turn.wordId);
+  const remaining=new Set((aiState.allTermIds||aiState.termIds).filter(id=>!completed.has(id)));
+  if(!remaining.size) return false;
+  let next=aiState.scenes.find(scene=>scene.wordIds?.some(id=>remaining.has(id)));
+  if(!next){
+    // 旧对话可能只缓存了当时练过的场景，补上仍需要作答的词。
+    next=aiFallbackSceneGroups([...remaining])[0];
+    aiState.scenes.push(next);
+  }
   toast('当前场景完成，进入下一个场景');
-  startScene(aiState.scenes[next]);
+  startScene(next);
   return true;
 }
 /* 首页 AI 对话：优先用刚复习的词，不够就回退到期可练的词 */
