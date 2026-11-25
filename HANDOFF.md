@@ -1,4 +1,14 @@
-# HANDOFF（交接单）
+# 截图词库商业版交接
+
+- **源码**　`heruih/screenshot-vocab-mvp`，本地分支 `codex/review-dialogue-closure`。修复提交 `8221ec2` 基于 `workbuddy/phase1-commercial` 的 `ed8ec5c`。
+- **线上**　[商业版首页](https://heruih.github.io/screenshot-vocab-mvp/)，Pages 发布提交 `995a994`。本地候选等待 iPhone 验收与发布确认。
+- **已验证**　复习测试 21 项、权益模拟 106 项、商业单页及 Pages 构建通过。先运行 `node scripts/build.mjs --pages`，再运行 `node scripts/test-review-flow.mjs`。隔离 Chrome 用模拟回复验收实际按钮、两处刷新、难词勾选和口语收尾。
+- **下一步**　在 iPhone 候选页练一轮，挑两个难词。第一句收到反馈后点「完成」，确认回到总结且勾选还在。刷新后再进复习，确认总结仍在。重新开口并逐句确认到最后一句，确认仅此时出现鼓励和叮咚，并接到下一轮。通过后确认发布，再邀请 2–3 位试用。
+
+<details>
+<summary>历史交接（旧自用版，保留作历史参考）</summary>
+
+## 旧自用版交接单
 
 > 换 AI、换人、隔了一个月回来——先读这一页，再读 `DEVLOG.md`，再 `git log -5`。
 
@@ -82,3 +92,5 @@
 ---
 
 **填写规矩**：一页纸。只写接手的人需要知道的，不写历史故事。
+
+</details>
