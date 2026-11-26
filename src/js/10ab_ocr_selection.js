@@ -178,7 +178,7 @@ function ocrDrawImageView(){
   view.y=height<=vh?(vh-height)/2:ocrViewClamp(view.y,vh-height,0);
   Object.assign(image.style,{left:view.x+'px',top:view.y+'px',width:width+'px',height:height+'px'});
   const box=$('#ocrRegionBox'),frame=view.frame;
-  box.hidden=!view.framing||!frame;
+  box.hidden=!frame;
   if(frame) Object.assign(box.style,{
     left:(view.x+frame.x*width)+'px',top:(view.y+frame.y*height)+'px',
     width:(frame.width*width)+'px',height:(frame.height*height)+'px'
@@ -202,20 +202,7 @@ function ocrZoomImageView(factor,from,to=from){
   view.x=to.x-localX*scale;view.y=to.y-localY*scale;view.scale=scale;
   ocrDrawImageView();
 }
-function ocrViewerCenter(){
-  const viewport=$('#ocrImageViewport');
-  return {x:viewport.clientWidth/2,y:viewport.clientHeight/2};
-}
-function ocrSetFrameMode(framing){
-  const view=ocrImageView;
-  view.framing=framing;
-  $('#ocrImageViewport').classList.toggle('is-framing',framing);
-  $('#ocrViewerMode').textContent=framing?'移动图片':'框选区域';
-  $('#ocrRegionApply').hidden=$('#ocrRegionSave').hidden=!framing;
-  $('#ocrViewerHint').textContent=framing?'拖出一个框。「裁切并识别」会用框内图片保存所选表达。':'双指放大或用＋／−，放大后拖动看细节。';
-  ocrDrawImageView();
-}
-function ocrOpenImageView(area,framing){
+function ocrOpenImageView(area){
   const source=ocrPreviewSource(area),dialog=$('#ocrImageViewer'),image=$('#ocrViewerImage');
   if(!source||dialog.open) return;
   const blobUrl=source instanceof Blob?URL.createObjectURL(source):null;
@@ -224,7 +211,10 @@ function ocrOpenImageView(area,framing){
   image.onerror=()=>{ $('#ocrViewerHint').textContent='这张图片无法打开，可以返回后重新选择。'; };
   dialog.showModal();
   $('#ocrRegionApply').disabled=$('#ocrRegionSave').disabled=true;
-  ocrSetFrameMode(framing);
+  $('#ocrRegionBox').hidden=true;
+  $('#ocrViewerHint').textContent=matchMedia('(pointer: fine)').matches
+    ? '拖动框选，滚轮缩放，按住 Shift 拖动可移动图片。'
+    : '双指缩放或移动，单指拖动框选。';
   image.src=blobUrl||source;
 }
 function ocrCropPixels(image,frame){
@@ -274,10 +264,12 @@ function ocrBindImageGestures(){
     viewport.setPointerCapture(event.pointerId);
     const point=ocrViewportPoint(event);
     view.pointers.set(event.pointerId,point);
-    if(view.pointers.size===1&&view.framing){
+    if(view.pointers.size===1){
       view.previousFrame=view.frame;
-      view.start=ocrImagePoint(view,point);
-    }else if(view.pointers.size===2&&view.start){
+      view.panWithMouse=event.pointerType==='mouse'&&event.shiftKey;
+      if(!view.panWithMouse) view.start=ocrImagePoint(view,point);
+    }else if(!view.multiTouch){
+      view.multiTouch=true;
       view.frame=view.previousFrame;
       view.start=null;
       ocrDrawImageView();
@@ -288,8 +280,10 @@ function ocrBindImageGestures(){
     if(!view?.pointers.has(event.pointerId)) return;
     const old=view.pointers.get(event.pointerId),point=ocrViewportPoint(event);
     view.pointers.set(event.pointerId,point);
-    if(view.pointers.size>=2){
-      const other=Array.from(view.pointers).find(([id])=>id!==event.pointerId)[1];
+    if(view.multiTouch){
+      const pair=Array.from(view.pointers).slice(0,2);
+      if(pair.length<2||!pair.some(([id])=>id===event.pointerId)) return;
+      const other=pair.find(([id])=>id!==event.pointerId)[1];
       const distance=Math.hypot(old.x-other.x,old.y-other.y);
       if(distance>0) ocrZoomImageView(Math.hypot(point.x-other.x,point.y-other.y)/distance,
         {x:(old.x+other.x)/2,y:(old.y+other.y)/2},{x:(point.x+other.x)/2,y:(point.y+other.y)/2});
@@ -299,16 +293,18 @@ function ocrBindImageGestures(){
       const end=ocrImagePoint(view,point);
       view.frame={x:Math.min(view.start.x,end.x),y:Math.min(view.start.y,end.y),
         width:Math.abs(view.start.x-end.x),height:Math.abs(view.start.y-end.y)};
-    }else{
+    }else if(view.panWithMouse){
       view.x+=point.x-old.x;view.y+=point.y-old.y;
     }
     ocrDrawImageView();
   });
   const endGesture=event=>{
     const view=ocrImageView;
-    if(!view?.pointers.delete(event.pointerId)) return;
-    if(event.type==='pointercancel'&&view.start){view.frame=view.previousFrame;ocrDrawImageView();}
+    if(!view?.pointers.delete(event.pointerId)||view.pointers.size) return;
+    if(event.type!=='pointerup'&&view.start){view.frame=view.previousFrame;ocrDrawImageView();}
     view.start=null;
+    view.multiTouch=false;
+    view.panWithMouse=false;
   };
   viewport.addEventListener('pointerup',endGesture);
   viewport.addEventListener('pointercancel',endGesture);
@@ -324,9 +320,6 @@ function ocrBindSelectionUi(){
   ocrBindImageGestures();
   window.addEventListener('resize',ocrFitImageView);
   $('#ocrViewerClose').onclick=()=>dialog.close();
-  $('#ocrZoomOut').onclick=()=>ocrZoomImageView(1/1.5,ocrViewerCenter());
-  $('#ocrZoomIn').onclick=()=>ocrZoomImageView(1.5,ocrViewerCenter());
-  $('#ocrViewerMode').onclick=()=>ocrSetFrameMode(!ocrImageView.framing);
   $('#ocrRegionApply').onclick=()=>ocrUseImageFrame(false);
   $('#ocrRegionSave').onclick=()=>ocrUseImageFrame(true);
   dialog.addEventListener('close',()=>{
@@ -339,7 +332,7 @@ function ocrBindSelectionUi(){
     const button=event.target.closest('[data-ocr-preview],[data-ocr-frame],[data-ocr-whole],[data-ocr-restore],[data-ocr-token],[data-ocr-add-selected],[data-ocr-unpick]');
     if(!button) return;
     const area=button.closest('[data-ocr-area]')||$('#ocrSelected');
-    if(button.matches('[data-ocr-preview],[data-ocr-frame]')) ocrOpenImageView(area,button.hasAttribute('data-ocr-frame'));
+    if(button.matches('[data-ocr-preview],[data-ocr-frame]')) ocrOpenImageView(area);
     if(button.hasAttribute('data-ocr-whole')) ocrRecognizeMatchArea(area,ocrPreviewSource(area),false);
     if(button.hasAttribute('data-ocr-restore')) ocrChangeCrop(area,null);
     if(button.hasAttribute('data-ocr-token')) ocrPickToken(area,button);

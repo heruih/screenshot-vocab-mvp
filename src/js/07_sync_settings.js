@@ -1083,7 +1083,7 @@ function bindEvents(){
   $('#btnSettings').addEventListener('click',openSettings);
   /* empower 操作演示：笔记页顶部常驻入口 */
   $('#btnEmpowerGuide').addEventListener('click',()=>$('#empowerDemoModal').classList.add('show'));
-  $('#btnInbox').addEventListener('click',ocrInboxShow);
+  $('#btnInbox').addEventListener('click',()=>ocrInboxShow());
   $('#empowerDemoClose').addEventListener('click',()=>$('#empowerDemoModal').classList.remove('show'));
   $('#empowerDemoModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove('show'); });
   $('#stClose').addEventListener('click',()=>$('#settingsModal').classList.remove('show'));
@@ -1643,7 +1643,8 @@ function bindEvents(){
 
   /* 截图：全局悬浮导入 / 释义区查看按钮 / 大图查看器（点任意处返回） */
   $('#ocrFileInput').addEventListener('change',ocrImportImage);
-  $('#ocrInboxOpen').addEventListener('click',ocrInboxShow);
+  $('#ocrInboxOpen').addEventListener('click',ocrInboxToggle);
+  $('#ocrChooseFile').addEventListener('click',()=>$('#ocrFileInput').click());
   $('#shotViewer').addEventListener('click',e=>{
     if(e.target.closest('#svPrev')||e.target.closest('#svNext')||e.target.closest('#svDel')) return;
     closeShotViewer();
@@ -1653,10 +1654,7 @@ function bindEvents(){
   $('#svDel').addEventListener('click',e=>{ e.stopPropagation(); viewerDel(); });
   $('#ocrSheet').addEventListener('click',e=>{
     if(e.target.closest('[data-ocr-close]')||e.target.id==='ocrSheet'){
-      $('#ocrSheet').classList.remove('show');
-      ocrImportVersion++;
-      ocrResetSingle();
-      $('#ocrBatch').classList.add('hidden');
+      ocrCloseSheet();
       return;
     }
     const area=e.target.closest('[data-ocr-area]');

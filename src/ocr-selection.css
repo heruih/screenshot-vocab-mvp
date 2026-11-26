@@ -53,9 +53,8 @@
   touch-action: none;
   background: #141414;
   border-radius: 10px;
-  cursor: grab;
+  cursor: crosshair;
 }
-#ocrImageViewport.is-framing { cursor: crosshair; }
 #ocrViewerImage, #ocrRegionBox { position: absolute; pointer-events: none; }
 #ocrViewerImage { max-width: none; max-height: none; user-select: none; }
 #ocrRegionBox {

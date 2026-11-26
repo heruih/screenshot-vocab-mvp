@@ -808,24 +808,27 @@
       </button>
     </div>
     <div class="wm-body">
-      <div id="ocrImgWrap" class="hidden">
-        <button class="ocr-preview-button" type="button" data-ocr-preview aria-label="放大截图"><img id="ocrImg" alt="待识别截图"></button>
-        <div class="ocr-image-tools">
-          <button class="btn primary" type="button" data-ocr-whole>识别整图</button>
-          <button class="btn" type="button" data-ocr-frame>框选区域</button>
-          <button class="mini-btn" type="button" data-ocr-restore hidden>恢复原图</button>
+      <div id="ocrImport">
+        <button class="btn primary" id="ocrChooseFile" type="button">选择截图</button>
+        <div id="ocrImgWrap" class="hidden">
+          <button class="ocr-preview-button" type="button" data-ocr-preview aria-label="放大截图"><img id="ocrImg" alt="待识别截图"></button>
+          <div class="ocr-image-tools">
+            <button class="btn primary" type="button" data-ocr-whole>识别整图</button>
+            <button class="btn" type="button" data-ocr-frame>框选区域</button>
+            <button class="mini-btn" type="button" data-ocr-restore hidden>恢复原图</button>
+          </div>
+          <small class="ocr-crop-note" data-ocr-crop-note hidden>本次保存裁后的图片</small>
         </div>
-        <small class="ocr-crop-note" data-ocr-crop-note hidden>本次保存裁后的图片</small>
-      </div>
-      <div id="ocrStatus" class="ocr-tip"></div>
-      <div id="ocrSelected" class="hidden" data-ocr-area>
-        <details class="ocr-text-edit" hidden>
-          <summary>修改识别文字</summary>
-          <textarea id="ocrEdit" data-ocr-text aria-label="识别文字" placeholder="可补写识别文字" rows="2"></textarea>
-        </details>
-        <div data-ocr-matches></div>
-        <input id="ocrTerm" data-ocr-term aria-label="手动搜词或输入表达" placeholder="搜词或输入表达，多个用逗号分隔">
-        <div class="ocr-foot"><button class="btn primary" id="ocrMount" type="button">保存表达</button></div>
+        <div id="ocrStatus" class="ocr-tip" role="status"></div>
+        <div id="ocrSelected" class="hidden" data-ocr-area>
+          <details class="ocr-text-edit" hidden>
+            <summary>修改识别文字</summary>
+            <textarea id="ocrEdit" data-ocr-text aria-label="识别文字" placeholder="可补写识别文字" rows="2"></textarea>
+          </details>
+          <div data-ocr-matches></div>
+          <input id="ocrTerm" data-ocr-term aria-label="手动搜词或输入表达" placeholder="搜词或输入表达，多个用逗号分隔">
+          <div class="ocr-foot"><button class="btn primary" id="ocrMount" type="button">保存表达</button></div>
+        </div>
       </div>
       <div id="ocrFolderPick" class="hidden">
         <div class="wm-label" style="margin-top:14px">这批截图归到哪篇笔记？</div>
@@ -842,6 +845,7 @@
         </div>
       </div>
       <div id="ocrBatch" class="hidden">
+        <div id="ocrInboxStatus" class="ocr-tip" role="status"></div>
         <div id="ocrProgress" class="ocr-progress hidden">
           <div class="ocr-progress-meta"><span id="ocrProgressText">准备中…</span><span id="ocrProgressPct">0%</span></div>
           <div class="ocr-progress-track"><div id="ocrProgressFill"></div></div>
@@ -879,11 +883,8 @@
   </div>
   <p id="ocrViewerHint" class="ocr-viewer-hint" aria-live="polite"></p>
   <footer class="ocr-image-tools">
-    <button id="ocrZoomOut" class="mini-btn" type="button" aria-label="缩小截图">−</button>
-    <button id="ocrZoomIn" class="mini-btn" type="button" aria-label="放大截图">＋</button>
-    <button id="ocrViewerMode" class="btn" type="button">框选区域</button>
-    <button id="ocrRegionApply" class="btn primary" type="button" hidden>识别框内</button>
-    <button id="ocrRegionSave" class="btn" type="button" hidden>裁切并识别</button>
+    <button id="ocrRegionApply" class="btn primary" type="button" disabled>识别框内</button>
+    <button id="ocrRegionSave" class="btn" type="button" disabled>裁切并识别</button>
   </footer>
 </dialog>
 

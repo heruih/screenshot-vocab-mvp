@@ -1,6 +1,7 @@
 let ocrShotQueue=Promise.resolve();
 let ocrMountBusy=false;
 let ocrSourceFile=null;
+let ocrBatchImporting=false;
 const ocrReadRuns=new WeakMap();
 const ocrInboxBusy=new Set();
 function ocrAttachShot(term,dataUrl){
@@ -107,8 +108,9 @@ async function ocrImportBatch(files,noteId){
   inboxFilterNoteId=noteId||null;
   const targetNote=state.notes.find(n=>n.id===noteId);
   const folderId=targetNote?targetNote.folderId:'';
-  $('#ocrSheet').classList.add('show');$('#ocrImgWrap').classList.add('hidden');$('#ocrSelected').classList.add('hidden');$('#ocrBatch').classList.remove('hidden');
-  const st=$('#ocrStatus');
+  $('#ocrSheet').classList.add('show');
+  ocrShowPanel('inbox');
+  const st=$('#ocrInboxStatus');
   /* 进度条：批量开始即显示；完成卡片先隐藏 */
   const prog=$('#ocrProgress'),doneCard=$('#ocrDoneCard'),pFill=$('#ocrProgressFill'),pText=$('#ocrProgressText'),pPct=$('#ocrProgressPct');
   if(prog)prog.classList.remove('hidden');
@@ -143,6 +145,7 @@ async function ocrImportBatch(files,noteId){
     if(ocrReady){
       if(st)st.textContent='正在识别第 '+(i+1)+' / '+files.length+' 张，已保存 '+saved+' 张…';
       try{
+        while(ocrRecognition) await ocrWait(ocrRecognition.catch(()=>{}),15000,'上一张识别超时');
         text=await recognizeOcrPhoto(files[i]);
         candidates=ocrCandidates(text);
       }catch(_){text='';}
@@ -201,7 +204,7 @@ async function ocrImportBatch(files,noteId){
       proc.__bound=true;
     }
     if(close&&!close.__bound){
-      close.addEventListener('click',()=>{ $('#ocrSheet').classList.remove('show'); });
+      close.addEventListener('click',ocrCloseSheet);
       close.__bound=true;
     }
   }
@@ -267,6 +270,8 @@ function ocrResetSingle(){
   ocrSourceFile=null;
   ocrDiscardDraft();
   $('#ocrImg').removeAttribute('src');
+  $('#ocrChooseFile').hidden=false;
+  $('#ocrStatus').textContent='';
   $('#ocrImgWrap').classList.add('hidden');
   $('#ocrSelected').classList.add('hidden');
   $('#ocrEdit').value='';
@@ -280,6 +285,13 @@ function ocrResetSingle(){
   $('#ocrImgWrap [data-ocr-restore]').hidden=true;
   $('#ocrImgWrap [data-ocr-crop-note]').hidden=true;
   $('#ocrMount').textContent='保存表达';
+}
+function ocrCloseSheet(){
+  ++ocrImportVersion;
+  $('#ocrSheet').classList.remove('show');
+  if(!$('#ocrFolderPick').classList.contains('hidden')) $('#ocrFolderCancel').click();
+  ocrResetSingle();
+  ocrShowPanel('import');
 }
 
 async function ocrRecognizeMatchArea(area,source,framed){
@@ -326,16 +338,24 @@ async function ocrImportImage(event){
   const files=Array.from(input.files||[]);
   input.value='';
   if(!files.length) return;
+  if(files.length>1&&ocrBatchImporting){
+    toast('这一批还在导入，可先处理单张截图。','warn');
+    return;
+  }
   const version=++ocrImportVersion;
   ocrResetSingle();
   if(files.length>1){
     const noteId=await pickNoteForImport();
-    if(!noteId||version!==ocrImportVersion)return;
-    await ocrImportBatch(files,noteId);
+    if(version!==ocrImportVersion)return;
+    if(!noteId){ocrShowPanel('import');return;}
+    ocrBatchImporting=true;
+    try{await ocrImportBatch(files,noteId);}
+    finally{ocrBatchImporting=false;}
     return;
   }
   const f=files[0];
-  $('#ocrBatch').classList.add('hidden');
+  ocrShowPanel('import');
+  $('#ocrChooseFile').hidden=true;
   const st=$('#ocrStatus'); if(st) st.textContent='正在读取截图…';
   $('#ocrSheet').classList.add('show');
   try{
@@ -349,7 +369,10 @@ async function ocrImportImage(event){
     if(st)st.textContent='点图查看大图，或选择识别整图／框选。';
   }catch(e){
     console.error('截图压缩失败',e);
-    if(st&&version===ocrImportVersion)st.textContent='图片读取失败，请重新选择截图。';
+    if(version===ocrImportVersion){
+      $('#ocrChooseFile').hidden=false;
+      if(st)st.textContent='图片读取失败，请重新选择截图。';
+    }
     return;
   }
 }
@@ -365,8 +388,7 @@ async function ocrMount(){
     const words=await ocrSaveMatches(targets,dataUrl,term=>originals.get(term));
     if(ocrImportVersion!==version)return;
     if(words.length!==targets.length){toast('部分词条的截图空间已满，可调整后重试','warn');return;}
-    $('#ocrSheet').classList.remove('show');
-    ocrResetSingle();
+    ocrCloseSheet();
     render();
     if(words.length===1)openWordModal(words[0].term,null,null,words[0]);
     toast(words.length===1?'截图已挂到「'+words[0].term+'」':'截图已挂到 '+words.length+' 个词条','ok');

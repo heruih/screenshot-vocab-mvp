@@ -205,18 +205,33 @@ function ocrRemoveInboxRow(row){
   if(!$('#ocrBatchList').querySelector('[data-inbox-id]'))ocrInboxRender();
   else ocrSyncBatchMatch();
 }
-function ocrInboxShow(){
-  ++ocrImportVersion;ocrResetSingle();
-  inboxFilterNoteId=null;
-  $('#ocrSheet').classList.add('show');$('#ocrImgWrap').classList.add('hidden');$('#ocrSelected').classList.add('hidden');$('#ocrBatch').classList.remove('hidden');
-  const st=$('#ocrStatus');if(st)st.textContent='逐张确认词条，或勾选几张截图一起挂到同一个词条。';ocrInboxRender();
+function ocrShowPanel(panel){
+  $('#ocrImport').classList.toggle('hidden',panel!=='import');
+  $('#ocrFolderPick').classList.toggle('hidden',panel!=='folder');
+  $('#ocrBatch').classList.toggle('hidden',panel!=='inbox');
+  const toggle=$('#ocrInboxOpen');
+  toggle.hidden=panel==='folder';
+  toggle.textContent=panel==='inbox'?'返回截图导入':'批量收件箱';
+  $('#ocrSheet .wm-body').scrollTop=0;
+}
+function ocrInboxToggle(){
+  if(ocrMountBusy)return;
+  if($('#ocrBatch').classList.contains('hidden')) ocrInboxShow();
+  else ocrShowPanel('import');
+}
+function ocrInboxShow(noteId=null){
+  if(!ocrBatchImporting){
+    inboxFilterNoteId=noteId;
+    $('#ocrInboxStatus').textContent=noteId?'这篇笔记的待处理截图，确认后挂到对应词条。':
+      '逐张确认词条，或勾选几张截图一起挂到同一个词条。';
+  }
+  $('#ocrSheet').classList.add('show');
+  ocrShowPanel('inbox');
+  ocrInboxRender();
 }
 /* 打开某篇笔记自己的收件箱（只看这篇笔记的待处理截图） */
 function ocrInboxShowNote(noteId){
-  ++ocrImportVersion;ocrResetSingle();
-  inboxFilterNoteId=noteId||null;
-  $('#ocrSheet').classList.add('show');$('#ocrImgWrap').classList.add('hidden');$('#ocrSelected').classList.add('hidden');$('#ocrBatch').classList.remove('hidden');
-  const st=$('#ocrStatus');if(st)st.textContent='这篇笔记的待处理截图：确认后挂到对应词条。';ocrInboxRender();
+  ocrInboxShow(noteId||null);
 }
 /* 更新顶栏收图箱角标：显示全部待处理截图数，永远存在（0 也显示） */
 function updateNoteInboxBar(){
@@ -243,9 +258,7 @@ function pickNoteForImport(){
       nameInput.value='';
     };
     fill();
-    $('#ocrImgWrap').classList.add('hidden');$('#ocrSelected').classList.add('hidden');$('#ocrBatch').classList.add('hidden');
-    $('#ocrStatus').textContent='';
-    $('#ocrFolderPick').classList.remove('hidden');
+    ocrShowPanel('folder');
     const startBtn=$('#ocrFolderStart'),cancelBtn=$('#ocrFolderCancel'),newBtn=$('#ocrNoteNewBtn');
     const cleanup=()=>{ $('#ocrFolderPick').classList.add('hidden'); startBtn.onclick=null;cancelBtn.onclick=null;newBtn.onclick=null; };
     newBtn.onclick=()=>{
