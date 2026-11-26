@@ -1,13 +1,13 @@
 # 截图词库商业版交接
 
-- **源码**　`heruih/screenshot-vocab-mvp`，以 GitHub `main` 为商业版接手起点。对齐提交 `018ee50` 与已发布版本的交接分支 `codex/review-dialogue-closure` 在 `a5e44c1` 的文件一致。线上复习口语修复提交为 `8221ec2`。
-- **线上**　[商业版首页](https://heruih.github.io/screenshot-vocab-mvp/)，Pages 发布提交 `7fc8f53`，前一版本 `995a994`。
-- **已验证**　Simon 确认 iPhone 候选通过。发布前复习 21 项、权益模拟 106 项、Pages 构建和 Chrome 浏览器回归通过，发布后首页和缓存脚本与本地构建 SHA-256 一致。复跑浏览器回归，先运行 `node scripts/build.mjs --pages`，再运行 `node scripts/test-review-flow.mjs`。
+- **源码**　`heruih/screenshot-vocab-mvp`，以 GitHub `main` 为商业版接手起点。正式截图功能构建源码为 `736111b`。
+- **线上**　[商业版首页](https://heruih.github.io/screenshot-vocab-mvp/)，Pages 正式截图发布 `7ad8b2d`。前一正式版为 `7fc8f53`；本次部署的直接父提交 `1d6b24e` 包含独立截图验收页。
+- **已验证**　前一轮 iPhone 验收确认截图框选和多词收录。此次手势与收件箱更新发布前通过 Chromium 触屏和真实 OCR 回归、复习 21 项、权益模拟 106 项与商业版构建，Simon 授权直接上线。复跑复习浏览器回归，先运行 `node scripts/build.mjs --pages`，再运行 `node scripts/test-review-flow.mjs`。
 - **下一步**　回访首批已收到邀请的用户，确认做到哪一步和遇到的第一个阻碍。站长后台已有账号与反馈，按时间汇总的用量页待确认。
 
-## 截图框选发布候选
+## 截图导入构建
 
-- 截图改动在 `codex/ocr-region-selection`。先用 iPhone 主屏幕模式验收单张试卷、同图不同位置的词和短语，以及批量收件箱中的逐张补框。
+- 正式版预览双指缩放和平移、单指框选，支持裁后保存和收件箱返回导入。独立的 `/ocr-preview/` 是前一轮裁切验收构建。
 - 构建新版 Pages 前，先把现有 Pages 的 `ocr-assets/` 放进 `dist/pages/`。以 `node scripts/build.mjs --product=commercial --pages` 输出 `OCR engine with whole-image and region modes ready` 为准，同时发布生成的 `ocr-assets/ocr-engine-region-v1.mjs`。干净检出如果没有 OCR 资源，普通页面仍能构建，但无法验证本地识别。
 - `_engine/src/engine.js` 保存可维护的识别范围逻辑。现有发布包的打包依赖缺失时，生成脚本用校验过的现有包生成范围版。更换基础包后应按引擎源码重建并复验。
 
