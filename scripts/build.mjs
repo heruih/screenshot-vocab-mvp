@@ -6,7 +6,8 @@ import { prepareOcrEngine } from './prepare-ocr-engine.mjs';
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const cosyVoicePreview = args.includes('--cosyvoice-preview');
-const publishPages = args.includes('--pages') || cosyVoicePreview;
+const ocrPreview = args.includes('--ocr-preview');
+const publishPages = args.includes('--pages') || cosyVoicePreview || ocrPreview;
 
 // 产品维度：默认 commercial；可选 personal
 const productArg = args.find((a) => a.startsWith('--product='));
@@ -17,9 +18,14 @@ if (!['commercial', 'personal'].includes(product)) {
 if (cosyVoicePreview && (product !== 'commercial' || args.includes('--pages'))) {
   throw new Error('--cosyvoice-preview 只用于独立的商业版测试构建');
 }
+if (ocrPreview && (product !== 'commercial' || args.includes('--pages') || cosyVoicePreview)) {
+  throw new Error('--ocr-preview 只用于独立的商业版测试构建');
+}
 
 const source = path.join(project, 'src');
-const output = path.join(project, 'dist', cosyVoicePreview ? 'cosyvoice-preview' : publishPages ? 'pages' : '');
+const dist = path.join(project, 'dist');
+const output = path.join(dist, ocrPreview ? 'ocr-preview' : cosyVoicePreview ? 'cosyvoice-preview' : publishPages ? 'pages' : '');
+const title = ocrPreview ? '截图验收版' : '英语学习笔记';
 const read = (file) => fs.readFile(path.join(source, file), 'utf8');
 
 const template = await read('index.html');
@@ -73,7 +79,7 @@ function buildPagesScript(sourceScript) {
   lines.splice(offlineLine - 1, 4, 'const OFFLINE_FILE_MODE=true;', 'if(OFFLINE_FILE_MODE){');
   return lines.join('\n')
     .replace(/  const f=\{id:'f_welcome'[\s\S]*?  return \{folders:/, '  return {folders:')
-    .replace("document.title='英语学习笔记 · 离线文件版'", "document.title='英语学习笔记 · 在线版'")
+    .replace("document.title='英语学习笔记 · 离线文件版'", `document.title='${title} · 在线版'`)
     .replace('<b>离线文件：</b>表达、笔记、复习和编辑保存在当前手机浏览器。', '<b>在线网页：</b>表达、笔记、复习和编辑保存在当前浏览器。AI 功能可联网请求。')
     .replace("bSetStatus('离线本机 · 已保存');", "bSetStatus('本机已保存');");
 }
@@ -82,10 +88,16 @@ function buildPagesScript(sourceScript) {
 const config = await read(path.join('products', `${product}.config.js`));
 const bodyScript = publishPages ? buildPagesScript(script) : script;
 const previewConfig = cosyVoicePreview ? '\nself.APP_CONFIG = Object.freeze({...self.APP_CONFIG, cosyVoicePreview:true});' : '';
-const appScript = config + previewConfig + '\n' + bodyScript;
+const previewStorage = ocrPreview ? await read('ocr-preview-storage.js') : '';
+const appScript = [config, previewConfig, previewStorage, bodyScript].join('\n');
 
-const html = template.replace('__EN_STYLE__', () => style).replace('__EN_SCRIPT__', () => appScript);
+const html = template.replace('<title>英语学习笔记</title>', `<title>${title}</title>`)
+  .replace('<span>英语学习笔记</span>', `<span>${title}</span>`)
+  .replace('__EN_STYLE__', () => style).replace('__EN_SCRIPT__', () => appScript);
 await fs.mkdir(output, { recursive: true });
+if (ocrPreview) {
+  await fs.cp(path.join(dist, 'pages', 'ocr-assets'), path.join(output, 'ocr-assets'), { recursive: true });
+}
 // 商业版沿用现有文件名；个人版用独立文件名，两者在 pages 目录共用同一份 ocr-assets
 const fileBase = product === 'commercial' ? 'index' : 'personal';
 const target = path.join(output, publishPages ? `${fileBase}.html` : `英语学习笔记${product === 'commercial' ? '' : '-个人'}.html`);
@@ -93,8 +105,8 @@ const target = path.join(output, publishPages ? `${fileBase}.html` : `英语学�
 // PWA：商业版与个人版各自的 manifest（start_url 指向自己的页面），图标共享
 const manifestFile = product === 'commercial' ? 'manifest.webmanifest' : 'personal-manifest.webmanifest';
 const manifest = {
-  name: '英语学习笔记',
-  short_name: '英语笔记',
+  name: title,
+  short_name: ocrPreview ? title : '英语笔记',
   description: '截图导入单词、AI 例句、间隔复习的随身英语学习工具',
   id: `./${fileBase}.html`,
   start_url: `./${fileBase}.html`,
@@ -116,6 +128,8 @@ console.log(`built ${target} (${Buffer.byteLength(finalHtml, 'utf8')} bytes, pro
 if (publishPages) {
   if (await prepareOcrEngine(output)) {
     console.log('OCR engine with whole-image and region modes ready');
+  } else if (ocrPreview) {
+    throw new Error('截图验收版缺少 OCR 资源，请先准备 dist/pages/ocr-assets');
   }
   await fs.writeFile(path.join(output, manifestFile), JSON.stringify(manifest, null, 2), 'utf8');
   const iconsOut = path.join(output, 'icons');
@@ -143,6 +157,7 @@ if (publishPages) {
   const swTemplate = await fs.readFile(path.join(source, 'sw.js'), 'utf8');
   const cacheVersion = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
   const sw = swTemplate
+    .replace('__CACHE_PREFIX__', ocrPreview ? 'svocab-ocr-preview-' : 'svocab-')
     .replace('__CACHE_VERSION__', cacheVersion)
     .replace('__PAGE__', `${fileBase}.html`)
     .replace('__MANIFEST__', manifestFile);

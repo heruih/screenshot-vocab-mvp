@@ -1,5 +1,6 @@
 /* Service Worker · 核心资源预缓存实现 PWA 秒开/离线可用；OCR 引擎等大文件运行时缓存 */
-const CACHE_NAME='svocab-__CACHE_VERSION__';
+const CACHE_PREFIX='__CACHE_PREFIX__';
+const CACHE_NAME=CACHE_PREFIX+'__CACHE_VERSION__';
 const CORE=[
   './__PAGE__',
   './__MANIFEST__',
@@ -23,7 +24,8 @@ self.addEventListener('install',e=>{
 self.addEventListener('activate',e=>{
   e.waitUntil(
     caches.keys()
-      .then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k))))
+      .then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME&&k.startsWith(CACHE_PREFIX)&&
+        /^\d{14}$/.test(k.slice(CACHE_PREFIX.length))).map(k=>caches.delete(k))))
       .then(()=>self.clients.claim())
   );
 });
