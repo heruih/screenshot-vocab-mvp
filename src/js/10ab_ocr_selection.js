@@ -12,6 +12,7 @@ function ocrDiscardDraft(key='single'){
 }
 function ocrSelectionHtml(){
   return '<div data-ocr-picker hidden>'+
+    '<strong class="ocr-match-label" data-ocr-pick-title>从图里选词</strong>'+
     '<div class="ocr-token-list" data-ocr-tokens aria-label="可选识别文字"></div>'+
     '<div class="ocr-picker-actions"><small data-ocr-selection-hint></small>'+
     '<button class="mini-btn" type="button" data-ocr-add-selected disabled>加入已选</button></div>'+
@@ -21,13 +22,15 @@ function ocrSelectionHtml(){
 function ocrRenderTermPicker(area){
   const field=area.querySelector('[data-ocr-text]');
   if(!field) return;
+  const editor=field.closest('details');
   let picker=area.querySelector('[data-ocr-picker]');
   if(!picker){
-    field.closest('label').insertAdjacentHTML('afterend',ocrSelectionHtml());
+    editor.insertAdjacentHTML('beforebegin',ocrSelectionHtml());
     picker=area.querySelector('[data-ocr-picker]');
   }
   const draft=ocrDraftFor(area);
   const text=field.value;
+  editor.hidden=!text.trim()&&!editor.open;
   if(draft.text!==text||!picker.dataset.ready){
     draft.text=text;
     draft.anchor=draft.end=draft.inputSpan=null;
@@ -53,7 +56,11 @@ function ocrRefreshTermPicker(area){
   const picker=area.querySelector('[data-ocr-picker]');
   if(!picker) return;
   const draft=ocrDraftFor(area);
-  picker.hidden=!draft.text?.trim()&&!draft.picks.size;
+  const hasText=!!draft.text?.trim();
+  picker.hidden=!hasText&&!draft.picks.size;
+  picker.querySelector('[data-ocr-pick-title]').hidden=!hasText;
+  picker.querySelector('[data-ocr-tokens]').hidden=!hasText;
+  picker.querySelector('.ocr-picker-actions').hidden=!hasText;
   const span=ocrSelectedSpan(area);
   picker.querySelectorAll('[data-ocr-token]').forEach(button=>{
     const included=span&&Number(button.dataset.ocrToken)>=span[0]&&Number(button.dataset.ocrEnd)<=span[1];
@@ -113,8 +120,42 @@ function ocrTermOriginal(area,term){
 }
 
 function ocrPreviewSource(area){
-  if(area.id==='ocrSelected') return ocrSourceFile;
-  return ocrInboxRead().find(item=>item.id===area.dataset.inboxId)?.dataUrl;
+  return ocrDraftFor(area).crop?.source||
+    (area.id==='ocrSelected'?ocrSourceFile:ocrInboxRead().find(item=>item.id===area.dataset.inboxId)?.dataUrl);
+}
+function ocrImageControls(area){
+  return area.dataset.inboxId?area.querySelector('.ocr-inbox-preview'):$('#ocrImgWrap');
+}
+function ocrSavedImage(area,original){
+  return area?ocrDraftFor(area).crop?.dataUrl||original:original;
+}
+function ocrShowImageChoice(area,original){
+  const controls=ocrImageControls(area),cropped=!!ocrDraftFor(area).crop;
+  const image=controls.querySelector('img'),dataUrl=ocrSavedImage(area,original);
+  if(image.getAttribute('src')!==dataUrl) image.src=dataUrl;
+  controls.querySelector('[data-ocr-restore]').hidden=!cropped;
+  controls.querySelector('[data-ocr-crop-note]').hidden=!cropped;
+}
+function ocrChangeCrop(area,crop){
+  const id=area.dataset.inboxId;
+  if(id?ocrInboxBusy.has(id):ocrMountBusy) return false;
+  const original=id?ocrInboxRead().find(item=>item.id===id)?.dataUrl:ocrDataUrl;
+  if(!original) return false;
+  const draft=ocrDraftFor(area),field=area.querySelector('[data-ocr-text]');
+  const originalText=draft.crop?.originalText??field.value;
+  ocrReadRuns.delete(area);
+  draft.crop=crop?{...crop,originalText}:null;
+  draft.lastFrame=null;
+  field.closest('details').open=false;
+  field.value=crop?'':originalText;
+  ocrImageControls(area).querySelector('[data-ocr-frame]').textContent='框选区域';
+  ocrShowImageChoice(area,original);
+  ocrRenderMatchArea(area);
+  if(!crop){
+    const status=id?area.querySelector('[data-ocr-row-status]'):$('#ocrStatus');
+    status.textContent='已恢复原图，已选表达保留。';
+  }
+  return true;
 }
 function ocrViewClamp(value,min,max){ return Math.max(min,Math.min(max,value)); }
 function ocrViewportPoint(event){
@@ -142,7 +183,8 @@ function ocrDrawImageView(){
     left:(view.x+frame.x*width)+'px',top:(view.y+frame.y*height)+'px',
     width:(frame.width*width)+'px',height:(frame.height*height)+'px'
   });
-  $('#ocrRegionApply').disabled=!!view.reading||!frame||frame.width*image.naturalWidth<3||frame.height*image.naturalHeight<3;
+  const unavailable=!!view.reading||!frame||frame.width*image.naturalWidth<3||frame.height*image.naturalHeight<3;
+  $('#ocrRegionApply').disabled=$('#ocrRegionSave').disabled=unavailable;
 }
 function ocrFitImageView(){
   const view=ocrImageView,image=$('#ocrViewerImage'),viewport=$('#ocrImageViewport');
@@ -168,9 +210,9 @@ function ocrSetFrameMode(framing){
   const view=ocrImageView;
   view.framing=framing;
   $('#ocrImageViewport').classList.toggle('is-framing',framing);
-  $('#ocrViewerMode').textContent=framing?'移动图片':'框选识别';
-  $('#ocrRegionApply').hidden=!framing;
-  $('#ocrViewerHint').textContent=framing?'拖出一个框。先放大再框也可以。':'双指放大或用＋／−，放大后拖动看细节。';
+  $('#ocrViewerMode').textContent=framing?'移动图片':'框选区域';
+  $('#ocrRegionApply').hidden=$('#ocrRegionSave').hidden=!framing;
+  $('#ocrViewerHint').textContent=framing?'拖出一个框。「裁切并识别」会用框内图片保存所选表达。':'双指放大或用＋／−，放大后拖动看细节。';
   ocrDrawImageView();
 }
 function ocrOpenImageView(area,framing){
@@ -181,7 +223,7 @@ function ocrOpenImageView(area,framing){
   image.onload=ocrFitImageView;
   image.onerror=()=>{ $('#ocrViewerHint').textContent='这张图片无法打开，可以返回后重新选择。'; };
   dialog.showModal();
-  $('#ocrRegionApply').disabled=true;
+  $('#ocrRegionApply').disabled=$('#ocrRegionSave').disabled=true;
   ocrSetFrameMode(framing);
   image.src=blobUrl||source;
 }
@@ -197,18 +239,21 @@ function ocrCropPixels(image,frame){
   ctx.drawImage(image,x,y,width,height,0,0,canvas.width,canvas.height);
   return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('截图裁取失败')),'image/png'));
 }
-async function ocrUseImageFrame(){
-  const view=ocrImageView,button=$('#ocrRegionApply');
-  if(!view?.frame||button.disabled) return;
+async function ocrUseImageFrame(saveCrop){
+  const view=ocrImageView,dialog=$('#ocrImageViewer');
+  if(!view?.frame||$('#ocrRegionApply').disabled) return;
   const frame=view.frame;
   view.reading=true;
-  button.disabled=true;
+  ocrDrawImageView();
   try{
     const blob=await ocrCropPixels($('#ocrViewerImage'),frame);
-    if(ocrImageView!==view) return;
-    ocrDraftFor(view.area).lastFrame=frame;
-    $('#ocrImageViewer').close();
-    await ocrRecognizeMatchArea(view.area,blob,true);
+    if(ocrImageView!==view||!dialog.open) return;
+    if(saveCrop){
+      const dataUrl=await ocrWait(shotCompress(blob),10000,'裁后图片处理超时');
+      if(ocrImageView!==view||!dialog.open||!ocrChangeCrop(view.area,{source:blob,dataUrl})) return;
+    }else ocrDraftFor(view.area).lastFrame=frame;
+    dialog.close();
+    await ocrRecognizeMatchArea(view.area,blob,!saveCrop);
   }catch(_){
     if(ocrImageView===view){
       $('#ocrViewerHint').textContent='这次没能读取框内图像，请重新框选。';
@@ -282,7 +327,8 @@ function ocrBindSelectionUi(){
   $('#ocrZoomOut').onclick=()=>ocrZoomImageView(1/1.5,ocrViewerCenter());
   $('#ocrZoomIn').onclick=()=>ocrZoomImageView(1.5,ocrViewerCenter());
   $('#ocrViewerMode').onclick=()=>ocrSetFrameMode(!ocrImageView.framing);
-  $('#ocrRegionApply').onclick=ocrUseImageFrame;
+  $('#ocrRegionApply').onclick=()=>ocrUseImageFrame(false);
+  $('#ocrRegionSave').onclick=()=>ocrUseImageFrame(true);
   dialog.addEventListener('close',()=>{
     if(dialog.open) return;
     if(ocrImageView?.blobUrl) URL.revokeObjectURL(ocrImageView.blobUrl);
@@ -290,11 +336,12 @@ function ocrBindSelectionUi(){
     image.removeAttribute('src');
   });
   sheet.addEventListener('click',event=>{
-    const button=event.target.closest('[data-ocr-preview],[data-ocr-frame],[data-ocr-whole],[data-ocr-token],[data-ocr-add-selected],[data-ocr-unpick]');
+    const button=event.target.closest('[data-ocr-preview],[data-ocr-frame],[data-ocr-whole],[data-ocr-restore],[data-ocr-token],[data-ocr-add-selected],[data-ocr-unpick]');
     if(!button) return;
     const area=button.closest('[data-ocr-area]')||$('#ocrSelected');
     if(button.matches('[data-ocr-preview],[data-ocr-frame]')) ocrOpenImageView(area,button.hasAttribute('data-ocr-frame'));
     if(button.hasAttribute('data-ocr-whole')) ocrRecognizeMatchArea(area,ocrPreviewSource(area),false);
+    if(button.hasAttribute('data-ocr-restore')) ocrChangeCrop(area,null);
     if(button.hasAttribute('data-ocr-token')) ocrPickToken(area,button);
     if(button.hasAttribute('data-ocr-add-selected')) ocrAddSelectedTerm(area);
     if(button.hasAttribute('data-ocr-unpick')){

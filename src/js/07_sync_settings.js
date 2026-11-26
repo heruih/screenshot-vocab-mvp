@@ -1674,11 +1674,8 @@ function bindEvents(){
     if(e.target.matches('[data-inbox-pick]')){ocrSyncBatchMatch();return;}
     if(!e.target.matches('[data-ocr-text]'))return;
     const row=e.target.closest('[data-inbox-id]');
-    const item=ocrInboxRead().find(entry=>entry.id===row.dataset.inboxId);
-    if(!item||ocrInboxBusy.has(item.id))return;
-    const text=e.target.value;
-    try{await inboxPutItem({...item,text,candidates:ocrCandidates(text)});}
-    catch(_){toast('识别原句未保存，原图仍保留','warn');}
+    try{await ocrRememberInboxText(row,e.target.value);}
+    catch(_){toast('识别文字未保存，原图仍保留','warn');}
   });
   $('#ocrMount').addEventListener('click',ocrMount);
   $('#ocrBatchConfirm').addEventListener('click',ocrBatchConfirm);

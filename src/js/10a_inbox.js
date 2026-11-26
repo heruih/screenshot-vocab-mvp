@@ -49,6 +49,12 @@ async function inboxPutItem(item){
   if(!inboxUseIdb&&!aStore(SHOT_INBOX_KEY,JSON.stringify(next)))throw new Error('收件箱写入失败');
   inboxCache=next;
 }
+async function ocrRememberInboxText(row,text){
+  const id=row.dataset.inboxId;
+  if(ocrInboxBusy.has(id)||ocrDraftFor(row).crop) return;
+  const item=ocrInboxRead().find(entry=>entry.id===id);
+  if(item) await inboxPutItem({...item,text,candidates:ocrCandidates(text)});
+}
 /* 单条删除：IDB 只删这一条；LS 回退整体写 */
 async function inboxRemoveItem(id){
   if(!inboxReady)await inboxInit();
@@ -158,9 +164,12 @@ function ocrInboxRender(){
     return '<article class="ocr-inbox-item" data-inbox-id="'+esc(item.id)+'" data-ocr-area>'+
       '<div class="ocr-inbox-preview"><button class="ocr-preview-button" type="button" data-ocr-preview aria-label="放大截图">'+
       '<img src="'+esc(item.dataUrl)+'" loading="lazy" alt="待匹配截图"></button>'+
-      '<button class="mini-btn ocr-frame-row" type="button" data-ocr-frame>框选识别</button>'+
+      '<button class="mini-btn ocr-frame-row" type="button" data-ocr-frame>框选区域</button>'+
+      '<button class="mini-btn" type="button" data-ocr-restore hidden>恢复原图</button>'+
+      '<small class="ocr-crop-note" data-ocr-crop-note hidden>本次保存裁后的图片</small>'+
       '<label><input type="checkbox" data-inbox-pick> 批量选中</label></div>'+
-      '<div class="ocr-inbox-main"><label class="ocr-match-label">识别原句<textarea class="ocr-inbox-text" data-ocr-text rows="2" placeholder="可补写识别文字">'+esc(item.text||'')+'</textarea></label>'+
+      '<div class="ocr-inbox-main"><details class="ocr-text-edit" hidden><summary>修改识别文字</summary>'+
+      '<textarea class="ocr-inbox-text" data-ocr-text aria-label="识别文字" rows="2" placeholder="可补写识别文字">'+esc(item.text||'')+'</textarea></details>'+
       '<div data-ocr-row-status class="ocr-tip" role="status"></div><div data-ocr-matches></div>'+
       '<input data-ocr-term aria-label="手动搜词或输入表达" placeholder="搜词或输入表达，多个用逗号分隔">'+
       '<div class="ocr-inbox-actions"><button class="mini-btn" type="button" data-inbox-confirm>保存表达</button>'+
@@ -175,7 +184,14 @@ function ocrInboxRender(){
     gmap[key].items.push(item);
   });
   box.innerHTML=groups.map(g=>'<div class="inbox-group"><div class="inbox-group-title">'+esc(g.name)+'（<span data-inbox-count>'+g.items.length+'</span>）</div>'+g.items.map(itemHtml).join('')+'</div>').join('');
-  box.querySelectorAll('[data-ocr-area]').forEach(ocrRenderMatchArea);
+  box.querySelectorAll('[data-inbox-id]').forEach(row=>{
+    const draft=ocrDraftFor(row);
+    if(draft.crop){
+      row.querySelector('[data-ocr-text]').value=draft.text||'';
+      ocrShowImageChoice(row);
+    }
+    ocrRenderMatchArea(row);
+  });
   ocrSyncBatchMatch();
 }
 function ocrRemoveInboxRow(row){

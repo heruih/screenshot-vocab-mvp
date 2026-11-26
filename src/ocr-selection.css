@@ -16,6 +16,16 @@
 .ocr-picker-actions, .ocr-picked-list { margin: 6px 0; }
 .ocr-image-tools > button { white-space: nowrap; }
 .ocr-inbox-preview .ocr-frame-row { margin: 6px 0; }
+.ocr-crop-note { display: block; margin: 0 8px 8px; color: var(--text2); }
+.ocr-text-edit { margin: 8px 0; }
+.ocr-text-edit summary {
+  display: list-item;
+  padding: 6px 0;
+  color: var(--text2);
+  font-size: 13px;
+  cursor: pointer;
+}
+.ocr-text-edit textarea { width: 100%; }
 
 #ocrImageViewer {
   position: fixed;
