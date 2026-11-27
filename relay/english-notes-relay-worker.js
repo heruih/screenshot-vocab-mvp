@@ -271,7 +271,9 @@ async function handleTextEntitled(request, env, headers, ctx, isReview = false) 
   const account = await getSession(env, bearerToken(request));
   if (!account) return jerr(401, '请先登录', headers);
   if (account.status === 'disabled') return jerr(403, '账号已停用', headers);
-  if (account.status !== 'active') return jerr(403, '邮箱已验证，等待站方开通', headers);
+  if (account.status !== 'active' && !(isReview && account.status === 'pending')) {
+    return jerr(403, '邮箱已验证，等待站方开通', headers);
+  }
 
   const body = await readJson(request);
   const review = isReview ? await readDialogueReview(body) : null;

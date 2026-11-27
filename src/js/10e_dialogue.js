@@ -208,6 +208,7 @@ renderToday=function(){
       '</div>'+
     '</div>';
   box.innerHTML=
+    (firstOwnOffered()?'<div class="a-callout"><button class="btn primary" type="button" id="firstOwnStart">'+(firstOwnDraft&&!firstOwnDraft.review?'继续写一句':'用我的截图')+'</button></div>':'')+
     todayHero+
     '<section class="daily-quote" aria-label="每日一句"><div class="daily-quote-kicker">每日一句</div><p class="daily-quote-en">'+esc(quote.en)+'</p><p class="daily-quote-cn">'+esc(quote.cn)+'</p><p class="daily-quote-foot">'+esc(encouragement)+'</p></section>'+
     '<div class="home-quick">'+
@@ -231,6 +232,8 @@ renderToday=function(){
     else if(g==='write')openWriteModal();
     else if(g==='ai')todayAiDialogue();
   });
+  const own=$('#firstOwnStart');
+  if(own)own.onclick=()=>firstOwnDraft&&!firstOwnDraft.review?firstOwnOpen():$('#firstOwnFile').click();
   const thStart=$('#thStart');
   if(thStart)thStart.onclick=()=>{if(firstReviewStart())return;ui.mode='flash';ui.flash=null;render();};
   const thOrganize=$('#thOrganize');

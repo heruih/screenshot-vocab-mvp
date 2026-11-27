@@ -31,10 +31,10 @@ export async function testFirstShot({loadPage,evaluate,cdp}){
 
   await loadPage();
   await evaluate(()=>{
-    click('#personaSkip');
-    check(firstGuideStep==='sample','首次启动截图引导');
-    click('#ocrChooseFile');
-    check(firstGuideStep==='sample','普通选图无法绕过首次引导');
+    if($('#personaModal').classList.contains('show'))click('#personaSkip');
+    firstGuideSave({shot:'pending'});
+    firstGuideStart();
+    check(firstGuideStep==='sample','保留旧版进行中的示例引导');
     click('#firstShotExample');
   });
   await waitFor(()=>firstGuideStep==='newNote'&&$('.first-guide-caption').textContent.includes('起个名字'));
@@ -165,5 +165,5 @@ export async function testFirstShot({loadPage,evaluate,cdp}){
     const note=state.notes.find(n=>n.id===noteId);
     check((note.content.match(/data-shot-line/g)||[]).length===1,'同一原句不重复写入');
   });
-  console.log('截图和笔记硬引导通过：顺序锁定、手动框选、弹出词卡、标亮、两处点击、保存返回及刷新续接。');
+  console.log('旧版示例截图和笔记引导续接通过：顺序锁定、手动框选、弹出词卡、标亮、两处点击、保存返回及刷新续接。');
 }

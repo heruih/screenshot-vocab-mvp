@@ -75,3 +75,5 @@
 
 - 构建商业版 Pages 后运行 `node scripts/test-review-flow.mjs --first-review`（桌面）和 `node scripts/test-review-flow.mjs --first-review --mobile`（模拟触屏）。覆盖示例词排除、4／5 个可练表达的触发时机、刷新续接、0／1／多个难词、模拟批改失败重试、收到反馈后返回首轮并结束。
 - iPhone Safari 走两条首次引导，验证输入标题后箭头只指向「新建」、能拖动画框、能在正文长按选词。再收够 5 个自己的表达，完成首次翻卡、选词和 AI 对话，确认收到反馈后可回首页或继续复习。
+
+- 新商业版首次体验运行 `node scripts/test-review-flow.mjs --first-own` 及 `--first-own --mobile`。用自己的截图框选、选词、归入笔记并写一句，点「AI 点评」才要求验证邮箱。取消或刷新保留草稿，验证成功继续批改，同一句重试复用批改编号。浏览器回归隔离 OCR、邮箱和 AI 接口。实际 iPhone 工作流应能看到点评和当天余 9 句。

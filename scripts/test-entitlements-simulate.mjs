@@ -153,7 +153,15 @@ setBeijing(2026, 11, 20, 10);
   const token = await login(env, 'a1@example.com'); // 只登录不开通
   const t = await call(env, 'POST', '/v1/chat/completions', textBody(), auth(token));
   check('未开通 DeepSeek 返回 403', t.status === 403, 'got ' + t.status);
-  check('未开通账号也不能调用新批改入口', (await review(env, token)).status === 403);
+  const firstReview = await review(env, token);
+  const verifiedStatus = await call(env, 'POST', '/v1/me/status', {}, auth(token));
+  check('邮箱验证即开放句子批改并扣一条免费额度', firstReview.status === 200 &&
+    verifiedStatus.data.entitlements.limits.text.freeLeft === 9);
+  check('未登录的批改请求仍需身份验证', (await review(env, '')).status === 401);
+  setBeijing(2026, 11, 20, 10, 2);
+  const repeatLogin = await login(env, 'a1@example.com');
+  const repeatStatus = await call(env, 'POST', '/v1/me/status', {}, auth(repeatLogin));
+  check('同邮箱重复验证不重置当日免费句数', repeatStatus.data.entitlements.limits.text.freeLeft === 9);
   const v = await call(env, 'POST', '/v1/tts/synthesize', { text: 'hello world' }, auth(token));
   check('未开通 CosyVoice 返回 403（前端回系统朗读）', v.status === 403, 'got ' + v.status);
 

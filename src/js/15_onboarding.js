@@ -68,7 +68,6 @@ function onboardingOpen(){
   if(onboardingDone())return;
   if(firstShotCommercial()){
     onboardingFinish();
-    if(!firstGuide.shot&&!state.words.length)firstGuideStart();
     return;
   }
   if(!_obEl)onboardingBuild();
@@ -93,7 +92,7 @@ const FIRST_GUIDE_SHOT_STEPS=['sample','newNote','noteCreate','preview','frame',
 let firstGuideSampleBounds=null;
 
 function firstShotCommercial(){return window.APP_CONFIG?.product==='commercial';}
-function firstGuideInProgress(){return firstShotCommercial()&&!!firstGuide.shot&&(firstGuide.note!=='done'||ui.flash?.mode==='first');}
+function firstGuideInProgress(){return firstShotCommercial()&&(firstOwnImporting||!!firstGuide.shot&&(firstGuide.note!=='done'||ui.flash?.mode==='first'));}
 function firstShotState(){
   try{return JSON.parse(localStorage.getItem(FIRST_SHOT_KEY))||{};}catch(_){return {};}
 }
@@ -140,6 +139,15 @@ async function importShotToNote(noteId,terms,dataUrl,getOriginal){
 function showImportedNote(result){if(result)openNote(result.noteId);}
 
 const FIRST_GUIDE_STEPS={
+  ownExisting:['#ocrNoteSelect','选择截图要存入的笔记。'],
+  ownNote:['#ocrNewNoteName','给笔记起个名字。'],
+  ownCreate:['#ocrNoteNewBtn','点「新建」，继续导入。'],
+  ownPreview:['#ocrImgWrap [data-ocr-frame]','点「框选区域」，也可以识别整张图。'],
+  ownFrame:['#ocrImageViewport','拖动框选含目标表达的区域。'],
+  ownApply:['#ocrRegionApply','点「识别框内」。'],
+  ownWord:['#ocrSelected [data-ocr-tokens]','选一个你想用的表达。'],
+  ownAdd:['#ocrSelected [data-ocr-add-selected]','点「加入已选」。'],
+  ownSave:['#ocrMount','保存表达，接着用它写一句。'],
   sample:['#firstShotExample','用示例截图练习一次。'],
   newNote:['#ocrNewNoteName','给练习笔记起个名字。'],
   noteCreate:['#ocrNoteNewBtn,#ocrNewNoteName','点「新建」，继续导入。'],
@@ -189,7 +197,7 @@ function firstGuideTarget(step){
   if(target&&!['type','select','frame'].includes(step))target.scrollIntoView({block:'nearest'});
 }
 function firstGuideBlock(event){
-  if(!firstGuideStep||!(event.target instanceof Element))return;
+  if(!firstGuideStep||firstGuideStep.startsWith('own')||!(event.target instanceof Element))return;
   const [allowed]=FIRST_GUIDE_STEPS[firstGuideStep];
   if(event.type==='keydown'&&event.key==='Tab'){
     const focusable=$$('button,input,select,textarea,[tabindex],[contenteditable]').filter(el=>
@@ -218,10 +226,13 @@ function firstGuideBoot(){
   try{firstGuide=JSON.parse(localStorage.getItem(FIRST_GUIDE_KEY))||{};}catch(_){}
   firstReviewState=aRead(FIRST_REVIEW_KEY,{});
   firstGuideInitSpotlight();
+  firstOwnInit();
   $('#aiInput').addEventListener('input',()=>firstReviewAiStatus('practice'));
   $('#edEmpower').textContent='做词卡';
   $('#ocrNewNoteName').addEventListener('input',event=>{
-    if(['newNote','noteCreate'].includes(firstGuideStep)){
+    if(['ownNote','ownCreate','ownExisting'].includes(firstGuideStep)){
+      firstGuideTarget(event.target.value.trim()?'ownCreate':state.notes.length?'ownExisting':'ownNote');
+    }else if(['newNote','noteCreate'].includes(firstGuideStep)){
       firstGuideTarget(event.target.value.trim()?'noteCreate':'newNote');
     }
   });
@@ -238,13 +249,13 @@ function firstGuideBoot(){
     firstGuideTarget(step);
   });
   $('#ocrImageViewer').addEventListener('close',()=>{
+    if(['ownFrame','ownApply'].includes(firstGuideStep))firstGuideTarget('ownPreview');
     if(['frame','frameApply'].includes(firstGuideStep))firstGuideTarget('preview');
   });
   setTimeout(()=>{
     if($('#personaModal').classList.contains('show'))return;
     if(firstGuide.shot==='pending')firstGuideStart(firstGuide.shotStep);
     else if(firstGuide.shot==='done'&&firstGuide.note&&firstGuide.note!=='done')firstShotNotes();
-    else if(!firstGuide.shot&&!state.words.length&&onboardingDone())firstGuideStart();
   },0);
 }
 function firstGuideStart(resume='sample'){
@@ -307,7 +318,8 @@ function firstGuidePreview(){
   firstGuideTarget('preview');
 }
 function firstGuideFrameOpened(){
-  if(firstGuideStep==='preview')firstGuideTarget('frame');
+  if(firstOwnImporting)firstGuideTarget('ownFrame');
+  else if(firstGuideStep==='preview')firstGuideTarget('frame');
 }
 function firstGuideFrameText(area,frame){
   if(!['frame','frameApply'].includes(firstGuideStep)||area.id!=='ocrSelected')return null;
@@ -323,6 +335,11 @@ function firstGuideFrameRead(area,text){
   firstGuideTarget('word');
 }
 function firstGuideOcrPicked(button){
+  if(firstOwnImporting){
+    if(button.hasAttribute('data-ocr-token'))firstGuideTarget('ownAdd');
+    if(button.hasAttribute('data-ocr-add-selected'))firstGuideTarget('ownSave');
+    return;
+  }
   if(firstGuideStep==='word'&&button.dataset.ocrToken==='3')firstGuideTarget('pick');
   if(firstGuideStep==='pick'&&button.hasAttribute('data-ocr-add-selected')&&
     ocrMatchTargets($('#ocrSelected')).includes(FIRST_SHOT_TERM))firstGuideTarget('shotSave');
@@ -461,6 +478,7 @@ function firstGuideInitSpotlight(){
   firstGuideSpotlight.innerHTML='<div class="first-guide-opening"></div><div class="first-guide-caption"><span></span><span></span></div>';
   document.body.append(firstGuideSpotlight);
   document.addEventListener('scroll',firstGuidePaint,{capture:true,passive:true});
+  document.addEventListener('transitionend',firstGuidePaint);
   window.addEventListener('resize',firstGuidePaint);
   window.visualViewport?.addEventListener('resize',firstGuidePaint);
   window.visualViewport?.addEventListener('scroll',firstGuidePaint);
@@ -471,6 +489,9 @@ function firstGuideFrameContainsLine(frame){
     frame.x+frame.width>=b.right&&frame.y+frame.height>=b.bottom;
 }
 function firstGuideFrameChanged(frame){
+  if(firstOwnImporting){
+    firstGuideTarget(frame&&!$('#ocrRegionApply').disabled?'ownApply':'ownFrame');return;
+  }
   if(!['frame','frameApply'].includes(firstGuideStep))return;
   const step=firstGuideFrameContainsLine(frame)?'frameApply':'frame';
   if(step!==firstGuideStep)firstGuideTarget(step);
@@ -596,4 +617,120 @@ function firstReviewAiClosed(){
   firstGuideTarget(null);
   if(ui.mode==='flash'&&ui.flash?.mode==='first')renderFlash();
   return true;
+}
+
+/* 首次真实截图和点评草稿可以在登录及刷新后续接。 */
+const FIRST_OWN_KEY='screenshot-vocab-own-practice-v1';
+let firstOwnDraft=null,firstOwnImporting=false,firstOwnBusy=false;
+function firstOwnOffered(){
+  return firstShotCommercial()&&((!firstGuide.shot&&!state.words.length)||!!firstOwnDraft);
+}
+function firstOwnSave(draft){
+  if(!aStore(FIRST_OWN_KEY,JSON.stringify(draft)))return false;
+  firstOwnDraft=draft;
+  return true;
+}
+function firstOwnResetImport(){
+  if(!firstOwnImporting)return;
+  firstOwnImporting=false;
+  if(firstGuideStep?.startsWith('own'))firstGuideTarget(null);
+}
+function firstOwnAttach(result,original){
+  if(!result?.word)return;
+  if(!firstGuide.shot)firstGuideSave({shot:'done',shotNoteId:result.noteId,shotStep:null});
+  firstOwnDraft={term:result.word.term,original:original||'',attempt:''};
+  firstOwnSave(firstOwnDraft);
+  render();
+  firstOwnOpen();
+}
+function firstOwnOpen(){
+  const d=firstOwnDraft;
+  if(!d)return;
+  $('#firstOwnTerm').textContent=d.term;
+  $('#firstOwnOriginal').textContent=d.original;
+  $('#firstOwnOriginal').hidden=!d.original;
+  $('#firstOwnAnswer').value=d.attempt;
+  $('#firstOwnFeedback').hidden=!d.review;
+  $('#firstOwnForm').hidden=!!d.review;
+  $('#firstOwnMessage').textContent='';
+  if(d.review){
+    $('#firstOwnStandard').textContent=d.review.standard;
+    $('#firstOwnFit').textContent=[d.review.fit,...(d.review.pitfalls||[])].filter(Boolean).join('\n');
+  }
+  $('#firstOwnModal').classList.add('show');
+}
+function firstOwnClose(){
+  if(firstOwnBusy)return;
+  $('#firstOwnModal').classList.remove('show');
+  if(firstOwnDraft?.resume)firstOwnSave({...firstOwnDraft,resume:false});
+  render();
+}
+async function firstOwnSubmit(){
+  if(!firstOwnDraft||firstOwnBusy||firstOwnDraft.review)return;
+  const msg=$('#firstOwnMessage'),attempt=$('#firstOwnAnswer').value.trim();
+  if(!attempt){msg.textContent='先用这个表达写一句自己的话。';return;}
+  const same=attempt===firstOwnDraft.attempt;
+  const requestId=same&&firstOwnDraft.requestId||
+    Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
+  const tone=same&&firstOwnDraft.tone||state.settings.tone;
+  const draft={...firstOwnDraft,attempt,requestId,tone,resume:!accountLoggedIn()};
+  if(!firstOwnSave(draft)){
+    msg.textContent='浏览器没能保存草稿，请释放空间后重试。';
+    return;
+  }
+  if(draft.resume){
+    $('#firstOwnModal').classList.remove('show');
+    openLogin();
+    return;
+  }
+  firstOwnBusy=true;
+  const button=$('#firstOwnSubmit'),field=$('#firstOwnAnswer');
+  button.disabled=field.disabled=true;
+  msg.textContent='正在批改这句话…';
+  try{
+    const [review]=await dialogueReviewFetch([{
+      target:draft.term,context:draft.original,attempt:draft.attempt
+    }],draft.requestId,draft.tone);
+    if(!review?.standard)throw new Error('没有收到完整点评，请重试。');
+    if(!firstOwnSave({...draft,review})){
+      msg.textContent='浏览器没能保存点评，请释放空间后重试。';
+      return;
+    }
+    firstOwnOpen();
+  }catch(err){
+    msg.textContent=String(err.message||'批改暂不可用，请稍后重试。');
+    if(err.status===401){
+      if(firstOwnSave({...draft,resume:true})){
+        $('#firstOwnModal').classList.remove('show');
+        openLogin();
+      }
+    }
+  }finally{
+    firstOwnBusy=false;
+    button.disabled=field.disabled=false;
+  }
+}
+function firstOwnLoginClosed(verified=false){
+  if(!firstOwnDraft?.resume)return;
+  firstOwnOpen();
+  if(verified)firstOwnSubmit();
+}
+function firstOwnInit(){
+  firstOwnDraft=aRead(FIRST_OWN_KEY,null);
+  $('#firstOwnFile').addEventListener('change',event=>ocrImportImage(event,'own'));
+  $('#firstOwnClose').onclick=firstOwnClose;
+  $('#firstOwnSubmit').onclick=firstOwnSubmit;
+  $('#firstOwnAgain').onclick=()=>{
+    const {term,original}=firstOwnDraft;
+    if(firstOwnSave({term,original,attempt:''}))firstOwnOpen();
+    else $('#firstOwnMessage').textContent='浏览器没能保存新练习，请释放空间后重试。';
+  };
+  $('#firstOwnAnswer').addEventListener('input',event=>{
+    if(!firstOwnDraft||firstOwnBusy)return;
+    if(firstOwnSave({...firstOwnDraft,attempt:event.target.value,requestId:null,resume:false}))return;
+    $('#firstOwnMessage').textContent='草稿暂时无法保存，请检查浏览器存储空间。';
+  });
+  if(firstOwnDraft?.resume&&accountLoggedIn()){
+    setTimeout(()=>firstOwnLoginClosed(true),0);
+  }
 }

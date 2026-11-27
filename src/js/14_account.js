@@ -74,7 +74,9 @@ function ensureLoginModal() {
     '</div>';
   document.body.appendChild(m);
 
-  const msg = t => { $('#almMsg').textContent = t; };
+  const msg = t => {
+    $('#almMsg').textContent = t;
+  };
   const send = $('#almSendCode'), useCode = $('#almUseCode'), verify = $('#almDoVerify'), back = $('#almBack');
   function emailFromInput() {
     const email = $('#almEmail').value.trim().toLowerCase();
@@ -130,8 +132,12 @@ function ensureLoginModal() {
       accountStatusCache = null;
       accountStatusError = '';
       accountWrite({ token: r.data.token, email: pendingEmail });
+      if(!accountLoggedIn()){
+        msg('没有保存登录状态。请检查浏览器是否允许本站存储数据，再获取新验证码。');
+        return;
+      }
       accountRenderGroup();
-      closeLogin();
+      closeLogin(true);
       accountRefresh();
       toast('登录成功');
     } finally {
@@ -150,9 +156,11 @@ function openLogin() {
   $('#almMsg').textContent = '';
   $('#accountLoginModal').classList.add('show');
 }
-function closeLogin() {
+function closeLogin(verified=false) {
   const m = $('#accountLoginModal');
-  if (m) m.classList.remove('show');
+  if (!m?.classList.contains('show')) return;
+  m.classList.remove('show');
+  firstOwnLoginClosed(verified===true);
 }
 
 /* ---------------- 设置页账号分组 ---------------- */
@@ -251,7 +259,7 @@ function accountRenderGroup() {
 }
 
 function statusLabel(status) {
-  return status === 'active' ? '已开通' : status === 'pending' ? '待开通' : '已停用';
+  return status === 'active' ? '已开通' : status === 'pending' ? '免费批改已开通' : '已停用';
 }
 
 async function accountRefresh() {

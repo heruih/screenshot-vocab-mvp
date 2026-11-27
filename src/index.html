@@ -329,6 +329,31 @@
   </div>
 </div>
 
+<input type="file" id="firstOwnFile" accept="image/*" hidden>
+<div class="modal" id="firstOwnModal" role="dialog" aria-modal="true" aria-labelledby="firstOwnTitle">
+  <div class="modal-card">
+    <div class="wm-head">
+      <strong id="firstOwnTitle">用这个表达写一句</strong>
+      <button class="modal-close" id="firstOwnClose" type="button" aria-label="关闭">×</button>
+    </div>
+    <div class="wm-body">
+      <strong id="firstOwnTerm"></strong>
+      <p class="a-note" id="firstOwnOriginal"></p>
+      <div id="firstOwnForm">
+        <label for="firstOwnAnswer">想一个你会用到它的场景，写一句英文。</label>
+        <input id="firstOwnAnswer" type="text" maxlength="1200" autocomplete="off" placeholder="写一句自己的话">
+        <button class="btn primary" id="firstOwnSubmit" type="button">AI 点评</button>
+      </div>
+      <p class="a-note" id="firstOwnMessage" role="status"></p>
+      <div id="firstOwnFeedback" hidden>
+        <strong>参考表达</strong><p id="firstOwnStandard"></p>
+        <p id="firstOwnFit"></p>
+        <button class="btn" id="firstOwnAgain" type="button">再写一句</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ============ AI 对话（造句陪练）弹窗 ============ -->
 <div id="aiModal" class="ai-page">
   <div class="modal-card ai-card">

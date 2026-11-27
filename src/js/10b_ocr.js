@@ -86,6 +86,7 @@ async function ocrConfirmInboxItems(ids,targets){
 function ocrInboxConfirm(row){
   const targets=ocrMatchTargets(row);
   if(!targets.length){toast('请先选择或输入要匹配的词条','warn');return;}
+  if(firstOwnImporting&&targets.length!==1){toast('这次先选一个表达来练。','warn');return;}
   return ocrConfirmInboxItems([row.dataset.inboxId],targets);
 }
 async function ocrBatchConfirm(){
@@ -301,6 +302,7 @@ function ocrResetSingle(){
   $('#ocrMount').textContent='保存表达';
 }
 function ocrCloseSheet(){
+  firstOwnResetImport();
   ++ocrImportVersion;
   $('#ocrSheet').classList.remove('show');
   if(!$('#ocrFolderPick').classList.contains('hidden')) $('#ocrFolderCancel').click();
@@ -339,6 +341,7 @@ async function ocrRecognizeMatchArea(area,source,framed){
     }
     edit.value=text;
     ocrRenderMatchArea(area);
+    if(firstOwnImporting&&!rowId)firstGuideTarget('ownWord');
     if(framed) ocrImageControls(area).querySelector('[data-ocr-frame]').textContent='再框一块';
     if(rowId) await ocrRememberInboxText(area,text);
     if(current()) status.textContent='';
@@ -356,10 +359,20 @@ async function ocrImportImage(event,tutorial=false){
     toast('这一批还在导入，可先处理单张截图。','warn');
     return;
   }
+  const own=tutorial==='own'||(!tutorial&&files.length===1&&!firstOwnDraft&&firstOwnOffered());
   const version=++ocrImportVersion;
   ocrResetSingle();
+  firstOwnImporting=own;
   let noteId=null;
-  if(tutorial){
+  if(own&&ui.mode==='edit'&&state.notes.some(n=>n.id===ui.note)){
+    noteId=ui.note;
+  }else if(own){
+    const picked=pickNoteForImport({created(){}});
+    firstGuideTarget(state.notes.length?'ownExisting':'ownNote');
+    noteId=await picked;
+    if(version!==ocrImportVersion)return;
+    if(!noteId){ocrCloseSheet();return;}
+  }else if(tutorial){
     noteId=await firstGuidePickNote();
     if(version!==ocrImportVersion||!noteId)return;
   }else if(firstShotCommercial()||files.length>1){
@@ -388,9 +401,11 @@ async function ocrImportImage(event,tutorial=false){
     $('#ocrImgWrap').classList.remove('hidden');
     $('#ocrSelected').classList.remove('hidden');
     if(st)st.textContent='点图查看大图，或选择识别整图／框选。';
-    if(tutorial)firstGuidePreview();
+    if(own)firstGuideTarget('ownPreview');
+    else if(tutorial)firstGuidePreview();
   }catch(e){
-    if(tutorial)throw e;
+    if(own)firstOwnResetImport();
+    else if(tutorial)throw e;
     console.error('截图压缩失败',e);
     if(version===ocrImportVersion){
       $('#ocrChooseFile').hidden=false;
@@ -404,6 +419,7 @@ async function ocrMount(){
   if(!ocrDataUrl){toast('先选一张截图','warn');return;}
   const area=$('#ocrSelected'),targets=ocrMatchTargets(area);
   if(!targets.length){toast('请先选择或输入要匹配的词条','warn');return;}
+  if(firstOwnImporting&&targets.length!==1){toast('这次先选一个表达来练。','warn');return;}
   const dataUrl=ocrSavedImage(area,ocrDataUrl),version=ocrImportVersion,button=$('#ocrMount');
   const originals=new Map(targets.map(term=>[term,ocrTermOriginal(area,term)]));
   ocrMountBusy=true;button.disabled=true;
@@ -411,7 +427,9 @@ async function ocrMount(){
     if(firstShotCommercial()){
       const result=await importShotToNote(ocrSingleNoteId,targets,dataUrl,term=>originals.get(term));
       if(ocrImportVersion!==version)return;
+      const own=firstOwnImporting;
       ocrCloseSheet();
+      if(own){firstOwnAttach(result,originals.get(result?.word.term));return;}
       firstGuideShotSaved(result?.word);
       if(targets.length===1&&result){
         render();
