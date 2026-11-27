@@ -248,7 +248,10 @@ function ensureOrigFirst(){
   const list=wmState.examples||[];
   const hit=list.some(x=>String(x.en||'').trim().toLowerCase()===os.toLowerCase());
   if(hit) return;
-  list.unshift({en:os,cn:'',sense:'原文'});
+  const ex={en:os,cn:'',sense:'原文'};
+  const guide=firstShotState();
+  if(firstShotCommercial()&&!guide.done&&guide.term&&guide.noteId===wmState.note?.id&&qmNorm(guide.term)===qmNorm(wmState.term)&&wmState.existing)list.push(ex);
+  else list.unshift(ex);
   wmState.examples=list;
 }
 /* ============ 核心搭配编辑 ============ */

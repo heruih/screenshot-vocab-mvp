@@ -810,6 +810,7 @@
     <div class="wm-body">
       <div id="ocrImport">
         <button class="btn primary" id="ocrChooseFile" type="button">选择截图</button>
+        <button class="btn" id="firstShotExample" type="button" hidden>用示例截图练习</button>
         <div id="ocrImgWrap" class="hidden">
           <button class="ocr-preview-button" type="button" data-ocr-preview aria-label="放大截图"><img id="ocrImg" alt="待识别截图"></button>
           <div class="ocr-image-tools">
@@ -831,7 +832,7 @@
         </div>
       </div>
       <div id="ocrFolderPick" class="hidden">
-        <div class="wm-label" style="margin-top:14px">这批截图归到哪篇笔记？</div>
+        <div class="wm-label" style="margin-top:14px">截图保存到哪篇笔记？</div>
         <select id="ocrNoteSelect"></select>
         <div class="wm-label" style="margin-top:12px">或新建一篇笔记</div>
         <select id="ocrNewNoteFolder"></select>

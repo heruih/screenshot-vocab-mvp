@@ -258,6 +258,8 @@ function pickNoteForImport(){
       nameInput.value='';
     };
     fill();
+    const recent=firstShotState().lastNote;
+    if(state.notes.some(n=>n.id===recent))noteSel.value=recent;
     ocrShowPanel('folder');
     const startBtn=$('#ocrFolderStart'),cancelBtn=$('#ocrFolderCancel'),newBtn=$('#ocrNoteNewBtn');
     const cleanup=()=>{ $('#ocrFolderPick').classList.add('hidden'); startBtn.onclick=null;cancelBtn.onclick=null;newBtn.onclick=null; };

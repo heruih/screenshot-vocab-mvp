@@ -192,7 +192,10 @@ function initEditorBar(){
     const {phrase,words}=editorEmpowerTarget();
     const word=words[0],range=editorTextRange,note=state.notes.find(n=>n.id===ui.note);
     $('#edClearSelection').click();
-    if(word||phrase)openWordModal(word?.term||phrase,note?{id:note.id,title:note.title}:null,range,word||null);
+    if(word||phrase){
+      openWordModal(word?.term||phrase,note?{id:note.id,title:note.title}:null,range,word||null);
+      firstShotEmpower(note,range);
+    }
   };
   $('#edSpeak').onclick=()=>{
     const {ready}=editorEmpowerTarget();

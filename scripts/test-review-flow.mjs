@@ -95,6 +95,10 @@ try{
     });
   }
 
+  if(process.argv.includes('--first-shot')){
+    const {testFirstShot}=await import('./test-first-shot.mjs');
+    await testFirstShot({loadPage,evaluate,cdp});
+  }else{
   await loadPage();
   await evaluate(()=>{
     const now=Date.now();
@@ -194,6 +198,7 @@ try{
   });
   assert.equal(passed,true);
   console.log('浏览器回归通过：两处原生刷新、勾选恢复、四种中断、跨场景和单词完成、预取及卡片间隔。');
+  }
 }finally{
   socket?.close();
   if(browser&&browser.exitCode===null&&browser.signalCode===null){

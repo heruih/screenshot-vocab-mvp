@@ -625,6 +625,7 @@ function showWmDraftBar(d){
 }
 
 function openWordModal(term,note,range,existing,prefill,restore){
+  $('#firstShotCardHint')?.remove();
   if(!restore) wmDraft=null;
   wmState={
     term:String(term||'').trim(),note:note||null,range:range||null,existing:existing||null,
@@ -914,6 +915,13 @@ function toggleWmTag(name){
   scheduleWmDraft(200);
 }
 function saveWord(){
+  if(wmState.firstShot){
+    const guide=firstShotState();
+    if(!wmState.examples.some((ex,i)=>ex.en===guide.marked&&qmMarks(wmState.term,i,ex.en).some(m=>qmNorm(m.k)===qmNorm(guide.term)))){
+      toast('先在例句里标亮「'+guide.term+'」，再保存。可关闭词卡，稍后继续。','warn');
+      return;
+    }
+  }
   ensureOrigFirst();
   const term=wmState.term;
   const def=$('#wmDefinition').value.trim();

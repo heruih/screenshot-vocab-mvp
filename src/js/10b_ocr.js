@@ -1,6 +1,7 @@
 let ocrShotQueue=Promise.resolve();
 let ocrMountBusy=false;
 let ocrSourceFile=null;
+let ocrSingleNoteId=null;
 let ocrBatchImporting=false;
 const ocrReadRuns=new WeakMap();
 const ocrInboxBusy=new Set();
@@ -47,14 +48,25 @@ async function ocrConfirmInboxItems(ids,targets){
   const controls=items.flatMap(item=>Array.from(rows.get(item.id)?.querySelectorAll('button,input,textarea')||[]));
   items.forEach(item=>ocrInboxBusy.add(item.id));
   controls.forEach(control=>control.disabled=true);
-  let completed=0;
+  let completed=0,lastResult=null;
   try{
     for(const item of items){
       try{
         const row=rows.get(item.id);
         const dataUrl=ocrSavedImage(row,item.dataUrl);
-        const words=await ocrSaveMatches(targets,dataUrl,term=>row?ocrTermOriginal(row,term):item.text||'');
-        if(words.length!==targets.length)continue;
+        const original=term=>row?ocrTermOriginal(row,term):item.text||'';
+        if(firstShotCommercial()){
+          let nid=item.noteId;
+          if(!state.notes.some(note=>note.id===nid)){
+            nid=await pickNoteForImport();
+            ocrShowPanel('inbox');
+            if(!nid)break;
+          }
+          lastResult=await importShotToNote(nid,targets,dataUrl,original);
+        }else{
+          const words=await ocrSaveMatches(targets,dataUrl,original);
+          if(words.length!==targets.length)continue;
+        }
         await inboxRemoveItem(item.id);
         ocrDiscardDraft(item.id);
         ocrRemoveInboxRow(row);
@@ -63,6 +75,7 @@ async function ocrConfirmInboxItems(ids,targets){
     }
     render();
     const remaining=items.length-completed;
+    if(!remaining&&lastResult){ocrCloseSheet();showImportedNote(lastResult);return;}
     if(remaining)toast('已完成 '+completed+' 张，另有 '+remaining+' 张留在收件箱，可重试','warn');
     else toast(items.length===1?'已挂到 '+targets.length+' 个词条':'已将 '+completed+' 张截图挂到「'+targets[0]+'」','ok');
   }finally{
@@ -268,6 +281,7 @@ function recognitionUrlFor(file){
 function ocrResetSingle(){
   ocrDataUrl='';
   ocrSourceFile=null;
+  ocrSingleNoteId=null;
   ocrDiscardDraft();
   $('#ocrImg').removeAttribute('src');
   $('#ocrChooseFile').hidden=false;
@@ -344,10 +358,14 @@ async function ocrImportImage(event){
   }
   const version=++ocrImportVersion;
   ocrResetSingle();
-  if(files.length>1){
-    const noteId=await pickNoteForImport();
+  let noteId=null;
+  if(firstShotCommercial()||files.length>1){
+    noteId=ui.mode==='edit' && state.notes.some(n=>n.id===ui.note) ? ui.note : await pickNoteForImport();
     if(version!==ocrImportVersion)return;
     if(!noteId){ocrShowPanel('import');return;}
+  }
+  ocrSingleNoteId=noteId;
+  if(files.length>1){
     ocrBatchImporting=true;
     try{await ocrImportBatch(files,noteId);}
     finally{ocrBatchImporting=false;}
@@ -385,6 +403,13 @@ async function ocrMount(){
   const originals=new Map(targets.map(term=>[term,ocrTermOriginal(area,term)]));
   ocrMountBusy=true;button.disabled=true;
   try{
+    if(firstShotCommercial()){
+      const result=await importShotToNote(ocrSingleNoteId,targets,dataUrl,term=>originals.get(term));
+      if(ocrImportVersion!==version)return;
+      ocrCloseSheet();
+      showImportedNote(result);
+      return;
+    }
     const words=await ocrSaveMatches(targets,dataUrl,term=>originals.get(term));
     if(ocrImportVersion!==version)return;
     if(words.length!==targets.length){toast('部分词条的截图空间已满，可调整后重试','warn');return;}
@@ -392,8 +417,8 @@ async function ocrMount(){
     render();
     if(words.length===1)openWordModal(words[0].term,null,null,words[0]);
     toast(words.length===1?'截图已挂到「'+words[0].term+'」':'截图已挂到 '+words.length+' 个词条','ok');
-  }catch(_){
-    toast('截图保存失败，请重试','warn');
+  }catch(error){
+    toast(error.message||'截图保存失败，请重试','warn');
   }finally{
     ocrMountBusy=false;button.disabled=false;
   }

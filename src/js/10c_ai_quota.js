@@ -371,8 +371,9 @@ openWordModal=function(term,note,range,existing,prefill,restore){
 const aOriginalSaveWord=saveWord;
 saveWord=function(){
   aOriginalSaveWord();
+  if(!wmState.saved)return;
   const w=state.words.find(x=>String(x.term||'').trim().toLowerCase()===String(wmState.term||'').trim().toLowerCase());
-  if(w){ aPut(w.id, {stage:'learning'}); render(); }
+  if(w){ aPut(w.id, {stage:'learning'}); firstShotSaved(w); render(); }
 };
 const aOriginalWordsPane=renderWordsPane;
 renderWordsPane=function(){

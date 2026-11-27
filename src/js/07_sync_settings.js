@@ -1530,6 +1530,7 @@ function bindEvents(){
     const c=qdMarkCtx();
     if(!c){ toast('只能在例句里标亮：先点一下句子里的词','warn'); return; }
     const on=qmToggleAt(c.wkey,c.exi,c.snap,c.from,c.to,c.label);
+    if(on)firstShotMarked(c);
     try{ repaintEx(c.exi); }catch(_){ }
     qdState.sel=null;
     try{ qdSelClear(); syncQdPhraseBar(); syncQdMark(); }catch(_){ }

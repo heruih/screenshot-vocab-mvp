@@ -68,3 +68,5 @@
 
 例：
 - [ ] iPhone Safari 打开首页 → 点右上"+" → 新建笔记 → 输入文字 → 返回列表 → 应看到新笔记标题；失败表现：列表空白或标题缺失。
+
+- 首次收词：构建商业版 Pages 后运行 `node scripts/test-review-flow.mjs --first-shot`（手机触屏模拟）和 `node scripts/test-review-flow.mjs --first-shot --desktop`。真机检查相册、长按短语、复制粘贴、例句标亮及刷新续接。
