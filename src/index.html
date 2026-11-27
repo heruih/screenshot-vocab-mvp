@@ -120,12 +120,13 @@
     <div id="editorWrap">
       <div class="situ-bar" id="situBar">
         <button class="situ-main" id="btnEmpowerGuide" type="button">
-          <span class="situ-hint">长按选中英文 → 点底部 Empower 收进词库</span>
-          <span class="situ-action">看 Empower ›</span>
+          <span class="situ-hint">长按选中英文 → 点底部「做词卡」收进词库</span>
+          <span class="situ-action">看怎么做词卡 ›</span>
         </button>
       </div>
       <div id="noteTitle" class="ce" contenteditable="true" data-ph="标题"></div>
       <div id="edHint" class="ed-hint hidden">选中文字或长按词卡后，底部可以剪贴、改样式或开始练习。iPhone 上长按若先弹系统复制菜单，先点「收起键盘」再长按选中英文。</div>
+      <p class="first-guide-hint" id="firstGuideNoteHint" role="status" hidden></p>
       <div id="noteBody" class="ce" contenteditable="true" data-ph="写点什么…"></div>
     </div>
     <div id="noteOrganize" aria-hidden="true">
@@ -212,7 +213,7 @@
     <div id="dictContent"></div>
   </div>
   <div id="dictBottom">
-    <button class="btn primary" id="dictToEmpower">去 empower</button>
+    <button class="btn primary" id="dictToEmpower">去做词卡</button>
   </div>
 </div>
 
@@ -298,6 +299,7 @@
         <div class="wm-label">释义</div>
         <textarea id="wmDefinition" placeholder="AI 会自动填好中文释义，可直接改"></textarea>
       </div>
+      <p class="first-guide-hint" id="firstGuideCardHint" role="status" hidden></p>
       <div class="wm-tabs" id="wmTabs" role="tablist">
         <button class="wm-tab on" type="button" data-wmtab="examples">例句</button>
         <button class="wm-tab" type="button" data-wmtab="colls">核心搭配</button>
@@ -808,6 +810,7 @@
       </button>
     </div>
     <div class="wm-body">
+      <p class="first-guide-hint" id="firstGuideShotHint" role="status" hidden></p>
       <div id="ocrImport">
         <button class="btn primary" id="ocrChooseFile" type="button">选择截图</button>
         <button class="btn" id="firstShotExample" type="button" hidden>用示例截图练习</button>
@@ -882,6 +885,7 @@
     <img id="ocrViewerImage" alt="待识别截图" draggable="false">
     <div id="ocrRegionBox" hidden></div>
   </div>
+  <p class="first-guide-hint" id="firstGuideFrameHint" role="status" hidden></p>
   <p id="ocrViewerHint" class="ocr-viewer-hint" aria-live="polite"></p>
   <footer class="ocr-image-tools">
     <button id="ocrRegionApply" class="btn primary" type="button" disabled>识别框内</button>
@@ -920,10 +924,10 @@
     </div>
    </details>
    <details class="a-guide-fold">
-    <summary>笔记页：empower、自由整理、复制粘贴</summary>
+    <summary>笔记页：做词卡、自由整理、复制粘贴</summary>
     <div class="a-fold-body">
-     <p><b>empower：</b>在笔记里选中英文单词或句子，底部会弹出蓝色 empower 按钮。点它，AI 自动挑 2-3 句典型例句（配中文、覆盖不同义项），不用自己写；同时自动把中文释义填好，你可以直接在框里改；再补上标签，存进表达库。没存完退出有草稿，下次打开自动接上。</p>
-     <p class="a-fold-note"><b>iPhone 长按提示（已验）：</b>长按正文若先弹出系统的复制／查词菜单，点一下顶栏「收起键盘」，再在正文长按选中英文，底部就会弹出蓝色「empower」——点它选「加入词库」（已收录过的词会显示「查看词卡」）。Android 端同一操作待真机复验。</p>
+     <p><b>做词卡：</b>在笔记里选中英文单词或句子，底部会弹出蓝色「做词卡」按钮。点它，AI 自动挑 2-3 句典型例句（配中文、覆盖不同义项），不用自己写；同时自动把中文释义填好，你可以直接在框里改；再补上标签，存进表达库。没存完退出有草稿，下次打开自动接上。</p>
+     <p class="a-fold-note"><b>iPhone 长按提示（已验）：</b>长按正文若先弹出系统的复制／查词菜单，点一下顶栏「收起键盘」，再在正文长按选中英文，底部就会弹出蓝色「做词卡」——点它选「加入词库」（已收录过的词会显示「查看词卡」）。Android 端同一操作待真机复验。</p>
      <p><b>自由整理：</b>内容随时能改、能补中文，编辑器工具栏可改字体、字号、颜色。每个词自动配真实图片（抽象词先转成具体画面），配图和你的截图叠在一起，点卡片边角或左滑切换，不想要配图可以只用截图。</p>
      <p><b>复制粘贴：</b>长按词卡或划选正文，底部出现操作栏，可复制、剪切、整节移动；之后点正文放好光标，再点顶部「粘贴」。</p>
     </div>
@@ -940,12 +944,12 @@
   <div class="a-guide-tip">浏览器里的数据清缓存会消失，只有“装到主屏幕”的独立 App 能豁免；记得定期导出完整备份。</div>
  </div></div>
 </div>
-<div class="modal" id="empowerDemoModal" role="dialog" aria-modal="true" aria-label="Empower 操作演示">
+<div class="modal" id="empowerDemoModal" role="dialog" aria-modal="true" aria-label="做词卡操作演示">
  <div class="modal-card">
-  <div class="wm-head"><div><b>Empower 怎么用</b><div class="a-note">三步把英文收进词库</div></div><button class="modal-close" id="empowerDemoClose" aria-label="关闭演示">×</button></div>
+  <div class="wm-head"><div><b>怎么做词卡</b><div class="a-note">三步把英文收进词库</div></div><button class="modal-close" id="empowerDemoClose" aria-label="关闭演示">×</button></div>
   <div class="wm-body a-stack">
    <div class="emp-demo-step"><div class="emp-demo-num">1</div><div class="emp-demo-txt"><b>长按选中英文</b><p>在正文里长按一个单词或句子。iPhone 若先弹出系统菜单，先点顶栏「收起键盘」，再长按。</p></div></div>
-   <div class="emp-demo-step"><div class="emp-demo-num">2</div><div class="emp-demo-txt"><b>点底部蓝色 Empower</b><p>选中后屏幕底部会弹出蓝色「Empower」按钮，点它。</p></div></div>
+   <div class="emp-demo-step"><div class="emp-demo-num">2</div><div class="emp-demo-txt"><b>点底部蓝色「做词卡」</b><p>选中后屏幕底部会弹出蓝色「做词卡」按钮，点它。</p></div></div>
    <div class="emp-demo-step"><div class="emp-demo-num">3</div><div class="emp-demo-txt"><b>加入词库 / 查看词卡</b><p>AI 自动填好释义和三句例句，你只需确认或微调。点「加入词库」收进表达库；已收过的词显示「查看词卡」。</p></div></div>
   </div>
  </div>

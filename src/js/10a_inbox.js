@@ -242,7 +242,7 @@ function updateNoteInboxBar(){
   numEl.classList.toggle('zero',n===0);
 }
 /* 导入多文件前选择归属文件夹：返回 folderId；用户取消则 resolve(null) */
-function pickNoteForImport(){
+function pickNoteForImport(guide){
   return new Promise(resolve=>{
     $('#ocrSheet').classList.add('show');
     const noteSel=$('#ocrNoteSelect'),folderSel=$('#ocrNewNoteFolder'),nameInput=$('#ocrNewNoteName');
@@ -258,7 +258,7 @@ function pickNoteForImport(){
       nameInput.value='';
     };
     fill();
-    const recent=firstShotState().lastNote;
+    const recent=firstGuide.lastNote||firstShotState().lastNote;
     if(state.notes.some(n=>n.id===recent))noteSel.value=recent;
     ocrShowPanel('folder');
     const startBtn=$('#ocrFolderStart'),cancelBtn=$('#ocrFolderCancel'),newBtn=$('#ocrNoteNewBtn');
@@ -271,6 +271,7 @@ function pickNoteForImport(){
       const n={id:uid(),folderId:fid,title:nm,content:'',createdAt:Date.now(),updatedAt:Date.now()};
       state.notes.push(n);save();fill();noteSel.value=n.id;
       toast('已新建笔记','ok');
+      if(guide){guide.created(n.id);cleanup();resolve(n.id);}
     };
     startBtn.onclick=()=>{
       const nid=noteSel.value;

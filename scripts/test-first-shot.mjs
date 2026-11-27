@@ -1,50 +1,145 @@
-
 export async function testFirstShot({loadPage,evaluate,cdp}){
-  if(!process.argv.includes('--desktop')){
+  const desktop=process.argv.includes('--desktop');
+  if(!desktop){
     await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:2,mobile:true});
     await cdp('Emulation.setTouchEmulationEnabled',{enabled:true});
   }
-  await loadPage();
-  await evaluate(async()=>{
-    const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-    const pending=firstShotExample();
-    for(let i=0;i<50&&!$('#ocrFolderStart').onclick;i++)await wait(20);
-    $('#ocrNewNoteName').value='First note';
-    click('#ocrNoteNewBtn');click('#ocrFolderStart');await pending;
-    click('[data-ocr-token="3"]');click('[data-ocr-token="7"]');click('[data-ocr-add-selected]');
-    await ocrMount();
-    check(ui.mode==='edit'&&firstShotState().term==='put off','应定位到笔记原句里的短语');
-    check(bodyEl.textContent.includes('We put off the meeting'),'原句入笔记');
-    check(!state.words.some(w=>w.term==='put off'),'首次亲手 Empower 前不自动进入词库');
-  });
-  await loadPage();
-  await evaluate(async()=>{
-    ui.mode='today';render();
-    click('#firstShotResume');click('#edEmpower');click('#btnEmpower');
-    check(wmState.firstShot,'刷新后恢复实际 Empower 教学');
-    click('#wmSave');
-    check(!firstShotState().done&&$('#wordModal').classList.contains('show'),'尚未标亮时仍在教学');
-    const target=Array.from(document.querySelectorAll('#wmExamples .qw')).find(x=>x.textContent==='put');
-    check(target,'原文应能逐词操作');target.click();
-    click('#qdPhNext');click('#qdMark');
-    check(firstShotState().marked==='We put off the meeting until Friday.','标亮目标短语');
-    click('#wmSave');
-    check(firstShotState().done,'标亮且保存后完成');
-    const word=state.words.find(w=>w.term==='put off');
-    check(word.notes.some(n=>n.noteId===ui.note)&&!aPending(word),'词卡关联来源且可学习');
-    const image=shotsAll()[shotsKeyOf('put off')][0].dataUrl;
-    const result=await importShotToNote(ui.note,['put off','meeting'],image,()=>firstShotState().line);
-    showImportedNote(result);
-    check(state.words.filter(w=>w.term==='put off').length===1,'重复导入不增加同名词卡');
-    check(bodyEl.querySelectorAll('[data-shot-line]').length===1,'重复导入不增加相同原句');
-    check(!aPending(state.words.find(w=>w.term==='meeting')),'批量确认直接加入学习');
-    check(shotsAll()[shotsKeyOf('put off')].length===1,'相同截图只保存一次');
-  });
+  const waitFor=async(test)=>{
+    for(let i=0;i<70;i++){
+      if(await evaluate(test))return;
+      await new Promise(resolve=>setTimeout(resolve,30));
+    }
+    throw new Error('等待引导界面超时 '+test.toString());
+  };
+  const draw=async(full)=>{
+    const points=await evaluate(()=>{
+      const r=$('#ocrViewerImage').getBoundingClientRect();
+      return {x:r.x,y:r.y,w:r.width,h:r.height};
+    });
+    const from={x:points.x+points.w*0.08,y:points.y+points.h*0.36};
+    const to={x:points.x+points.w*(full?0.90:0.28),y:points.y+points.h*0.65};
+    if(desktop){
+      await cdp('Input.dispatchMouseEvent',{type:'mousePressed',...from,button:'left',buttons:1,clickCount:1});
+      await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',...to,button:'left',buttons:1});
+      await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',...to,button:'left',clickCount:1});
+    }else{
+      await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
+      await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[to]});
+      await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    }
+  };
+
   await loadPage();
   await evaluate(()=>{
-    const word=state.words.find(w=>w.term==='put off');
-    check(firstShotState().done&&word.notes.length===1,'完成状态与来源刷新后保留');
-    check(qmMarks(word.term,0,firstShotState().line).some(m=>m.k.toLowerCase()==='put off'),'例句标亮刷新后保留');
+    click('#personaSkip');
+    check(firstGuideStep==='sample','首次启动截图引导');
+    click('#ocrChooseFile');
+    check(firstGuideStep==='sample','普通选图无法绕过首次引导');
+    click('#firstShotExample');
   });
-  console.log('首次截图、笔记、短语 Empower、标亮、批量及刷新续接通过。');
+  await waitFor(()=>firstGuideStep==='newNote');
+  await evaluate(()=>{
+    click('#ocrFolderStart');
+    check(firstGuideStep==='newNote'&&!state.notes.length,'必须亲手新建笔记');
+    $('#ocrNewNoteName').value='练习笔记';
+    click('#ocrNoteNewBtn');
+  });
+  await waitFor(()=>firstGuideStep==='preview');
+
+  await loadPage();
+  await waitFor(()=>firstGuideStep==='preview');
+  await evaluate(()=>{
+    check(state.notes.length===1,'刷新后复用已建练习笔记');
+    click('#ocrImgWrap [data-ocr-whole]');
+    check(firstGuideStep==='preview','整图识别无法绕过框选');
+    click('#ocrImgWrap [data-ocr-frame]');
+  });
+  await waitFor(()=>!!ocrImageView?.scale);
+  await draw(false);
+  await evaluate(()=>{
+    click('#ocrRegionApply');
+    check(firstGuideStep==='frame'&&$('#ocrImageViewer').open,'漏框文字时留在当前步骤');
+  });
+  await draw(true);
+  await evaluate(()=>{
+    click('#ocrRegionApply');
+    check(firstGuideStep==='word','有效框选后解锁选词');
+    click('[data-ocr-token="0"]');
+    check(firstGuideStep==='word','必须点目标词');
+    click('[data-ocr-token="3"]');
+    click('[data-ocr-add-selected]');
+    check(firstGuideStep==='shotSave','点选后才可以保存截图');
+  });
+  await loadPage();
+  await waitFor(()=>firstGuideStep==='shotSave');
+  await evaluate(()=>click('#ocrMount'));
+  await waitFor(()=>firstGuide.shot==='done'&&$('#wordModal').classList.contains('show'));
+  await evaluate(()=>{
+    const word=state.words.find(w=>w.term==='notice');
+    const note=state.notes.find(n=>n.id===firstGuide.shotNoteId);
+    check(ui.mode!=='edit'&&wmState.term==='notice','保存截图直接弹出单词卡');
+    check(word.notes.some(n=>n.noteId===note.id)&&note.content.includes('We notice small changes.'),'词卡和原句随截图关联笔记');
+    check(word.examples.some(ex=>ex.en==='We notice small changes.'),'词卡保留截图原句');
+    check(shotsAll()[shotsKeyOf('notice')].length===1,'练习截图已挂到目标词');
+    click('#wmClose');
+    check(!firstGuide.note,'截图保存不启动笔记教程');
+    click('[data-tab="list"]');
+    check(firstGuideStep==='type'&&ui.note===note.id,'第一次主动点笔记才启动');
+  });
+  await cdp('Input.insertText',{text:'empowerment'});
+  await waitFor(()=>firstGuideStep==='select');
+  await evaluate(()=>{
+    check($('#edEmpower').textContent==='做词卡','使用中文按钮');
+    click('#edEmpower');
+    check(firstGuideStep==='select','必须先选中目标词才能打开做词卡');
+    // CDP 测试用 Range 替代移动设备系统文本选区，真机仍需验长按。
+    const walker=document.createTreeWalker(bodyEl,NodeFilter.SHOW_TEXT);
+    let node;
+    while((node=walker.nextNode())&&!node.data.includes('empowerment')){}
+    const start=node.data.indexOf('empowerment'),range=document.createRange();
+    range.setStart(node,start);range.setEnd(node,start+'empowerment'.length);
+    getSelection().removeAllRanges();getSelection().addRange(range);checkSelection();
+    click('#edEmpower');click('#btnEmpower');
+    check(firstGuideStep==='mark'&&wmState.term==='empowerment','打开练习词卡');
+    click('#wmClose');click('#wmSave');click('[data-wmtab="tags"]');
+    check(firstGuideStep==='mark'&&$('#wordModal').classList.contains('show'),'关闭、保存和其他标签在当前步骤无效');
+    click('#wmExamples [data-first-example-word]');click('#qdMark');
+    check(firstGuideStep==='colls'&&firstGuideHasMark(wmState),'实际标亮完整目标词');
+  });
+  await waitFor(()=>!$('#qdSheet').classList.contains('show'));
+  await evaluate(()=>{
+    click('[data-wmtab="tags"]');
+    check(firstGuideStep==='colls','不可跳过核心搭配');
+    click('[data-wmtab="colls"]');
+    check(firstGuideStep==='tags','点开核心搭配后解锁标签');
+  });
+
+  await loadPage();
+  await waitFor(()=>firstGuideStep==='tags');
+  await evaluate(()=>{
+    check(firstGuideHasMark(wmState),'刷新后恢复标亮和当前步骤');
+    click('[data-wmtab="tags"]');
+    check(firstGuideStep==='save','点开标签后解锁保存');
+    click('#wmSave');
+    check(firstGuide.note==='done'&&!firstGuideStep&&ui.mode==='edit'&&!$('#wordModal').classList.contains('show'),'保存后直接回笔记并结束引导');
+    check(state.words.filter(w=>w.term==='empowerment').length===1,'只建立一张练习词卡');
+  });
+
+  await loadPage();
+  await evaluate(async()=>{
+    check(firstGuide.note==='done'&&!firstGuideStep,'完成后刷新不再触发');
+    const word=state.words.find(w=>w.term==='empowerment');
+    check(firstGuideHasMark(word),'保存的例句标亮刷新后保留');
+    click('[data-tab="list"]');
+    check(ui.mode==='list','再次进入笔记走日常路径');
+    const noteId=firstGuide.shotNoteId;
+    const image=shotsAll()[shotsKeyOf('notice')][0].dataUrl;
+    await importShotToNote(noteId,['notice','small'],image,()=>FIRST_SHOT_SENTENCE);
+    check(state.words.filter(w=>w.term==='notice').length===1,'同名词卡不重复');
+    check(shotsAll()[shotsKeyOf('notice')].length===1,'相同截图不重复');
+    check(!aPending(state.words.find(w=>w.term==='small')),'普通批量收词仍可学习');
+    const note=state.notes.find(n=>n.id===noteId);
+    check((note.content.match(/data-shot-line/g)||[]).length===1,'同一原句不重复写入');
+  });
+  console.log('截图和笔记硬引导通过：顺序锁定、手动框选、弹出词卡、标亮、两处点击、保存返回及刷新续接。');
 }

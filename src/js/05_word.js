@@ -183,7 +183,10 @@ function initEditorBar(){
   };
   $('#edQuickUndo').onclick=histUndo;
   $('#edStyle').onclick=()=>{editorPanel=editorPanel==='style'?'':'style';syncEditorBar();};
-  $('#edEmpower').onclick=()=>{editorPanel=editorPanel==='empower'?'':'empower';syncEditorBar();};
+  $('#edEmpower').onclick=()=>{
+    editorPanel=editorPanel==='empower'?'':'empower';syncEditorBar();
+    firstGuideJoin();
+  };
   $('#btnDict').onclick=()=>{
     const {phrase,words}=editorEmpowerTarget();
     $('#edClearSelection').click();openDict(phrase||words[0]?.term||'');
@@ -193,8 +196,8 @@ function initEditorBar(){
     const word=words[0],range=editorTextRange,note=state.notes.find(n=>n.id===ui.note);
     $('#edClearSelection').click();
     if(word||phrase){
-      openWordModal(word?.term||phrase,note?{id:note.id,title:note.title}:null,range,word||null);
-      firstShotEmpower(note,range);
+      if(firstGuideStep==='join')firstGuideOpenCard(note,range);
+      else openWordModal(word?.term||phrase,note?{id:note.id,title:note.title}:null,range,word||null);
     }
   };
   $('#edSpeak').onclick=()=>{

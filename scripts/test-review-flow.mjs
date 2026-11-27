@@ -36,7 +36,7 @@ try{
   await once(server,'listening');
   const url='http://127.0.0.1:'+server.address().port+'/';
   browser=spawn(executable,[
-    '--headless=new','--disable-gpu','--no-first-run','--disable-background-networking',
+    '--headless=new','--disable-gpu','--no-first-run','--disable-background-networking','--no-proxy-server',
     '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1',
     '--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'
   ],{stdio:'ignore',windowsHide:true});

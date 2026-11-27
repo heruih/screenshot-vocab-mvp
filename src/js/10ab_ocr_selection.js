@@ -216,6 +216,7 @@ function ocrOpenImageView(area){
     ? '拖动框选，滚轮缩放，按住 Shift 拖动可移动图片。'
     : '双指缩放或移动，单指拖动框选。';
   image.src=blobUrl||source;
+  firstGuideFrameOpened();
 }
 function ocrCropPixels(image,frame){
   const x=Math.floor(frame.x*image.naturalWidth),y=Math.floor(frame.y*image.naturalHeight);
@@ -233,6 +234,11 @@ async function ocrUseImageFrame(saveCrop){
   const view=ocrImageView,dialog=$('#ocrImageViewer');
   if(!view?.frame||$('#ocrRegionApply').disabled) return;
   const frame=view.frame;
+  const example=firstGuideFrameText(view.area,frame);
+  if(example!==null){
+    if(example){dialog.close();firstGuideFrameRead(view.area,example);}
+    return;
+  }
   view.reading=true;
   ocrDrawImageView();
   try{
@@ -320,6 +326,7 @@ function ocrBindSelectionUi(){
   ocrBindImageGestures();
   window.addEventListener('resize',ocrFitImageView);
   $('#ocrViewerClose').onclick=()=>dialog.close();
+  dialog.addEventListener('cancel',e=>{if(firstGuideStep==='frame')e.preventDefault();});
   $('#ocrRegionApply').onclick=()=>ocrUseImageFrame(false);
   $('#ocrRegionSave').onclick=()=>ocrUseImageFrame(true);
   dialog.addEventListener('close',()=>{
@@ -337,6 +344,7 @@ function ocrBindSelectionUi(){
     if(button.hasAttribute('data-ocr-restore')) ocrChangeCrop(area,null);
     if(button.hasAttribute('data-ocr-token')) ocrPickToken(area,button);
     if(button.hasAttribute('data-ocr-add-selected')) ocrAddSelectedTerm(area);
+    firstGuideOcrPicked(button);
     if(button.hasAttribute('data-ocr-unpick')){
       ocrDraftFor(area).picks.delete(button.dataset.ocrUnpick);
       ocrRefreshTermPicker(area);

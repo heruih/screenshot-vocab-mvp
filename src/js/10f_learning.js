@@ -438,6 +438,7 @@ function coachShow(mode){
   el.querySelector('.coach-off').onclick=()=>{const s=coachState();s.off=true;coachSave(s);coachClose();};
 }
 function coachMaybe(){
+  if(firstGuideInProgress())return;
   const s=coachState();
   if(s.off)return;
   const mode=ui.mode;
@@ -445,7 +446,7 @@ function coachMaybe(){
   if(_coachTimer)clearTimeout(_coachTimer);
   _coachTimer=setTimeout(()=>{
     const cur=coachState();
-    if(!cur.off&&!cur.seen[mode]&&ui.mode===mode&&!document.querySelector('.modal.show,.ai-page.show'))coachShow(mode);
+    if(!firstGuideInProgress()&&!cur.off&&!cur.seen[mode]&&ui.mode===mode&&!document.querySelector('.modal.show,.ai-page.show'))coachShow(mode);
   },450);
 }
 function aInit(){

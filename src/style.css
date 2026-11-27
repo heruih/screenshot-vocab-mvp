@@ -1968,3 +1968,17 @@ body.drag-select #noteBody .en-word.sel-pick{
 #stgAi{display:none !important}
 /* 隐藏用户自配 Pixabay Key 卡片：配图已由 relay 中转自动完成（保留 DOM 与已填 Key，可回滚） */
 #stPixabayCard{display:none !important}
+
+.first-guide-hint:not([hidden]) {
+  margin: 0 0 .75rem;
+  padding: .65rem .8rem;
+  border-radius: .55rem;
+  background: var(--surface-2, var(--card));
+  border: 1px solid var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+[data-first-guide-target] {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}

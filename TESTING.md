@@ -69,4 +69,4 @@
 例：
 - [ ] iPhone Safari 打开首页 → 点右上"+" → 新建笔记 → 输入文字 → 返回列表 → 应看到新笔记标题；失败表现：列表空白或标题缺失。
 
-- 首次收词：构建商业版 Pages 后运行 `node scripts/test-review-flow.mjs --first-shot`（手机触屏模拟）和 `node scripts/test-review-flow.mjs --first-shot --desktop`。真机检查相册、长按短语、复制粘贴、例句标亮及刷新续接。
+- 商业版首次硬指引：构建 Pages 后运行 `node scripts/test-review-flow.mjs --first-shot`（模拟触屏）及 `--first-shot --desktop`。iPhone Safari 用无痕窗口打开候选版，完成示例截图框选，保存应弹出词卡。首次点「笔记」后输入并长按选中示例词，标亮例句、依次点核心搭配和标签、保存表达。回到笔记后再次打开词卡，确认标亮仍在。

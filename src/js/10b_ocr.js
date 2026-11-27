@@ -347,7 +347,7 @@ async function ocrRecognizeMatchArea(area,source,framed){
   }
 }
 
-async function ocrImportImage(event){
+async function ocrImportImage(event,tutorial=false){
   const input=event.currentTarget;
   const files=Array.from(input.files||[]);
   input.value='';
@@ -359,7 +359,10 @@ async function ocrImportImage(event){
   const version=++ocrImportVersion;
   ocrResetSingle();
   let noteId=null;
-  if(firstShotCommercial()||files.length>1){
+  if(tutorial){
+    noteId=await firstGuidePickNote();
+    if(version!==ocrImportVersion||!noteId)return;
+  }else if(firstShotCommercial()||files.length>1){
     noteId=ui.mode==='edit' && state.notes.some(n=>n.id===ui.note) ? ui.note : await pickNoteForImport();
     if(version!==ocrImportVersion)return;
     if(!noteId){ocrShowPanel('import');return;}
@@ -385,7 +388,9 @@ async function ocrImportImage(event){
     $('#ocrImgWrap').classList.remove('hidden');
     $('#ocrSelected').classList.remove('hidden');
     if(st)st.textContent='点图查看大图，或选择识别整图／框选。';
+    if(tutorial)firstGuidePreview();
   }catch(e){
+    if(tutorial)throw e;
     console.error('截图压缩失败',e);
     if(version===ocrImportVersion){
       $('#ocrChooseFile').hidden=false;
@@ -407,7 +412,11 @@ async function ocrMount(){
       const result=await importShotToNote(ocrSingleNoteId,targets,dataUrl,term=>originals.get(term));
       if(ocrImportVersion!==version)return;
       ocrCloseSheet();
-      showImportedNote(result);
+      firstGuideShotSaved();
+      if(targets.length===1&&result){
+        render();
+        openWordModal(result.word.term,null,null,result.word);
+      }else showImportedNote(result);
       return;
     }
     const words=await ocrSaveMatches(targets,dataUrl,term=>originals.get(term));

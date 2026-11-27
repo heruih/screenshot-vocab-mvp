@@ -119,7 +119,7 @@ function pwaHasData(){
 /* 半强制卡片：无一键关闭，主按钮安装 + 弱化「暂不，下次提醒」，始终不阻断功能 */
 function showInstallPrompt(){
   try{
-    if(CAP.standalone)return false;
+    if(CAP.standalone||firstGuideInProgress())return false;
     const {ios,android}=pwaPlatform();
     if(!ios&&!android)return false;
     if(readSafety().installed)return false;

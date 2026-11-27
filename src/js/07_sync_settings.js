@@ -816,7 +816,7 @@ function bindPageSwipe(){
   let x0=0,y0=0,dx=0,locked=0,on=false;
   pane.addEventListener('touchstart',e=>{
     on=false;locked=0;dx=0;
-    if(pageSwipeBlocked(e.target))return;
+    if(firstGuideStep||pageSwipeBlocked(e.target))return;
     const t=e.touches[0];
     /* 左边缘起滑交给边缘抽屉手势，页面横滑不抢 */
     if(t.clientX<=EDGE_ZONE)return;
@@ -869,7 +869,7 @@ function bindTabbarSwipe(){
   let x0=0,y0=0,dx=0,locked=0,on=false;
   bar.addEventListener('touchstart',e=>{
     on=false;locked=0;dx=0;
-    if(ui.sideOpen||ui.mode==='edit')return;
+    if(firstGuideStep||ui.sideOpen||ui.mode==='edit')return;
     if(PAGE_SWIPE_MODES.indexOf(ui.mode)<0)return;
     x0=e.touches[0].clientX;y0=e.touches[0].clientY;on=true;
   },{passive:true});
@@ -922,7 +922,7 @@ function bindEditorSwipe(){
   let x0=0,y0=0,dx=0,locked=0,on=false;
   pane.addEventListener('touchstart',e=>{
     on=false;locked=0;dx=0;
-    if(ui.mode!=='edit'||ui.sideOpen)return;
+    if(firstGuideStep||ui.mode!=='edit'||ui.sideOpen)return;
     if(document.querySelector('.modal.show,.ai-page.show,#shotViewer.show'))return;
     const tg=e.target;
     if(tg.closest&&tg.closest('[data-no-swipe],.hscroll,.carousel,.wm-shots,.shot-strip,.img-swipe,.en-word,.nh'))return;
@@ -974,7 +974,7 @@ function bindEdgeDrawerSwipe(){
     on=false;locked=0;dx=0;
     const t=e.touches[0];
     if(t.clientX>EDGE_ZONE)return;
-    if(!edgeSwipeAllowed(e.target))return;
+    if(firstGuideStep||!edgeSwipeAllowed(e.target))return;
     x0=t.clientX;y0=t.clientY;dw=bar.offsetWidth||300;on=true;
     bar.style.transition='none';
   },{passive:true});
@@ -1207,6 +1207,7 @@ function bindEvents(){
     const t=e.target.closest('[data-tab]');
     if(!t) return;
     const k=t.dataset.tab;
+    if(k==='list'&&firstShotNotes())return;
     if(k==='more'){ ui.sideOpen=true; render(); return; }
     persistEditor();
     if(k==='today'){ ui.mode='today'; ui.note=null; ui.tag=null; }
@@ -1529,8 +1530,9 @@ function bindEvents(){
   $('#qdMark').addEventListener('click',()=>{
     const c=qdMarkCtx();
     if(!c){ toast('只能在例句里标亮：先点一下句子里的词','warn'); return; }
+    if(!firstGuideCanMark(c))return;
     const on=qmToggleAt(c.wkey,c.exi,c.snap,c.from,c.to,c.label);
-    if(on)firstShotMarked(c);
+    if(on)firstShotMarked();
     try{ repaintEx(c.exi); }catch(_){ }
     qdState.sel=null;
     try{ qdSelClear(); syncQdPhraseBar(); syncQdMark(); }catch(_){ }
@@ -1565,11 +1567,8 @@ function bindEvents(){
   $('#wmTabs').addEventListener('click',e=>{
     const tab=e.target.closest('.wm-tab');
     if(!tab) return;
-    $$('#wmTabs .wm-tab').forEach(b=>b.classList.toggle('on',b===tab));
-    ['examples','colls','tags'].forEach(k=>{
-      const pane=$('#wmPane-'+k);
-      if(pane) pane.classList.toggle('hidden',k!==tab.getAttribute('data-wmtab'));
-    });
+    setWordModalTab(tab.dataset.wmtab);
+    firstGuideTabClicked(tab.dataset.wmtab);
   });
   $('#aiClose').addEventListener('click',closeAiModal);
   $('#aiClose2').addEventListener('click',aiFinishAction);
