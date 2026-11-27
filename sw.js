@@ -1,6 +1,6 @@
 /* Service Worker · 核心资源预缓存实现 PWA 秒开/离线可用；OCR 引擎等大文件运行时缓存 */
 const CACHE_PREFIX='svocab-';
-const CACHE_NAME=CACHE_PREFIX+'20261126125349';
+const CACHE_NAME=CACHE_PREFIX+'20261127071045';
 const CORE=[
   './index.html',
   './manifest.webmanifest',
