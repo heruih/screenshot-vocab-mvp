@@ -973,6 +973,7 @@ function closeWordModal(){
   /* 关弹窗顺手把键盘收起来，不然它会一直压着页面 */
   try{ const a=document.activeElement; if(a&&a.blur&&a!==document.body) a.blur(); }catch(e){}
   syncKbUI();
+  firstReviewMaybe();
 }
 function renderWmMaster(){
   const el=$('#wmMaster');
@@ -1233,7 +1234,7 @@ async function aiCreateDialogueFor(ctx){
 async function aiCreateValidatedDialogue(){
   return aiCreateDialogueFor(aiCtxFromState());
 }
-function aiShowLoading(t){ $('#aiBody').classList.add('hidden'); $('#aiLoading').classList.remove('hidden'); $('#aiLoadStatus').textContent=t; }
+function aiShowLoading(t){ $('#aiBody').classList.add('hidden'); $('#aiLoading').classList.remove('hidden'); $('#aiLoadStatus').textContent=t; firstReviewAiStatus('loading'); }
 function aiShowBody(){ $('#aiLoading').classList.add('hidden'); $('#aiBody').classList.remove('hidden'); }
 function aiSyncContext(phase){
   const strip=$('#aiContextStrip'),word=$('#aiTargetWord'),hint=$('#aiRoundHint');
@@ -1251,6 +1252,7 @@ function aiSetChatbar(phase){
   if(phase==='scenes'){ bar.classList.add('hidden'); again.textContent='换一批情景'; }
   else if(phase==='practice'){ bar.classList.remove('hidden'); input.placeholder='把上面中文提示说成英文（尽量用 '+aiState.term+'）…'; send.textContent='提交答案'; again.textContent='换个场景'; }
   else if(phase==='review'){ bar.classList.add('hidden'); again.textContent='再来一轮'; }
+  firstReviewAiStatus(phase);
 }
 function aiRenderScenes(){
   const prev=(state.aiLog||[]).filter(x=>String(x.term).toLowerCase()===String(aiState.term).toLowerCase());
@@ -1509,7 +1511,8 @@ async function submitAttempt(){
     aiSetChatbar('review');
     aiRenderReview(d,text);
     saveSpeakLog(d,text);
-    aiSchedulePrefetch(4000);
+    firstReviewFeedback();
+    if(!firstReviewDialogActive)aiSchedulePrefetch(4000);
   }).catch(err=>{
     if(session!==aiSession||term!==aiState.term||mySeq!==aiState.seq) return;
     if(!input.value) input.value=text;
@@ -1750,7 +1753,7 @@ function closeAiModal(completed=false){
   const modal=$('#aiModal');
   if(!modal.classList.contains('show')) return;
   // 返回按钮通过事件监听器调用此函数，只有显式的 true 表示练习已完成。
-  const finished=completed===true;
+  const finished=completed===true||(firstReviewDialogActive&&firstReviewState.phase==='feedback');
   const returnToReview=aiReturnToReview;
   aiReturnToReview=false;
   if(finished){
@@ -1767,6 +1770,7 @@ function closeAiModal(completed=false){
   aiSession++;
   aiState.seq++;
   try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(_){}
+  if(firstReviewAiClosed())return;
   if(!returnToReview||!finished) return;
   try{ praiseReview(); }catch(_){}
   if(ui.flash&&ui.flash.idx>=ui.flash.ids.length) buildReview('due');

@@ -412,7 +412,7 @@ async function ocrMount(){
       const result=await importShotToNote(ocrSingleNoteId,targets,dataUrl,term=>originals.get(term));
       if(ocrImportVersion!==version)return;
       ocrCloseSheet();
-      firstGuideShotSaved();
+      firstGuideShotSaved(result?.word);
       if(targets.length===1&&result){
         render();
         openWordModal(result.word.term,null,null,result.word);

@@ -37,11 +37,28 @@ export async function testFirstShot({loadPage,evaluate,cdp}){
     check(firstGuideStep==='sample','普通选图无法绕过首次引导');
     click('#firstShotExample');
   });
-  await waitFor(()=>firstGuideStep==='newNote');
+  await waitFor(()=>firstGuideStep==='newNote'&&$('.first-guide-caption').textContent.includes('起个名字'));
+  await evaluate(()=>{
+    const field=$('#ocrNewNoteName').getBoundingClientRect();
+    const opening=$('.first-guide-opening').getBoundingClientRect();
+    const button=$('#ocrNoteNewBtn').getBoundingClientRect();
+    check(opening.left<=field.left&&opening.right>=field.right&&opening.right<button.right,'输入亮区没有照亮相邻按钮');
+    check(document.elementFromPoint(field.x+field.width/2,field.y+field.height/2)===$('#ocrNewNoteName'),'遮罩不吃原生输入事件');
+  });
   await evaluate(()=>{
     click('#ocrFolderStart');
     check(firstGuideStep==='newNote'&&!state.notes.length,'必须亲手新建笔记');
+    click('#ocrNoteNewBtn');
+    check(firstGuideStep==='newNote','先填标题，不能直接新建');
     $('#ocrNewNoteName').value='练习笔记';
+    $('#ocrNewNoteName').dispatchEvent(new Event('input',{bubbles:true}));
+    check(firstGuideStep==='noteCreate','填写标题后箭头移到新建');
+  });
+  await waitFor(()=>$('.first-guide-caption').textContent.includes('继续导入'));
+  await evaluate(()=>{
+    const field=$('#ocrNewNoteName').getBoundingClientRect();
+    const opening=$('.first-guide-opening').getBoundingClientRect();
+    check(opening.left>field.left,'填完标题后遮罩只照亮新建按钮');
     click('#ocrNoteNewBtn');
   });
   await waitFor(()=>firstGuideStep==='preview');
@@ -54,7 +71,11 @@ export async function testFirstShot({loadPage,evaluate,cdp}){
     check(firstGuideStep==='preview','整图识别无法绕过框选');
     click('#ocrImgWrap [data-ocr-frame]');
   });
-  await waitFor(()=>!!ocrImageView?.scale);
+  await waitFor(()=>!!ocrImageView?.scale&&firstGuideSpotlight.parentNode===$('#ocrImageViewer'));
+  await evaluate(()=>{
+    const r=$('#ocrImageViewport').getBoundingClientRect();
+    check(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2).closest('#ocrImageViewport'),'截图亮区能直接拖动');
+  });
   await draw(false);
   await evaluate(()=>{
     click('#ocrRegionApply');
@@ -62,6 +83,7 @@ export async function testFirstShot({loadPage,evaluate,cdp}){
   });
   await draw(true);
   await evaluate(()=>{
+    check(firstGuideStep==='frameApply','框完整行才指向识别按钮');
     click('#ocrRegionApply');
     check(firstGuideStep==='word','有效框选后解锁选词');
     click('[data-ocr-token="0"]');
@@ -103,7 +125,9 @@ export async function testFirstShot({loadPage,evaluate,cdp}){
     check(firstGuideStep==='mark'&&wmState.term==='empowerment','打开练习词卡');
     click('#wmClose');click('#wmSave');click('[data-wmtab="tags"]');
     check(firstGuideStep==='mark'&&$('#wordModal').classList.contains('show'),'关闭、保存和其他标签在当前步骤无效');
-    click('#wmExamples [data-first-example-word]');click('#qdMark');
+    click('#wmExamples [data-first-example-word]');
+    check(firstGuideStep==='markApply','先点例句目标词，再指向标亮');
+    click('#qdMark');
     check(firstGuideStep==='colls'&&firstGuideHasMark(wmState),'实际标亮完整目标词');
   });
   await waitFor(()=>!$('#qdSheet').classList.contains('show'));

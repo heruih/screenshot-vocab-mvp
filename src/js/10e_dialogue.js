@@ -232,7 +232,7 @@ renderToday=function(){
     else if(g==='ai')todayAiDialogue();
   });
   const thStart=$('#thStart');
-  if(thStart)thStart.onclick=()=>{ui.mode='flash';ui.flash=null;render();};
+  if(thStart)thStart.onclick=()=>{if(firstReviewStart())return;ui.mode='flash';ui.flash=null;render();};
   const thOrganize=$('#thOrganize');
   if(thOrganize)thOrganize.onclick=()=>{ if(inboxN)ocrInboxShow(); else aOpenWords('pending'); };
   const go=g=>{if(g==='organize')aOpenWords('pending');if(g==='recall')aStartRecall();if(g==='flash'){ui.mode='flash';ui.flash=null;render();}};

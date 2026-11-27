@@ -70,3 +70,8 @@
 - [ ] iPhone Safari 打开首页 → 点右上"+" → 新建笔记 → 输入文字 → 返回列表 → 应看到新笔记标题；失败表现：列表空白或标题缺失。
 
 - 商业版首次硬指引：构建 Pages 后运行 `node scripts/test-review-flow.mjs --first-shot`（模拟触屏）及 `--first-shot --desktop`。iPhone Safari 用无痕窗口打开候选版，完成示例截图框选，保存应弹出词卡。首次点「笔记」后输入并长按选中示例词，标亮例句、依次点核心搭配和标签、保存表达。回到笔记后再次打开词卡，确认标亮仍在。
+
+## 商业版首次五词复习与 AI 对话
+
+- 构建商业版 Pages 后运行 `node scripts/test-review-flow.mjs --first-review`（桌面）和 `node scripts/test-review-flow.mjs --first-review --mobile`（模拟触屏）。覆盖示例词排除、4／5 个可练表达的触发时机、刷新续接、0／1／多个难词、模拟批改失败重试、收到反馈后返回首轮并结束。
+- iPhone Safari 走两条首次引导，验证输入标题后箭头只指向「新建」、能拖动画框、能在正文长按选词。再收够 5 个自己的表达，完成首次翻卡、选词和 AI 对话，确认收到反馈后可回首页或继续复习。

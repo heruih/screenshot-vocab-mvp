@@ -457,6 +457,7 @@ function render(){
   document.body.className=(ui.sideOpen?'side-open ':'')+'mode-'+ui.mode+keepBar;
   syncKbUI();
   syncTabbar();
+  firstReviewMaybe();
 }
 
 /* 底部导航的高亮与小红点 */

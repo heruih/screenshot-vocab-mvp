@@ -311,6 +311,7 @@ function ocrBindImageGestures(){
     view.start=null;
     view.multiTouch=false;
     view.panWithMouse=false;
+    if(event.type==='pointerup')firstGuideFrameChanged(view.frame);
   };
   viewport.addEventListener('pointerup',endGesture);
   viewport.addEventListener('pointercancel',endGesture);
@@ -326,7 +327,7 @@ function ocrBindSelectionUi(){
   ocrBindImageGestures();
   window.addEventListener('resize',ocrFitImageView);
   $('#ocrViewerClose').onclick=()=>dialog.close();
-  dialog.addEventListener('cancel',e=>{if(firstGuideStep==='frame')e.preventDefault();});
+  dialog.addEventListener('cancel',e=>{if(['frame','frameApply'].includes(firstGuideStep))e.preventDefault();});
   $('#ocrRegionApply').onclick=()=>ocrUseImageFrame(false);
   $('#ocrRegionSave').onclick=()=>ocrUseImageFrame(true);
   dialog.addEventListener('close',()=>{

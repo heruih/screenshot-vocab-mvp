@@ -79,7 +79,8 @@ function gradeCurrent(g){
   /* 记录本轮评分（写回 round 并持久化，刷新/返回后续练不丢结果、不重复计入） */
   if(f.round[f.idx]) f.round[f.idx].grade=g;
   f.results=(f.results||[]); f.results.push({id:w.id,grade:g});
-  try{ aStore(REVIEW_ROUND_KEY,JSON.stringify(f.round)); }catch(_){}
+  if(f.mode==='first')firstReviewSave({round:f.round});
+  else aStore(REVIEW_ROUND_KEY,JSON.stringify(f.round));
   const tip={0:'已记为「忘了」，10 分钟后再练',1:'记为「有点难」',2:'记为「记住了」'}[g]+' · '+SRS_LABEL[s.box];
   f.idx=nextReviewIndex(f.round,f.idx+1); f.flipped=false; f.graded++;
   renderFlash();
@@ -104,6 +105,7 @@ function renderFlash(){
     '<div class="rv-stat ok"><div class="n">'+sum.done+'</div><div class="l">已掌握</div></div>'+
   '</div>';
   if(!f.ids.length||f.idx>=f.ids.length){
+    if(f.mode==='first'){firstReviewRenderSummary(box,stats,f);return;}
     const results=f.results||[];
     const cands=rankSpeakCandidates(results);
     const excluded=new Set(f.round.filter(card=>card.speakExcluded).map(card=>card.id));
@@ -191,9 +193,9 @@ function renderFlash(){
       (srcN?'<div class="fb-src">来自笔记：'+esc(srcN.title||'')+'</div>':'')+
     '</div>';
   const dueMode=f.mode!=='free';
-  const causeMode=dueMode&&personaIsExam();   /* 考试派错题重做才显示错因标记 */
+  const causeMode=dueMode&&f.mode!=='first'&&personaIsExam();   /* 考试派错题重做才显示错因标记 */
   const selCauses=causeMode?errorCauseGet(w.id):[];
-  const reviewGuide='<div class="review-guide"><div class="review-guide-copy"><span class="review-guide-kicker">今日复习</span><b>'+(dueMode?'到期复习':'自由复习')+'</b><small>先回想，再点卡片翻开</small></div><strong>'+f.graded+' / '+total+'</strong></div>';
+  const reviewGuide='<div class="review-guide"><div class="review-guide-copy"><span class="review-guide-kicker">今日复习</span><b>'+(f.mode==='first'?'首次复习':dueMode?'到期复习':'自由复习')+'</b><small>先回想，再点卡片翻开</small></div><strong>'+f.graded+' / '+total+'</strong></div>';
   box.innerHTML='<div class="rv-wrap">'+stats+
     reviewGuide+
     '<div class="rv-bar"><i style="width:'+pct+'%"></i></div>'+
@@ -227,6 +229,7 @@ function renderFlash(){
     '</div>'+
   '</div>';
   const card=$('#flashCard');
+  if(f.mode==='first'){card.tabIndex=0;card.setAttribute('role','button');card.setAttribute('aria-label','翻开词卡');}
   card.addEventListener('click',flipFlash);
   $$('#flashCard [data-wordfollow]').forEach(b=>b.addEventListener('click',e=>{
     e.stopPropagation();
@@ -289,6 +292,7 @@ function renderFlash(){
   if(pv) pv.addEventListener('click',()=>stepFlash(-1));
   if(nx) nx.addEventListener('click',()=>stepFlash(1));
   if(ex) ex.addEventListener('click',()=>{ resumeReview(); renderFlash(); });
+  firstReviewRenderCard(f);
 }
 
 /* ============ 编辑器 ============ */

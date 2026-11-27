@@ -33,6 +33,7 @@ function checkSelection(){
     else if(document.activeElement===titleEl)editorCaret=null;
   }
   syncEditorBar();
+  if(firstGuideStep==='select')firstGuidePaint();
 }
 function clearEditorTextSelection(){
   editorTextRange=null;
@@ -743,6 +744,7 @@ function openQuickDict(raw,ctx){
   try{ qdSelPaint(); syncQdMark(); syncQdPhraseBar(); }catch(_){ }
   $('#qdBody').innerHTML='<div class="qd-loading">查词中…</div>';
   $('#qdSheet').classList.add('show');
+  firstGuideQuickDict(true);
   $('#qdMask').classList.add('show');
   if(selTxt) askPhraseMeaning(selTxt);
   /* 卡片是滑上来的，等动画走完再滚，位置才算得准 */
@@ -805,6 +807,7 @@ function renderQuickDict(){
 }
 function closeQuickDict(){
   $('#qdSheet').classList.remove('show');
+  firstGuideQuickDict(false);
   $('#qdMask').classList.remove('show');
   qdState.seq++;
   phSeq++;

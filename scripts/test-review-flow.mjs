@@ -98,6 +98,9 @@ try{
   if(process.argv.includes('--first-shot')){
     const {testFirstShot}=await import('./test-first-shot.mjs');
     await testFirstShot({loadPage,evaluate,cdp});
+  }else if(process.argv.includes('--first-review')){
+    const {testFirstReview}=await import('./test-first-review.mjs');
+    await testFirstReview({loadPage,evaluate,cdp});
   }else{
   await loadPage();
   await evaluate(()=>{
