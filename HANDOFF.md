@@ -1,9 +1,16 @@
 # 截图词库商业版交接
 
-- **源码**　`heruih/screenshot-vocab-mvp`，以 GitHub `main` 为商业版接手起点。正式截图功能构建源码为 `736111b`。
-- **线上**　[商业版首页](https://heruih.github.io/screenshot-vocab-mvp/)，Pages 正式截图发布 `7ad8b2d`。前一正式版为 `7fc8f53`；本次部署的直接父提交 `1d6b24e` 包含独立截图验收页。
-- **已验证**　前一轮 iPhone 验收确认截图框选和多词收录。此次手势与收件箱更新发布前通过 Chromium 触屏和真实 OCR 回归、复习 21 项、权益模拟 106 项与商业版构建，Simon 授权直接上线。复跑复习浏览器回归，先运行 `node scripts/build.mjs --pages`，再运行 `node scripts/test-review-flow.mjs`。
-- **下一步**　回访首批已收到邀请的用户，确认做到哪一步和遇到的第一个阻碍。站长后台已有账号与反馈，按时间汇总的用量页待确认。
+- **源码**　`heruih/screenshot-vocab-mvp`，以 GitHub `main` 为接手起点。本地远端名称可能是 `github`，以 URL 确认为准。
+- **线上**　截至 2026-11-28，[商业版首页](https://heruih.github.io/screenshot-vocab-mvp/) 为 Pages `272472a`，对应发布源码 `1322508`，后端为 `b50a77d0-20ce-475b-b176-94e10a89a789`。若需要回退该次发布，上一版 Pages 为 `b05b916`，对应源码 `d8fa008`，后端为 `769e8d65-533b-477d-a868-2f34bae67bea`。
+- **已验证**　上一轮 iPhone 已验截图框选和多词收录。当前正式版的新手收词流程已做桌面与模拟触屏回归，线上核对首页、缓存脚本和后端接口。iPhone 加新邮箱的真实批改和剩余次数待验。
+- **下一步**　用 iPhone 从真实截图收词、写句到验证新邮箱，确认收到点评且当日余 9 句。回访首批试用者并记录第一个卡点。
+
+## 商业版发布
+
+1. 使用 Node.js 22 或以上运行 `node scripts/release-commercial.mjs`。它从 GitHub 读取 `main` 和 `gh-pages`，打印发布路径和回退版本，并在独立目录演练构建与回归。
+2. 得到上线授权后，使用有 GitHub 推送权限的发布环境运行 `node scripts/release-commercial.mjs --publish`。只有 Worker 有改动时才需要在发布环境设置 `CLOUDFLARE_API_TOKEN` 与 `CLOUDFLARE_ACCOUNT_ID`，使用限定生产账户的部署凭证。
+3. 脚本会先检查 GitHub 推送权限，再按需部署并验证 Worker，最后推送现有 `gh-pages` 并检查首页与缓存脚本。D1 结构或 OCR 引擎源码变动时，先单独演练迁移或构建。
+4. 发布提交会记录 `Release-Source` 和 `Release-Worker`。如果网页已推送但校验超时，先查 Pages 部署记录和线上文件。若后端成功而网页尚未推送，先确认实际线上版本，再决定继续发同一源码或回退后端。回退网页时在 `gh-pages` 新建恢复提交，保留记录，并写入回退后的两项版本信息。回退 Worker 前单独核对数据库兼容性。
 
 ## 截图导入构建
 
