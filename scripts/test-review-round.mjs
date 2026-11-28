@@ -4,7 +4,7 @@
          混合评分/全记住推荐、口语后复习进度仍在、批改前后到期日一致。 */
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { buildReviewRound, rankSpeakCandidates } = require('../src/js/01a_review_round.js');
+const { buildReviewRound, rankSpeakCandidates, reviewCloze, normalizeRecallAnswer } = require('../src/js/01a_review_round.js');
 
 let pass = 0, fail = 0;
 function ok(name, cond) {
@@ -146,6 +146,17 @@ console.log('== E. 批改前后词卡到期日一致（AI 批改只改口语记�
   ok('卡片评分才改变到期日（间隔只随卡片评分更新）', w.srs.due !== dueBefore && w.srs.due === now0 + SRS_DAYS[w.srs.box] * DAY);
 }
 
+console.log('== F. 英文例句补词 ==');
+{
+  const cloze=(term,en,options={})=>reviewCloze({term,examples:[{en}],...options});
+  const phrase=cloze('put off','We PUT off the meeting until Friday.');
+  ok('短语整体挖空，保留上下文和原句大小写',phrase?.before==='We '&&phrase.answer==='PUT off'&&phrase.after===' the meeting until Friday.');
+  ok('按已收录的词形补出原句',cloze('go','They went to school together.',{dict:{forms:[{label:'过去式',items:['went']}]}})?.answer==='went');
+  ok('整词边界，避免抠出另一个词的一部分',cloze('art','We started this project together.')===null);
+  ok('例句不能在题面重复泄露答案',cloze('go','We go to school and go home later.')===null);
+  ok('不清楚的原文回退，寻找下一条完整例句',reviewCloze({term:'go',examples:[{en:'go'},{en:'We go to school today.'}]})?.answer==='go');
+  ok('忽略大小写、空格和弯引号',normalizeRecallAnswer('  Don’t   GO  ')==="don't go");
+}
 console.log('\n=================================');
 console.log('结果：' + pass + ' 通过 / ' + fail + ' 失败');
 console.log('=================================');

@@ -12,6 +12,59 @@ function reviewQueue(mode){
   return list;
 }
 const REVIEW_ROUND_KEY='english-notes:review-round-v1';
+const SHARED_REVIEW_KEY='screenshot-vocab-shared-review-v1';
+function writeSharedReview(f){
+  return aStore(SHARED_REVIEW_KEY,JSON.stringify(f.shared));
+}
+function setSharedReview(shared){
+  const round=shared.round;
+  const active=state.words.filter(w=>!aPending(w));
+  const words=new Map(active.map(w=>[w.id,w]));
+  const f=setReview('due',round,nextReviewIndex(round));
+  f.shared=shared;
+  f.graded=round.filter(card=>(words.get(card.id)?.srs?.reps||0)>card.reps).length;
+  f.flipped=!!round[f.idx]?.flipped;
+  return f;
+}
+function sharedReviewExercise(f,card,w){
+  if(card.prompt) return 'recall';
+  if(card.flashSeen) return 'flash';
+  const lastFlash=f.shared.evidence[w.id]?.flash;
+  const recommendsRecall=lastFlash?.grade===2&&lastFlash.reps===(w.srs?.reps||0);
+  const wantsRecall=f.shared.preference==='recall'||(f.shared.preference==='auto'&&recommendsRecall);
+  if(wantsRecall) card.prompt=reviewCloze(w);
+  card.flashSeen=!card.prompt;
+  writeSharedReview(f);
+  return card.prompt?'recall':'flash';
+}
+function selectSharedReviewExercise(f,mode){
+  if(!f.shared||f.idx>=f.round.length) return;
+  f.shared.preference=mode;
+  const current=f.round[f.idx];
+  if(!current.revealed&&!current.hinted&&!current.flipped){
+    if(mode==='flash'&&current.prompt){
+      current.prompt=null;
+      delete current.attempt;
+    }else if(mode==='recall'&&current.flashSeen){
+      // The flash front already exposed this answer. Bring an unseen item forward.
+      const unseen=f.round.findIndex((card,i)=>i>f.idx&&!card.flashSeen&&card.grade==null&&
+        state.words.some(w=>w.id===card.id&&(w.srs?.reps||0)<=card.reps&&reviewCloze(w)));
+      if(unseen>=0){
+        const [next]=f.round.splice(unseen,1);
+        f.round.splice(f.idx,1,next);
+        f.round.push(current);
+        f.ids=f.round.map(card=>card.id);
+      }
+    }
+  }
+  writeSharedReview(f);
+}
+function openSharedReview(mode){
+  const f=resumeReview();
+  selectSharedReviewExercise(f,mode);
+  ui.mode='flash'; ui.note=null; ui.sideOpen=false;
+  render();
+}
 function setReview(mode,round,idx=0){
   /* 从 round 卡片上的 grade 恢复本轮评分结果（刷新/返回续练时不丢推荐依据） */
   const results=(round||[]).filter(c=>c&&c.grade!=null).map(c=>({id:c.id,grade:c.grade}));
@@ -34,18 +87,30 @@ function buildReview(mode='due'){
     {trained:3,fresh:2,max:5}
   );
   const round=picked.map(c=>({id:c.id,reps:c.reps}));
+  if(firstShotCommercial()){
+    const previous=aRead(SHARED_REVIEW_KEY,{});
+    const f=setSharedReview({round,preference:'auto',evidence:previous.evidence||{}});
+    writeSharedReview(f);
+    return f;
+  }
   aStore(REVIEW_ROUND_KEY,JSON.stringify(round));
   return setReview('due',round);
 }
 function resumeReview(){
-  const stored=aRead(REVIEW_ROUND_KEY,null);
+  const shared=firstShotCommercial()?aRead(SHARED_REVIEW_KEY,null):null;
+  const stored=shared?shared.round:aRead(REVIEW_ROUND_KEY,null);
   /* 第三阶段队列上限 5：旧版遗留的 25 词轮次(按 due 排序、新词排最前)不再恢复，交给 buildReview 重排成 3 练过 + 2 新 */
   if(Array.isArray(stored)&&stored.length<=5){
     const activeIds=new Set(state.words.filter(w=>!aPending(w)).map(w=>w.id));
-    const round=stored.filter(card=>card&&activeIds.has(card.id)&&Number.isInteger(card.reps)&&card.reps>=0);
+    const round=stored.filter(card=>card&&Number.isInteger(card.reps)&&card.reps>=0&&activeIds.delete(card.id));
     // Reconstruct the cursor from the same saved rating that increments reps.
     // 全部评完时 idx==round.length：恢复总结页（含难词推荐），不再跳过直接开新轮。
     if(round.length){
+      if(firstShotCommercial()){
+        const f=setSharedReview({round,preference:shared?.preference||'auto',evidence:shared?.evidence||{}});
+        if(!shared||stored.length!==round.length) writeSharedReview(f);
+        return f;
+      }
       const idx=nextReviewIndex(round);
       return setReview('due',round,idx);
     }
@@ -55,6 +120,12 @@ function resumeReview(){
 function flipFlash(){
   if(!ui.flash||!ui.flash.ids.length) return;
   ui.flash.flipped=!ui.flash.flipped;
+  if(ui.flash.shared){
+    const card=ui.flash.round[ui.flash.idx];
+    card.flipped=ui.flash.flipped;
+    card.revealed=true;
+    writeSharedReview(ui.flash);
+  }
   renderFlash();
 }
 function stepFlash(d){
@@ -72,6 +143,11 @@ function gradeCurrent(g){
   if(f.mode==='sample'){if(f.flipped)firstShotOpenFlash('offer');return;}
   const w=state.words.find(x=>x.id===f.ids[f.idx]);
   if(!w) return;
+  const card=f.round[f.idx];
+  if(f.shared){
+    if((w.srs?.reps||0)>card.reps) return;
+    if(card.prompt?(!card.revealed||(g===2&&(!card.correct||card.hinted))):!f.flipped) return;
+  }
   const before={srs:w.srs&&{...w.srs},mastered:w.mastered,updatedAt:w.updatedAt};
   const s=srsGrade(w,g);
   try{ save(); }
@@ -80,10 +156,17 @@ function gradeCurrent(g){
   /* 记录本轮评分（写回 round 并持久化，刷新/返回后续练不丢结果、不重复计入） */
   if(f.round[f.idx]) f.round[f.idx].grade=g;
   f.results=(f.results||[]); f.results.push({id:w.id,grade:g});
-  if(f.mode==='first')firstReviewSave({round:f.round});
+  if(f.shared){
+    const exercise=card.prompt?'recall':'flash';
+    const evidence={grade:g,reps:s.reps,at:s.last};
+    if(card.prompt){ evidence.hinted=!!card.hinted; evidence.correct=!!card.correct; }
+    f.shared.evidence[w.id]={...f.shared.evidence[w.id],[exercise]:evidence};
+    delete card.attempt;
+    writeSharedReview(f);
+  }else if(f.mode==='first')firstReviewSave({round:f.round});
   else aStore(REVIEW_ROUND_KEY,JSON.stringify(f.round));
   const tip={0:'已记为「忘了」，10 分钟后再练',1:'记为「有点难」',2:'记为「记住了」'}[g]+' · '+SRS_LABEL[s.box];
-  f.idx=nextReviewIndex(f.round,f.idx+1); f.flipped=false; f.graded++;
+  f.idx=nextReviewIndex(f.round,f.idx+1); f.flipped=!!f.round[f.idx]?.flipped; f.graded++;
   renderFlash();
   toast(tip);
 }
@@ -102,8 +185,8 @@ function renderFlash(){
   const f=ui.flash;
   const stats='<div class="rv-stats">'+
     '<div class="rv-stat hot"><div class="n">'+sum.due+'</div><div class="l">今日到期</div></div>'+
-    '<div class="rv-stat"><div class="n">'+sum.fresh+'</div><div class="l">没练过</div></div>'+
-    '<div class="rv-stat ok"><div class="n">'+sum.done+'</div><div class="l">已掌握</div></div>'+
+    (f.shared?'<div class="rv-stat"><div class="n">'+f.graded+' / '+f.total+'</div><div class="l">本轮进度</div></div>':'<div class="rv-stat"><div class="n">'+sum.fresh+'</div><div class="l">没练过</div></div>')+
+    (firstShotCommercial()?'':'<div class="rv-stat ok"><div class="n">'+sum.done+'</div><div class="l">已掌握</div></div>')+
   '</div>';
   if(!f.ids.length||f.idx>=f.ids.length){
     if(f.mode==='sample'){firstShotRenderPractice(box);return;}
@@ -114,7 +197,7 @@ function renderFlash(){
     let body;
     if(!f.graded){
       const nxt=state.words.filter(w=>!aPending(w)).sort((a,b)=>srsDue(a)-srsDue(b))[0];
-      const nxtTxt=nxt?('下一个到期：'+esc(nxt.term)+'（'+srsNextLabel(nxt)+'）'):'全部单词都已掌握';
+      const nxtTxt=nxt?('下一个到期：'+esc(nxt.term)+'（'+srsNextLabel(nxt)+'）'):(f.shared?'先保存一个表达，再回来练。':'全部单词都已掌握');
       body='<div class="big">🎉</div><b>现在没有到期的单词</b><div style="font-size:13px;color:var(--text2);line-height:1.7">'+nxtTxt+'</div>';
     }else{
       body='<div class="big">🎉</div><b>本轮复习完成 · '+f.graded+' 个词</b>';
@@ -137,14 +220,19 @@ function renderFlash(){
         '</div>'+
         '<div style="font-size:12px;color:var(--text3)">记忆曲线：1 → 3 → 7 → 15 → 30 天</div>'+
       '</div>';
-    const rh=$('#rvHome'); if(rh) rh.addEventListener('click',()=>{ try{ localStorage.removeItem(REVIEW_ROUND_KEY); }catch(_){} ui.mode='today'; ui.sideOpen=false; render(); });
+    const rh=$('#rvHome'); if(rh) rh.addEventListener('click',()=>{
+      if(f.shared){ f.shared.round=null; writeSharedReview(f); }
+      else{ try{ localStorage.removeItem(REVIEW_ROUND_KEY); }catch(_){} }
+      ui.mode='today'; ui.sideOpen=false; render();
+    });
     const ra=$('#rvAgain'); if(ra) ra.addEventListener('click',()=>{ buildReview('due'); renderFlash(); });
     const rp=$('#rvPickSpeak'); if(rp) rp.addEventListener('click',()=>{ ui.mode='words'; ui.selMode=true; ui.sel=[]; ui.wordFilter='all'; render(); });
     $$('[data-speak]').forEach(input=>input.addEventListener('change',()=>{
       const card=f.round.find(item=>item.id===input.dataset.speak);
       if(!card) return;
       card.speakExcluded=!input.checked;
-      aStore(REVIEW_ROUND_KEY,JSON.stringify(f.round));
+      if(f.shared) writeSharedReview(f);
+      else aStore(REVIEW_ROUND_KEY,JSON.stringify(f.round));
     }));
     const rg=$('#rvSpeakGo'); if(rg) rg.addEventListener('click',()=>{
       const ids=$$('[data-speak]:checked').map(el=>el.dataset.speak);
@@ -159,7 +247,14 @@ function renderFlash(){
   if(!w){ f.idx=f.ids.length; renderFlash(); return; }
   const total=f.ids.length;
   const pos=f.idx+1;
-  const pct=Math.round((f.idx/total)*100);
+  const pct=Math.round((f.graded/total)*100);
+  const sharedCard=f.shared&&f.round[f.idx];
+  const exercise=sharedCard?sharedReviewExercise(f,sharedCard,w):'flash';
+  const modes=sharedCard?sharedReviewModes(f,w,exercise):'';
+  if(exercise==='recall'){
+    renderSharedRecall(box,stats,modes,pct,f,sharedCard,w);
+    return;
+  }
   /* 保留原始序号：标亮的存储键是（词, 例句序号, 原文快照），过滤后序号会错位就查不到 */
   const indexedExamples=(w.examples||[]).map((x,oi)=>({x,oi}));
   const examples=indexedExamples.filter(o=>o.x.sense!=='原文');
@@ -200,7 +295,7 @@ function renderFlash(){
   const selCauses=causeMode?errorCauseGet(w.id):[];
   const reviewGuide='<div class="review-guide"><div class="review-guide-copy"><span class="review-guide-kicker">今日复习</span><b>'+(sample?'示例闪卡':f.mode==='first'?'首次复习':dueMode?'到期复习':'自由复习')+'</b><small>先回想，再点卡片翻开</small></div><strong>'+f.graded+' / '+total+'</strong></div>';
   box.innerHTML='<div class="rv-wrap">'+stats+
-    reviewGuide+
+    (f.shared?modes:reviewGuide)+
     '<div class="rv-bar"><i style="width:'+pct+'%"></i></div>'+
     '<div class="flash-wrap">'+
       '<div class="flash-progress">'+(dueMode?'待复习':'自由复习')+'　'+pos+' / '+total+'</div>'+
@@ -231,6 +326,7 @@ function renderFlash(){
         '</div>')+
     '</div>'+
   '</div>';
+  if(f.shared) bindSharedReviewControls(f);
   const card=$('#flashCard');
   if(f.mode==='first'||sample){
     card.tabIndex=0;card.setAttribute('role','button');card.setAttribute('aria-label','翻开词卡');
@@ -301,6 +397,72 @@ function renderFlash(){
   if(nx) nx.addEventListener('click',()=>stepFlash(1));
   if(ex) ex.addEventListener('click',()=>{ resumeReview(); renderFlash(); });
   firstReviewRenderCard(f);
+}
+
+function sharedReviewModes(f,w,exercise){
+  let message='';
+  if(f.shared.preference!=='auto'&&f.shared.preference!==exercise){
+    message=exercise==='flash'&&!reviewCloze(w)?'这个表达暂无可用例句，先练闪卡。':f.idx+1<f.total?'这题继续完成，下一题切换。':'先完成本轮最后一题。';
+  }
+  return '<div class="review-mode-group" role="group" aria-label="复习方式">'+
+    '<button type="button" class="btn" data-review-mode="flash" aria-pressed="'+(exercise==='flash')+'">闪卡</button>'+
+    '<button type="button" class="btn" data-review-mode="recall" aria-pressed="'+(exercise==='recall')+'">场景回想</button>'+
+    '</div>'+(message?'<p class="review-mode-note" role="status">'+message+'</p>':'');
+}
+function bindSharedReviewControls(f){
+  $$('[data-review-mode]').forEach(button=>button.onclick=()=>{
+    selectSharedReviewExercise(f,button.dataset.reviewMode);
+    renderFlash();
+  });
+}
+function renderSharedRecall(box,stats,modes,pct,f,card,w){
+  const prompt=card.prompt;
+  const meaning=(prompt.hint||w.definition||'').trim();
+  const safeMeaning=meaning&&!normalizeRecallAnswer(meaning).includes(normalizeRecallAnswer(prompt.answer));
+  const hint=card.hinted&&safeMeaning?'<p class="recall-meaning">'+esc(meaning)+'</p>':'';
+  const sentence=esc(prompt.before)+(card.revealed?'<strong>'+esc(prompt.answer)+'</strong>':'<span class="recall-gap" aria-label="填空">____</span>')+esc(prompt.after);
+  const shown=card.correct?(card.hinted?'看提示后补对了。':'补对了。'):card.attempt?.trim()?'你填的是 '+esc(card.attempt.trim())+'。':'先读一遍完整的句子。';
+  const question=card.revealed?
+    '<p class="recall-feedback">'+shown+'</p><div class="grade-row">'+
+      '<button class="grade-btn again" data-grade="0">忘了<small>10 分钟后再练</small></button>'+
+      '<button class="grade-btn hard" data-grade="1"'+(!card.attempt?.trim()&&!card.hinted?' disabled':'')+'>有点难<small>缩短间隔</small></button>'+
+      '<button class="grade-btn good" data-grade="2"'+(!card.correct||card.hinted?' disabled':'')+'>记住了<small>延长间隔</small></button>'+
+    '</div>':
+    '<form id="reviewRecallForm"><label for="reviewRecallAttempt">补全这个英语句子</label>'+
+    '<input type="text" id="reviewRecallAttempt" lang="en" maxlength="160" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" value="'+esc(card.attempt||'')+'">'+
+    '<div class="recall-actions">'+
+      '<button class="btn primary" type="submit"'+(!card.attempt?.trim()?' disabled':'')+'>核对</button>'+
+      (safeMeaning&&!card.hinted?'<button class="btn" type="button" id="reviewRecallHint">看中文提示</button>':'')+
+      '<button class="btn" type="button" id="reviewRecallReveal">看答案</button>'+
+    '</div></form>';
+  box.innerHTML='<div class="rv-wrap">'+stats+modes+'<div class="rv-bar"><i style="width:'+pct+'%"></i></div>'+
+    '<div class="flash-wrap"><div class="recall-exercise">'+
+    '<div class="flash-progress">场景回想 '+(f.idx+1)+' / '+f.total+'</div>'+
+    '<p class="recall-sentence" lang="en">'+sentence+'</p>'+hint+question+
+    '</div><div class="review-exit-row"><button class="btn" id="reviewExit" type="button">结束复习，返回首页</button></div></div></div>';
+  bindSharedReviewControls(f);
+  const form=$('#reviewRecallForm');
+  if(form){
+    const input=$('#reviewRecallAttempt');
+    input.oninput=()=>{
+      card.attempt=input.value;
+      form.querySelector('button[type="submit"]').disabled=!input.value.trim();
+      writeSharedReview(f);
+    };
+    const reveal=check=>{
+      card.attempt=input.value;
+      card.revealed=true;
+      card.correct=check&&normalizeRecallAnswer(card.attempt)===normalizeRecallAnswer(prompt.answer);
+      writeSharedReview(f);
+      renderFlash();
+    };
+    form.onsubmit=event=>{event.preventDefault();if(input.value.trim()) reveal(true);};
+    $('#reviewRecallReveal').onclick=()=>reveal(false);
+    const hintButton=$('#reviewRecallHint');
+    if(hintButton) hintButton.onclick=()=>{card.hinted=true;writeSharedReview(f);renderFlash();};
+  }
+  $$('.grade-btn').forEach(button=>button.onclick=()=>gradeCurrent(Number(button.dataset.grade)));
+  $('#reviewExit').onclick=()=>{ui.mode='today';ui.sideOpen=false;render();};
 }
 
 /* ============ 编辑器 ============ */

@@ -13,7 +13,9 @@ const executable=process.env.SVOCAB_BROWSER||[
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'
 ].find(existsSync);
 assert(executable,'请用 SVOCAB_BROWSER 指定本机 Chromium 浏览器');
-const page=await readFile(new URL('../dist/pages/index.html',import.meta.url));
+const pageUrl=new URL('../dist/pages/index.html',import.meta.url);
+const localFile=process.argv.includes('--file');
+const page=await readFile(pageUrl);
 const tempRoot=await realpath(tmpdir());
 const profile=await mkdtemp(join(tempRoot,'svocab-review-browser-'));
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -34,11 +36,11 @@ let browser, socket;
 try{
   server.listen(0,'127.0.0.1');
   await once(server,'listening');
-  const url='http://127.0.0.1:'+server.address().port+'/';
+  const url=localFile?pageUrl.href:'http://127.0.0.1:'+server.address().port+'/';
   browser=spawn(executable,[
     '--headless=new','--disable-gpu','--no-first-run','--disable-background-networking','--no-proxy-server',
     '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1',
-    '--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'
+    '--remote-debugging-port=0','--user-data-dir='+profile,localFile?url:'about:blank'
   ],{stdio:'ignore',windowsHide:true});
   const debuggerPort=await until(async()=>{
     const value=await readFile(join(profile,'DevToolsActivePort'),'utf8').catch(()=>null);
@@ -62,7 +64,7 @@ try{
     const timeout=setTimeout(()=>{
       requests.delete(id);
       reject(new Error(method+' 超时'));
-    },6000);
+    },localFile?20000:6000);
     requests.set(id,{resolve,reject,timeout});
     socket.send(JSON.stringify({id,method,params}));
   });
@@ -76,7 +78,7 @@ try{
   let opened=false;
   async function loadPage(){
     if(opened) await cdp('Page.reload');
-    else await cdp('Page.navigate',{url});
+    else if(!localFile) await cdp('Page.navigate',{url});
     opened=true;
     await until(()=>evaluate(()=>document.readyState==='complete'&&typeof renderFlash==='function'&&!window.reviewFlowReady).catch(()=>false));
     await evaluate(()=>{
@@ -98,6 +100,9 @@ try{
   if(process.argv.includes('--first-shot')){
     const {testFirstShot}=await import('./test-first-shot.mjs');
     await testFirstShot({loadPage,evaluate,cdp});
+  }else if(process.argv.includes('--shared-review')){
+    const {testSharedReview}=await import('./test-shared-review.mjs');
+    await testSharedReview({loadPage,evaluate,cdp});
   }else if(process.argv.includes('--first-own')){
     const {testFirstOwn}=await import('./test-first-own.mjs');
     await testFirstOwn({loadPage,evaluate,cdp});

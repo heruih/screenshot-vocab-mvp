@@ -22,6 +22,7 @@ function aRecord(w,result,attempt,kind){
   aFlush();
 }
 function aStartRecall(){
+  if(firstShotCommercial()){openSharedReview('recall');return;}
   const pool=dueList().length?dueList():aWeakWords();
   if(!pool.length){toast('现在没有到期任务，可从表达库选词练口语','warn');return;}
   aRecallState={ids:pool.slice(0,10).map(w=>w.id),idx:0,revealed:false};$('#aRecall').classList.add('show');aRenderRecall();
