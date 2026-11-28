@@ -160,6 +160,7 @@ function closeLogin(verified=false) {
   const m = $('#accountLoginModal');
   if (!m?.classList.contains('show')) return;
   m.classList.remove('show');
+  firstShotLoginClosed(verified===true);
   firstOwnLoginClosed(verified===true);
 }
 

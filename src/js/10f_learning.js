@@ -438,7 +438,7 @@ function coachShow(mode){
   el.querySelector('.coach-off').onclick=()=>{const s=coachState();s.off=true;coachSave(s);coachClose();};
 }
 function coachMaybe(){
-  if(firstGuideInProgress())return;
+  if(firstShotCommercial())return;
   const s=coachState();
   if(s.off)return;
   const mode=ui.mode;

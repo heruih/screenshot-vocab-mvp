@@ -65,17 +65,17 @@ function onboardingBuild(){
   el.querySelector('#obBack').onclick=function(){if(_obIndex>0){_obIndex--;onboardingRender();}};
 }
 function onboardingOpen(){
-  if(onboardingDone())return;
   if(firstShotCommercial()){
-    onboardingFinish();
+    if(firstGuideNeedsSample())firstGuideStart();
     return;
   }
+  if(onboardingDone())return;
   if(!_obEl)onboardingBuild();
   _obIndex=0;onboardingRender();
   _obEl.classList.add('show');
 }
 function onboardingInit(){
-  if(!_obEl)onboardingBuild();
+  if(!firstShotCommercial()&&!_obEl)onboardingBuild();
   firstGuideBoot();
 }
 
@@ -84,15 +84,18 @@ const FIRST_SHOT_KEY='screenshot-vocab-first-shot-v1';
 const FIRST_GUIDE_KEY='screenshot-vocab-first-guide-v2';
 const FIRST_SHOT_TERM='notice';
 const FIRST_SHOT_SENTENCE='We notice small changes.';
+const FIRST_SHOT_PRACTICE_KEY='screenshot-vocab-sample-practice-v1';
 const FIRST_NOTE_TERM='empowerment';
 const FIRST_NOTE_SENTENCE='Education can lead to empowerment.';
 let firstGuide={};
 let firstGuideStep=null;
+let firstShotPractice=null,firstShotLoginPending=false,firstShotDialogueActive=false;
 const FIRST_GUIDE_SHOT_STEPS=['sample','newNote','noteCreate','preview','frame','frameApply','word','pick','shotSave'];
 let firstGuideSampleBounds=null;
 
 function firstShotCommercial(){return window.APP_CONFIG?.product==='commercial';}
-function firstGuideInProgress(){return firstShotCommercial()&&(firstOwnImporting||!!firstGuide.shot&&(firstGuide.note!=='done'||ui.flash?.mode==='first'));}
+function firstGuideInProgress(){return firstShotCommercial()&&(!!firstGuideStep||firstOwnImporting||firstShotLoginPending||firstShotDialogueActive);}
+function firstGuideNeedsSample(){return !firstGuide.shot&&!firstOwnDraft&&!state.notes.length&&!state.words.length;}
 function firstShotState(){
   try{return JSON.parse(localStorage.getItem(FIRST_SHOT_KEY))||{};}catch(_){return {};}
 }
@@ -101,7 +104,7 @@ function firstGuideSave(patch){
   if(!aStore(FIRST_GUIDE_KEY,JSON.stringify(firstGuide)))toast('引导进度没能保存，刷新后可能需要重试','warn');
 }
 
-async function importShotToNote(noteId,terms,dataUrl,getOriginal){
+async function importShotToNote(noteId,terms,dataUrl,getOriginal,sample=false){
   const note=state.notes.find(n=>n.id===noteId);
   if(!note)throw new Error('请先选择笔记');
   for(const term of terms){
@@ -114,14 +117,14 @@ async function importShotToNote(noteId,terms,dataUrl,getOriginal){
   let first=null;
   for(const term of terms){
     const original=(getOriginal(term)||'').trim();
-    const line=original.toLowerCase().includes(term.toLowerCase())?original:(original?original+'\n':'')+term;
+    const line=sample?term:original.toLowerCase().includes(term.toLowerCase())?original:(original?original+'\n':'')+term;
     if(!lines.has(line)){
       const block=document.createElement('div');
       block.dataset.shotLine='';block.textContent=line;draft.append(block);
       lines.add(line);
     }
     let word=state.words.find(w=>qmNorm(w.term)===qmNorm(term));
-    if(!word)word=upsertWord({term,source:'shot'});
+    if(!word)word=upsertWord({term,source:'shot',...(sample?{definition:'注意到，察觉到'}:{})});
     linkWordToNote(word,noteId,note.title);
     if(original&&original!==term&&!word.examples.some(x=>x.en===original))
       word.examples.push({en:original,cn:'',sense:'原文'});
@@ -152,11 +155,14 @@ const FIRST_GUIDE_STEPS={
   newNote:['#ocrNewNoteName','给练习笔记起个名字。'],
   noteCreate:['#ocrNoteNewBtn,#ocrNewNoteName','点「新建」，继续导入。'],
   preview:['#ocrImgWrap [data-ocr-frame]','点「框选区域」。'],
-  frame:['#ocrImageViewport,#ocrViewerClose','拖动框住整行英文。'],
-  frameApply:['#ocrRegionApply,#ocrImageViewport,#ocrViewerClose','点「识别框内」。'],
+  frame:['#ocrImageViewport','拖动框住整行英文。'],
+  frameApply:['#ocrRegionApply','点「识别框内」。'],
   word:['#ocrSelected [data-ocr-token="3"]','点截图里的 notice。'],
   pick:['#ocrSelected [data-ocr-add-selected]','点「加入已选」。'],
   shotSave:['#ocrMount','保存这个词。'],
+  sampleCard:['#firstShotFlash','词已保存。点「试一次闪卡」，看看怎么复习。'],
+  sampleRate:['.grade-row','选一档，完成这张示例闪卡。'],
+  sampleSpeak:['#firstShotPracticeActions','可以用刚才的词聊一句，也可以稍后。'],
   type:['#noteBody','在正文里输入 empowerment。'],
   select:['#noteBody,#btnKb,#edEmpower','在正文里长按选中 empowerment，再点「做词卡」。电脑上可以拖选。'],
   join:['#btnEmpower','点「加入词库」，打开这张词卡。'],
@@ -176,9 +182,9 @@ const FIRST_GUIDE_STEPS={
   firstAiDone:['#aiClose2,#aiClose','看完反馈后点「完成」，回到复习。'],
   firstEnd:['#firstReviewEndActions','首次练习完成。可以结束，也可以继续复习。']
 };
-function firstGuideTarget(step){
+function firstGuideTarget(step,remember=true){
   firstGuideStep=step;
-  if(FIRST_GUIDE_SHOT_STEPS.includes(step)&&step!==firstGuide.shotStep)firstGuideSave({shotStep:step});
+  if(remember&&FIRST_GUIDE_SHOT_STEPS.includes(step)&&step!==firstGuide.shotStep)firstGuideSave({shotStep:step});
   $$('[data-first-guide-target]').forEach(el=>el.removeAttribute('data-first-guide-target'));
   $$('.first-guide-hint').forEach(el=>el.hidden=true);
   firstGuidePaint();
@@ -224,6 +230,7 @@ function firstGuideBlock(event){
 function firstGuideBoot(){
   if(!firstShotCommercial())return;
   try{firstGuide=JSON.parse(localStorage.getItem(FIRST_GUIDE_KEY))||{};}catch(_){}
+  firstShotPractice=aRead(FIRST_SHOT_PRACTICE_KEY,null);
   firstReviewState=aRead(FIRST_REVIEW_KEY,{});
   firstGuideInitSpotlight();
   firstOwnInit();
@@ -237,12 +244,13 @@ function firstGuideBoot(){
     }
   });
   $('#firstShotExample').onclick=()=>firstShotExample();
+  $('#firstShotFlash').onclick=()=>firstShotOpenFlash('flash');
   for(const type of ['click','pointerdown','keydown','beforeinput']){
     document.addEventListener(type,firstGuideBlock,true);
   }
   bodyEl.addEventListener('input',()=>{
     if(!['type','select'].includes(firstGuideStep))return;
-    const step=/\bempowerment\b/i.test(bodyEl.textContent)?'select':'type';
+    const step=/\bempowerment\b/i.test(bodyEl.innerText)?'select':'type';
     if(step===firstGuideStep)return;
     persistEditor();
     firstGuideSave({note:step});
@@ -255,7 +263,10 @@ function firstGuideBoot(){
   setTimeout(()=>{
     if($('#personaModal').classList.contains('show'))return;
     if(firstGuide.shot==='pending')firstGuideStart(firstGuide.shotStep);
+    else if(firstShotPractice?.phase==='card')firstShotOpenCard();
+    else if(['flash','offer'].includes(firstShotPractice?.phase))firstShotOpenFlash(firstShotPractice.phase);
     else if(firstGuide.shot==='done'&&firstGuide.note&&firstGuide.note!=='done')firstShotNotes();
+    else if(firstGuideNeedsSample())firstGuideStart();
   },0);
 }
 function firstGuideStart(resume='sample'){
@@ -263,7 +274,7 @@ function firstGuideStart(resume='sample'){
   $('#ocrSheet').classList.add('show');ocrShowPanel('import');
   $('#firstShotExample').hidden=false;
   $('#firstShotExample').disabled=false;
-  firstGuideTarget('sample');
+  firstGuideTarget('sample',resume==='sample');
   if(resume!=='sample')firstShotExample(resume);
 }
 async function firstShotExample(resume='sample'){
@@ -345,9 +356,82 @@ function firstGuideOcrPicked(button){
     ocrMatchTargets($('#ocrSelected')).includes(FIRST_SHOT_TERM))firstGuideTarget('shotSave');
 }
 function firstGuideShotSaved(word){
-  if(firstGuideStep!=='shotSave')return;
-  firstGuideSave({shot:'done',shotStep:null,sampleIds:word?[...(firstGuide.sampleIds||[]),word.id]:[]});
+  firstGuideSave({shot:'done',shotStep:null,sampleIds:[...new Set([...(firstGuide.sampleIds||[]),word.id])]});
+  firstShotPractice={wordId:word.id,phase:'card'};
+  firstShotSetPhase('card');
+}
+function firstShotSetPhase(phase){
+  firstShotPractice={...firstShotPractice,phase};
+  if(!aStore(FIRST_SHOT_PRACTICE_KEY,JSON.stringify(firstShotPractice)))toast('示例练习进度未保存','warn');
+}
+function firstShotPracticeWord(){
+  return state.words.find(w=>w.id===firstShotPractice?.wordId);
+}
+function firstShotOpenCard(){
+  const word=firstShotPracticeWord();
+  if(!word){firstShotEndPractice();return;}
+  openWordModal(word.term,null,null,word,null,{
+    definition:word.definition||'注意到，察觉到',examples:word.examples,
+    tags:word.tags,collocations:word.collocations,mastered:word.mastered
+  });
+  $('#firstShotFlash').hidden=false;
+  firstGuideTarget('sampleCard');
+}
+function firstShotOpenFlash(phase){
+  const word=firstShotPracticeWord();
+  if(!word){firstShotEndPractice();return;}
+  firstShotSetPhase(phase);
+  if(firstGuideStep==='sampleCard'){
+    $('#firstShotFlash').hidden=true;
+    closeWordModal();
+  }
+  ui.mode='flash';ui.note=null;ui.sideOpen=false;
+  setReview('sample',[{id:word.id,reps:word.srs?.reps||0}],phase==='offer'?1:0);
+  render();
+}
+function firstShotRenderPractice(box){
+  const word=firstShotPracticeWord();
+  if(!word){firstShotEndPractice();return;}
+  box.innerHTML='<div class="flash-empty"><b>示例闪卡完成</b><p>用 '+esc(word.term)+' 在新场景里说一句。</p>'+
+    '<div class="rv-actions" id="firstShotPracticeActions"><button class="btn primary" id="firstShotSpeak">用这个词聊一句</button>'+
+    '<button class="btn" id="firstShotLater">稍后再练</button></div></div>';
+  $('#firstShotSpeak').onclick=()=>{
+    if(usesSiteDialogueReview()&&!accountLoggedIn()){
+      firstShotLoginPending=true;
+      firstGuideTarget(null);
+      openLogin();
+    }else firstShotOpenDialogue();
+  };
+  $('#firstShotLater').onclick=firstShotEndPractice;
+  firstGuideTarget('sampleSpeak');
+}
+function firstShotOpenDialogue(){
+  const word=firstShotPracticeWord();
+  if(!word){firstShotEndPractice();return;}
+  firstShotDialogueActive=true;
   firstGuideTarget(null);
+  openAiPractice(word.term,{title:'找东西',desc:'在找东西时用刚才的表达说一句。'},[
+    {who:'A',en:'I can’t find my bag.',cn:'我找不到我的包。'},
+    {who:'YOU',promptCn:'告诉对方：我注意到你的包在门边。'}
+  ]);
+}
+function firstShotLoginClosed(verified){
+  if(!firstShotLoginPending)return;
+  firstShotLoginPending=false;
+  if(verified)firstShotOpenDialogue();
+  else renderFlash();
+}
+function firstShotDialogueClosed(finished){
+  if(!firstShotDialogueActive)return false;
+  firstShotDialogueActive=false;
+  if(finished)firstShotEndPractice();
+  else renderFlash();
+  return true;
+}
+function firstShotEndPractice(){
+  firstShotSetPhase('done');
+  firstGuideTarget(null);
+  ui.mode='today';ui.flash=null;render();
 }
 function firstShotNotes(){
   if(firstGuide.shot!=='done'||firstGuide.note==='done')return false;
@@ -548,6 +632,7 @@ function firstReviewStart(){
 }
 function firstReviewRenderCard(f){
   if(f.mode==='first')firstGuideTarget(f.flipped?'firstRate':'firstFlip');
+  if(f.mode==='sample')firstGuideTarget(f.flipped?'sampleRate':'firstFlip');
 }
 function firstReviewRenderSummary(box,stats,f){
   const words=f.ids.map(id=>state.words.find(w=>w.id===id)).filter(Boolean);
@@ -623,7 +708,8 @@ function firstReviewAiClosed(){
 const FIRST_OWN_KEY='screenshot-vocab-own-practice-v1';
 let firstOwnDraft=null,firstOwnImporting=false,firstOwnBusy=false;
 function firstOwnOffered(){
-  return firstShotCommercial()&&((!firstGuide.shot&&!state.words.length)||!!firstOwnDraft);
+  return firstShotCommercial()&&(!!firstOwnDraft||(!firstGuideInProgress()&&
+    (firstGuide.sampleIds?.length?!firstReviewWords().length:!firstGuide.shot&&!state.words.length)));
 }
 function firstOwnSave(draft){
   if(!aStore(FIRST_OWN_KEY,JSON.stringify(draft)))return false;

@@ -1568,7 +1568,7 @@ function renderSpeakLog(){
     log.slice(0,60).map(itemHTML).join('')+'</div></div>';
   box.innerHTML=h;
 }
-function openAiPractice(term,scene){
+function openAiPractice(term,scene,lines){
   const session=++aiSession;
   const w=state.words.find(x=>String(x.term).toLowerCase()===String(term).toLowerCase());
   const sc=scene&&scene.title?scene:{title:'自由练习',desc:'自然地把这个词用进一句话'};
@@ -1582,6 +1582,7 @@ function openAiPractice(term,scene){
   const favorite=$('#aiFavorite');if(favorite){favorite.textContent='收藏对话';favorite.disabled=true;}
   $('#aiScene').innerHTML='';
   $('#aiModal').classList.add('show');
+  if(lines){aiApplyDialogue(lines);return;}
   if(!aAiReady()){
     aiShowBody();
     aiSetChatbar('scenes');
@@ -1770,7 +1771,7 @@ function closeAiModal(completed=false){
   aiSession++;
   aiState.seq++;
   try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(_){}
-  if(firstReviewAiClosed())return;
+  if(firstShotDialogueClosed(finished)||firstReviewAiClosed())return;
   if(!returnToReview||!finished) return;
   try{ praiseReview(); }catch(_){}
   if(ui.flash&&ui.flash.idx>=ui.flash.ids.length) buildReview('due');

@@ -32,9 +32,7 @@ export async function testFirstShot({loadPage,evaluate,cdp}){
   await loadPage();
   await evaluate(()=>{
     if($('#personaModal').classList.contains('show'))click('#personaSkip');
-    firstGuideSave({shot:'pending'});
-    firstGuideStart();
-    check(firstGuideStep==='sample','保留旧版进行中的示例引导');
+    check(firstGuideStep==='sample','新用户完成身份选择后直接开始示例截图硬引导');
     click('#firstShotExample');
   });
   await waitFor(()=>firstGuideStep==='newNote'&&$('.first-guide-caption').textContent.includes('起个名字'));
@@ -100,13 +98,66 @@ export async function testFirstShot({loadPage,evaluate,cdp}){
     const word=state.words.find(w=>w.term==='notice');
     const note=state.notes.find(n=>n.id===firstGuide.shotNoteId);
     check(ui.mode!=='edit'&&wmState.term==='notice','保存截图直接弹出单词卡');
-    check(word.notes.some(n=>n.noteId===note.id)&&note.content.includes('We notice small changes.'),'词卡和原句随截图关联笔记');
+    const body=document.createElement('div');body.innerHTML=note.content;
+    check(word.notes.some(n=>n.noteId===note.id)&&body.textContent==='notice','练习笔记正文只写入目标词');
     check(word.examples.some(ex=>ex.en==='We notice small changes.'),'词卡保留截图原句');
     check(shotsAll()[shotsKeyOf('notice')].length===1,'练习截图已挂到目标词');
     click('#wmClose');
-    check(!firstGuide.note,'截图保存不启动笔记教程');
+    check($('#wordModal').classList.contains('show')&&!firstGuide.note,'保存后留在词卡，笔记引导等待用户自行进入');
+  });
+  await loadPage();
+  await waitFor(()=>firstGuideStep==='sampleCard');
+  await evaluate(()=>{
+    window.beforeExampleSrs=srsSnapshot();
+    click('#firstShotFlash');
+    check(firstGuideStep==='firstFlip'&&ui.flash.ids.length===1&&$('.flash-term').textContent==='notice','闪卡只练刚收录的词');
+    check(!$('#firstShotSpeak'),'翻卡前未解锁 AI 对话');
+    click('#flashCard');
+    check(firstGuideStep==='sampleRate'&&$('.fb-def').textContent.includes('注意到'),'翻卡看含义再评分');
+    click('[data-grade="2"]');
+    check(firstGuideStep==='sampleSpeak'&&srsSnapshot()===beforeExampleSrs,'示例评分不改变正式复习进度');
+    click('#firstShotSpeak');
+    check($('#accountLoginModal').classList.contains('show'),'实际选择 AI 对话时才打开邮箱验证');
+    click('#almClose');
+    check(firstGuideStep==='sampleSpeak','取消登录回到可选的对话入口');
+  });
+  await loadPage();
+  await waitFor(()=>firstGuideStep==='sampleSpeak');
+  await evaluate(()=>{
+    accountApi=async(path)=>{
+      if(path==='/v1/auth/request-code')return {status:200,data:{ok:true}};
+      if(path==='/v1/auth/verify')return {status:200,data:{token:'isolated-test-session'}};
+      return {status:503,data:{message:'隔离测试账号状态'}};
+    };
+    dialogueReviewFetch=async(answers)=>{
+      check(accountLoggedIn()&&answers[0].target==='notice','已验证邮箱并批改同一个目标词');
+      return [{standard:'I noticed your bag by the door.',fit:'用法自然',pitfalls:[]}];
+    };
+    click('#firstShotSpeak');
+    $('#almEmail').value='learner@example.invalid';click('#almSendCode');
+  });
+  await waitFor(()=>!$('#almCodeStep').hidden);
+  await evaluate(()=>{$('#almCode').value='246802';click('#almDoVerify');});
+  await waitFor(()=>$('#aiModal').classList.contains('show')&&aiState.lines.length===2);
+  await evaluate(()=>{
+    check(aiState.term==='notice'&&$('#aiScene').textContent.includes('找不到我的包'),'从闪卡接到同词新场景');
+    click('#aiClose');
+    check(firstGuideStep==='sampleSpeak','退出对话可回到练习选择');
+    click('#firstShotSpeak');
+    $('#aiInput').value='I noticed your bag by the door.';
+    click('#aiSend');
+  });
+  await waitFor(()=>aiState.phase==='review');
+  await evaluate(()=>{
+    click('#aiClose2');
+    check(firstShotPractice.phase==='done'&&!firstGuideStep&&ui.mode==='today','看完点评回首页并结束示例练习');
+    firstShotOpenFlash('offer');
+    click('#firstShotLater');
+    check(firstShotPractice.phase==='done'&&!$('#aiModal').classList.contains('show'),'也可以直接跳过 AI 对话');
+    const note=state.notes.find(n=>n.id===firstGuide.shotNoteId);
     click('[data-tab="list"]');
     check(firstGuideStep==='type'&&ui.note===note.id,'第一次主动点笔记才启动');
+    bodyEl.focus();
   });
   await cdp('Input.insertText',{text:'empowerment'});
   await waitFor(()=>firstGuideStep==='select');
@@ -163,7 +214,19 @@ export async function testFirstShot({loadPage,evaluate,cdp}){
     check(shotsAll()[shotsKeyOf('notice')].length===1,'相同截图不重复');
     check(!aPending(state.words.find(w=>w.term==='small')),'普通批量收词仍可学习');
     const note=state.notes.find(n=>n.id===noteId);
-    check((note.content.match(/data-shot-line/g)||[]).length===1,'同一原句不重复写入');
+    const body=document.createElement('div');body.innerHTML=note.content;
+    check(Array.from(body.querySelectorAll('[data-shot-line]')).filter(line=>line.textContent===FIRST_SHOT_SENTENCE).length===1,
+      '日常导入仍可写入原句，同一原句不重复写入');
   });
-  console.log('旧版示例截图和笔记引导续接通过：顺序锁定、手动框选、弹出词卡、标亮、两处点击、保存返回及刷新续接。');
+  await evaluate(async()=>{
+    for(const tab of ['today','list','words','flash']){
+      click('[data-tab="'+tab+'"]');
+      await new Promise(resolve=>setTimeout(resolve,520));
+      check(!$('.coach-bubble'),'商业版页面不弹介绍提示');
+    }
+    pwaPlatform=()=>({ios:true,android:false});
+    check(showInstallPrompt()&&$('#pwaInstallGo'),'仍能提示添加到主屏幕');
+    click('#pwaInstallDefer');
+  });
+  console.log('首次硬指引通过：新建后框选、只写入示例词、单词闪卡、邮箱续接 AI 对话、笔记引导及弹窗检查。');
 }

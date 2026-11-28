@@ -12,6 +12,7 @@ export async function testFirstOwn({loadPage,evaluate,cdp}){
   };
   await loadPage();
   await evaluate(async()=>{
+    firstGuideSave({shot:'done',sampleIds:['sample-already-completed']});
     if($('#personaModal').classList.contains('show'))click('#personaSkip');
     check(!accountLoggedIn()&&$('#firstOwnStart')&&!firstGuideStep,'首页可直接选自己的截图');
     const canvas=document.createElement('canvas');

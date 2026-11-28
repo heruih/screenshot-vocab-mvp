@@ -69,6 +69,7 @@ function stepFlash(d){
 function gradeCurrent(g){
   const f=ui.flash;
   if(!f||!f.ids.length) return;
+  if(f.mode==='sample'){if(f.flipped)firstShotOpenFlash('offer');return;}
   const w=state.words.find(x=>x.id===f.ids[f.idx]);
   if(!w) return;
   const before={srs:w.srs&&{...w.srs},mastered:w.mastered,updatedAt:w.updatedAt};
@@ -105,6 +106,7 @@ function renderFlash(){
     '<div class="rv-stat ok"><div class="n">'+sum.done+'</div><div class="l">已掌握</div></div>'+
   '</div>';
   if(!f.ids.length||f.idx>=f.ids.length){
+    if(f.mode==='sample'){firstShotRenderPractice(box);return;}
     if(f.mode==='first'){firstReviewRenderSummary(box,stats,f);return;}
     const results=f.results||[];
     const cands=rankSpeakCandidates(results);
@@ -193,9 +195,10 @@ function renderFlash(){
       (srcN?'<div class="fb-src">来自笔记：'+esc(srcN.title||'')+'</div>':'')+
     '</div>';
   const dueMode=f.mode!=='free';
-  const causeMode=dueMode&&f.mode!=='first'&&personaIsExam();   /* 考试派错题重做才显示错因标记 */
+  const sample=f.mode==='sample';
+  const causeMode=dueMode&&f.mode!=='first'&&!sample&&personaIsExam();   /* 考试派错题重做才显示错因标记 */
   const selCauses=causeMode?errorCauseGet(w.id):[];
-  const reviewGuide='<div class="review-guide"><div class="review-guide-copy"><span class="review-guide-kicker">今日复习</span><b>'+(f.mode==='first'?'首次复习':dueMode?'到期复习':'自由复习')+'</b><small>先回想，再点卡片翻开</small></div><strong>'+f.graded+' / '+total+'</strong></div>';
+  const reviewGuide='<div class="review-guide"><div class="review-guide-copy"><span class="review-guide-kicker">今日复习</span><b>'+(sample?'示例闪卡':f.mode==='first'?'首次复习':dueMode?'到期复习':'自由复习')+'</b><small>先回想，再点卡片翻开</small></div><strong>'+f.graded+' / '+total+'</strong></div>';
   box.innerHTML='<div class="rv-wrap">'+stats+
     reviewGuide+
     '<div class="rv-bar"><i style="width:'+pct+'%"></i></div>'+
@@ -216,11 +219,11 @@ function renderFlash(){
             '</div>'+
           '</div>':'')+
           '<div class="grade-row">'+
-          '<button class="grade-btn again" data-grade="0">忘了<small>10 分钟后再练</small></button>'+
-          '<button class="grade-btn hard" data-grade="1">有点难<small>缩短间隔</small></button>'+
-          '<button class="grade-btn good" data-grade="2">记住了<small>拉长间隔</small></button>'+
+          '<button class="grade-btn again" data-grade="0">忘了'+(sample?'':'<small>10 分钟后再练</small>')+'</button>'+
+          '<button class="grade-btn hard" data-grade="1">有点难'+(sample?'':'<small>缩短间隔</small>')+'</button>'+
+          '<button class="grade-btn good" data-grade="2">记住了'+(sample?'':'<small>拉长间隔</small>')+'</button>'+
         '</div>':'<div class="flash-hint-row">先回想，再点卡片翻开</div>')+
-      '<div class="review-exit-row"><button class="btn" id="reviewExit" type="button">结束复习，返回首页</button></div>'
+      (sample?'':'<div class="review-exit-row"><button class="btn" id="reviewExit" type="button">结束复习，返回首页</button></div>')
         :'<div class="flash-actions">'+
           '<button class="btn" id="flashPrev"'+(f.idx===0?' disabled':'')+'>上一张</button>'+
           '<button class="btn" id="flashNext"'+(f.idx===total-1?' disabled':'')+'>下一张</button>'+
@@ -229,7 +232,12 @@ function renderFlash(){
     '</div>'+
   '</div>';
   const card=$('#flashCard');
-  if(f.mode==='first'){card.tabIndex=0;card.setAttribute('role','button');card.setAttribute('aria-label','翻开词卡');}
+  if(f.mode==='first'||sample){
+    card.tabIndex=0;card.setAttribute('role','button');card.setAttribute('aria-label','翻开词卡');
+    if(sample)card.addEventListener('keydown',e=>{
+      if(e.target===card&&(e.key==='Enter'||e.key===' ')){e.preventDefault();flipFlash();}
+    });
+  }
   card.addEventListener('click',flipFlash);
   $$('#flashCard [data-wordfollow]').forEach(b=>b.addEventListener('click',e=>{
     e.stopPropagation();

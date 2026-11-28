@@ -425,12 +425,13 @@ async function ocrMount(){
   ocrMountBusy=true;button.disabled=true;
   try{
     if(firstShotCommercial()){
-      const result=await importShotToNote(ocrSingleNoteId,targets,dataUrl,term=>originals.get(term));
+      const sample=firstGuideStep==='shotSave';
+      const result=await importShotToNote(ocrSingleNoteId,targets,dataUrl,term=>originals.get(term),sample);
       if(ocrImportVersion!==version)return;
       const own=firstOwnImporting;
       ocrCloseSheet();
       if(own){firstOwnAttach(result,originals.get(result?.word.term));return;}
-      firstGuideShotSaved(result?.word);
+      if(sample&&result){firstGuideShotSaved(result.word);firstShotOpenCard();return;}
       if(targets.length===1&&result){
         render();
         openWordModal(result.word.term,null,null,result.word);
