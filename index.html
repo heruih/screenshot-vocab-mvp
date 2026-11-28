@@ -3606,13 +3606,20 @@ function activeSiteVoicePack(){
   if(!accountLoggedIn()||!status||status.account.email!==accountEmail()||status.account.status==='disabled')return null;
   if(status.account.unlimited===true) return { hasPackage:true, unlimited:true, freeRemaining:Infinity, paidRemaining:0 };
   const pack=status.entitlements?.limits?.tts;
-  return pack&&pack.hasPackage===true?pack:null;
+  return pack&&(pack.hasPackage===true||pack.freeDaily>0)?pack:null;
 }
-function siteVoiceTotal(pack){ return pack?((pack.freeRemaining||0)+(pack.paidRemaining||0)):0; }
+function siteVoiceTotal(pack){
+  if(!pack)return 0;
+  if(pack.unlimited)return Infinity;
+  const today=new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10);
+  const knownDay=accountStatusCache?.entitlements?.day;
+  return knownDay&&knownDay!==today?(pack.freeDaily||0)+(pack.grantRemaining||0):
+    (pack.freeLeft||0)+(pack.freeRemaining||0)+(pack.paidRemaining||0);
+}
 /* auto（默认）模式下，有站方额度就用站方 CosyVoice；显式选 system/doubao 则不用 */
 function useSiteSpeech(){
   if(commercialSpeechMode()!=='auto')return false;
-  return !!activeSiteVoicePack()&&siteVoiceTotal(activeSiteVoicePack())>0;
+  return siteVoiceTotal(activeSiteVoicePack())>0;
 }
 
 /* 当前实际朗读方式（供账号页与设置页显示） */
@@ -3637,12 +3644,11 @@ function refreshCommercialSpeechSettings(){
   if(accountUnlimited()){
     status.textContent='永久免费账号：不限量使用站方 CosyVoice，不扣句数。';
   }else if(pack&&siteVoiceTotal(pack)>0){
-    const free=pack.freeRemaining||0, paid=pack.paidRemaining||0;
-    status.textContent='站方语音：免费剩余 '+free+' 句'+(paid>0?'，付费剩余 '+paid+' 句':'')+'。已生成的本机语音仍可重播。';
+    status.textContent='站方语音：共可生成 '+siteVoiceTotal(pack)+' 句。已生成的本机语音仍可重播。';
   }else if(accountLoggedIn()&&pack){
     status.textContent='免费语音已用完，当前使用'+(mode==='system'?'系统朗读':(mode==='doubao'?'自配豆包语音':'系统朗读'))+'。';
   }else{
-    status.textContent=accountLoggedIn()?'暂无可用的站方语音包，收到语音包后可刷新状态。':'登录后开通账号即送站方语音句数。';
+    status.textContent=accountLoggedIn()?'暂未取得语音额度，点击刷新状态后再试。':'验证邮箱后每天可生成 20 句免费语音。';
   }
 }
 
@@ -8275,6 +8281,7 @@ function aiSyncContext(phase){
 }
 function aiSetChatbar(phase){
   const bar=$('#aiChatbar'),input=$('#aiInput'),send=$('#aiSend'),again=$('#aiAgain');
+  again.hidden=firstShotDialogueActive;
   aiSyncContext(phase);
   if(phase==='scenes'){ bar.classList.add('hidden'); again.textContent='换一批情景'; }
   else if(phase==='practice'){ bar.classList.remove('hidden'); input.placeholder='把上面中文提示说成英文（尽量用 '+aiState.term+'）…'; send.textContent='提交答案'; again.textContent='换个场景'; }
@@ -8335,7 +8342,7 @@ function aiRenderReview(d,attempt){
       (d.standard?'<div class="ai-corrected"><span class="ai-corr-label">标准答案 · 点喇叭跟读</span><span class="ai-corr-en">'+esc(String(d.standard))+speakBtn(String(d.standard),'en-US')+'</span></div>':'')+
       (d.fit?'<div class="ai-why"><span class="ai-why-label">为什么这样说</span>'+esc(String(d.fit))+'</div>':'')+
       (pitfalls.length?'<div class="ai-pitfall"><span class="ai-why-label">容易错在</span>'+pitfalls.map(x=>'<span class="ai-pitfall-item">'+esc(String(x))+'</span>').join('')+'</div>':'')+
-      '<div class="ai-fb-actions"><button class="mini-btn" id="aiGotoScenes">换个场景</button></div>'+
+      (firstShotDialogueActive?'':'<div class="ai-fb-actions"><button class="mini-btn" id="aiGotoScenes">换个场景</button></div>')+
     '</div>';
   $('#aiScene').scrollTop=$('#aiScene').scrollHeight;
 }
@@ -8480,6 +8487,7 @@ function usesSiteDialogueReview(){
   return window.APP_CONFIG?.product==='commercial'&&!aiApiConfig().apiKey;
 }
 async function aiJudge(attempt,requestId){
+  if(firstShotDialogueActive&&!accountLoggedIn())return firstShotGuestReview(attempt);
   const target=aiTargetTerm(aiState.currentTargetWord||aiState.term);
   const context=aiState.lines.filter(line=>line.who!=='YOU').map(line=>line.en).join('\n');
   const answer={target,context,promptCn:aiState.attemptPromptCn,attempt};
@@ -8506,6 +8514,9 @@ async function submitAttempt(){
   const text=input.value.trim();
   if(!text){ toast('先把你的翻译说出来或写下来','warn'); return; }
   const siteReview=usesSiteDialogueReview();
+  if(firstShotDialogueActive&&!accountLoggedIn()&&text.length>300){
+    toast('示例体验请提交 300 字符以内的一句英文','warn');return;
+  }
   if(text.length>1200&&siteReview){
     toast('这条练习答案太长，请缩短后再提交','warn'); return;
   }
@@ -8538,6 +8549,7 @@ async function submitAttempt(){
     aiSetChatbar('review');
     aiRenderReview(d,text);
     saveSpeakLog(d,text);
+    firstShotSaveFeedback(d,text);
     firstReviewFeedback();
     if(!firstReviewDialogActive)aiSchedulePrefetch(4000);
   }).catch(err=>{
@@ -10015,7 +10027,7 @@ function bindEvents(){
     if(!t) return;
     const k=t.dataset.tab;
     if(k==='list'&&firstShotNotes())return;
-    if(k==='more'){ ui.sideOpen=true; render(); return; }
+    if(k==='more'){ ui.sideOpen=true; render(); firstShotMoreOpened(); return; }
     persistEditor();
     if(k==='today'){ ui.mode='today'; ui.note=null; ui.tag=null; }
     else if(k==='list'){ ui.mode='list'; ui.folder='all'; ui.note=null; ui.tag=null; }
@@ -13977,6 +13989,16 @@ async function dialogueReviewFetch(answers,requestId,tone){
     if(token&&token===accountToken())accountRefresh();
   }
 }
+async function guestDialogueReviewFetch(trialId,attempt){
+  const response=await fetch(TEXT_RELAY_DEFAULT+'/v1/dialogue/guest-review',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({trialId,attempt}),signal:AbortSignal.timeout(35000)
+  });
+  if(!response.ok)throw await textRelayError(response);
+  const data=await response.json(),review=data?.reviews?.[0];
+  if(typeof review?.standard!=='string'||!review.standard.trim())throw new Error('未收到完整批改，请原样重试');
+  return review;
+}
 /* 图片中转：本地先判抽象，Worker 内抽象词 LLM 改写后走 Openverse(认证)→Pixabay。返回 {source,candidates,usage}。 */
 async function imgRelayFetch(term,context){
   const relay=textRelayConfig().relayUrl.replace(/\/+$/,'');
@@ -14654,6 +14676,7 @@ function ensureLoginModal() {
         msg('没有保存登录状态。请检查浏览器是否允许本站存储数据，再获取新验证码。');
         return;
       }
+      firstShotAccountOffer = false;
       accountRenderGroup();
       closeLogin(true);
       accountRefresh();
@@ -14678,7 +14701,6 @@ function closeLogin(verified=false) {
   const m = $('#accountLoginModal');
   if (!m?.classList.contains('show')) return;
   m.classList.remove('show');
-  firstShotLoginClosed(verified===true);
   firstOwnLoginClosed(verified===true);
 }
 
@@ -14695,6 +14717,22 @@ function ensureAccountGroup() {
     '<div class="st-g-body" id="stgAccountBody"></div>';
   const first = $('#settingsModal .st-group');
   first.parentNode.insertBefore(sec, first);
+  if(firstShotCommercial()){
+    const entry=document.createElement('button');
+    entry.type='button';
+    entry.id='moreAccount';
+    entry.className='nav-item';
+    entry.innerHTML='<span class="nav-copy"><b class="nav-name">账号</b><small class="nav-desc">登录与每日免费额度</small></span>';
+    entry.onclick=()=>{
+      ui.sideOpen=false;
+      render();
+      openSettings();
+      sec.classList.add('open');
+      sec.scrollIntoView({block:'start'});
+      firstShotAccountOpened();
+    };
+    $('#sideNav').prepend(entry);
+  }
   accountRenderGroup();
 }
 
@@ -14707,9 +14745,13 @@ function accountRenderGroup() {
     : '未登录';
 
   if (!accountLoggedIn()) {
-    body.innerHTML = '<p class="a-note">登录后可以开通站方 AI 额度或领取单独发放的语音包。</p>' +
-      '<button class="btn primary" id="stAccountLogin" type="button">登录 / 注册</button>';
+    const commercial=firstShotCommercial();
+    body.innerHTML = '<p class="a-note">' + (commercial?'验证邮箱，每天可免费批改 10 句，生成 20 句语音。':'登录后可以开通站方 AI 额度或领取语音包。') + '</p>' +
+      '<button class="btn primary" id="stAccountLogin" type="button">'+(commercial?'验证邮箱':'登录 / 注册')+'</button>' +
+      (firstShotAccountOffer?'<button class="btn" id="stAccountLater" type="button">稍后</button>':'');
     $('#stAccountLogin').onclick = openLogin;
+    const later=$('#stAccountLater');
+    if(later)later.onclick=()=>{firstShotAccountOffer=false;$('#settingsModal').classList.remove('show');accountRenderGroup();};
     return;
   }
 
@@ -14735,16 +14777,11 @@ function accountRenderGroup() {
   let voiceBalance;
   if (s.account.unlimited === true) {
     voiceBalance = '永久免费账号：站方语音不限量，不扣句数';
-  } else if (status === 'disabled' || !tts.hasPackage) {
+  } else if (status === 'disabled' || (!tts.hasPackage&&!tts.freeDaily)) {
     voiceBalance = '暂无可用的站方语音包';
   } else {
-    const free = Number(tts.freeRemaining) || 0;
-    const paid = Number(tts.paidRemaining) || 0;
-    if (free + paid > 0) {
-      voiceBalance = '站方语音：免费剩余 ' + free + ' 句' + (paid > 0 ? '，付费剩余 ' + paid + ' 句' : '');
-    } else {
-      voiceBalance = '免费语音已用完，当前使用系统朗读';
-    }
+    voiceBalance = '站方语音：今日免费剩余 ' + (Number(tts.freeLeft)||0) + ' / ' + (Number(tts.freeDaily)||0) + ' 句' +
+      (tts.grantRemaining>0 ? '，原语音包剩 ' + Number(tts.grantRemaining) + ' 句' : '');
   }
 
   const textBalance = s.account.unlimited === true
@@ -14778,7 +14815,7 @@ function accountRenderGroup() {
 }
 
 function statusLabel(status) {
-  return status === 'active' ? '已开通' : status === 'pending' ? '免费批改已开通' : '已停用';
+  return status === 'active' ? '已开通' : status === 'pending' ? '已验证邮箱' : '已停用';
 }
 
 async function accountRefresh() {
@@ -14902,16 +14939,17 @@ const FIRST_GUIDE_KEY='screenshot-vocab-first-guide-v2';
 const FIRST_SHOT_TERM='notice';
 const FIRST_SHOT_SENTENCE='We notice small changes.';
 const FIRST_SHOT_PRACTICE_KEY='screenshot-vocab-sample-practice-v1';
+const FIRST_SHOT_VISITOR_KEY='screenshot-vocab-guest-review-v1';
 const FIRST_NOTE_TERM='empowerment';
 const FIRST_NOTE_SENTENCE='Education can lead to empowerment.';
 let firstGuide={};
 let firstGuideStep=null;
-let firstShotPractice=null,firstShotLoginPending=false,firstShotDialogueActive=false;
+let firstShotPractice=null,firstShotDialogueActive=false,firstShotAccountOffer=false;
 const FIRST_GUIDE_SHOT_STEPS=['sample','newNote','noteCreate','preview','frame','frameApply','word','pick','shotSave'];
 let firstGuideSampleBounds=null;
 
 function firstShotCommercial(){return window.APP_CONFIG?.product==='commercial';}
-function firstGuideInProgress(){return firstShotCommercial()&&(!!firstGuideStep||firstOwnImporting||firstShotLoginPending||firstShotDialogueActive);}
+function firstGuideInProgress(){return firstShotCommercial()&&(!!firstGuideStep||firstOwnImporting||firstShotDialogueActive);}
 function firstGuideNeedsSample(){return !firstGuide.shot&&!firstOwnDraft&&!state.notes.length&&!state.words.length;}
 function firstShotState(){
   try{return JSON.parse(localStorage.getItem(FIRST_SHOT_KEY))||{};}catch(_){return {};}
@@ -14980,6 +15018,8 @@ const FIRST_GUIDE_STEPS={
   sampleCard:['#firstShotFlash','词已保存。点「试一次闪卡」，看看怎么复习。'],
   sampleRate:['.grade-row','选一档，完成这张示例闪卡。'],
   sampleSpeak:['#firstShotPracticeActions','可以用刚才的词聊一句，也可以稍后。'],
+  guestMore:['#tabbar [data-tab="more"]','点「更多」，看看以后在哪里领免费次数。'],
+  guestAccount:['#moreAccount','点「账号」，查看每日免费额度。'],
   type:['#noteBody','在正文里输入 empowerment。'],
   select:['#noteBody,#btnKb,#edEmpower','在正文里长按选中 empowerment，再点「做词卡」。电脑上可以拖选。'],
   join:['#btnEmpower','点「加入词库」，打开这张词卡。'],
@@ -15082,6 +15122,8 @@ function firstGuideBoot(){
     if(firstGuide.shot==='pending')firstGuideStart(firstGuide.shotStep);
     else if(firstShotPractice?.phase==='card')firstShotOpenCard();
     else if(['flash','offer'].includes(firstShotPractice?.phase))firstShotOpenFlash(firstShotPractice.phase);
+    else if(firstShotPractice?.phase==='feedback'){firstShotOpenFlash('offer');firstShotOpenDialogue();}
+    else if(firstShotPractice?.phase==='account')firstShotGuideAccount();
     else if(firstGuide.shot==='done'&&firstGuide.note&&firstGuide.note!=='done')firstShotNotes();
     else if(firstGuideNeedsSample())firstGuideStart();
   },0);
@@ -15177,8 +15219,8 @@ function firstGuideShotSaved(word){
   firstShotPractice={wordId:word.id,phase:'card'};
   firstShotSetPhase('card');
 }
-function firstShotSetPhase(phase){
-  firstShotPractice={...firstShotPractice,phase};
+function firstShotSetPhase(phase,details={}){
+  firstShotPractice={...firstShotPractice,...details,phase};
   if(!aStore(FIRST_SHOT_PRACTICE_KEY,JSON.stringify(firstShotPractice)))toast('示例练习进度未保存','warn');
 }
 function firstShotPracticeWord(){
@@ -15212,15 +15254,9 @@ function firstShotRenderPractice(box){
   box.innerHTML='<div class="flash-empty"><b>示例闪卡完成</b><p>用 '+esc(word.term)+' 在新场景里说一句。</p>'+
     '<div class="rv-actions" id="firstShotPracticeActions"><button class="btn primary" id="firstShotSpeak">用这个词聊一句</button>'+
     '<button class="btn" id="firstShotLater">稍后再练</button></div></div>';
-  $('#firstShotSpeak').onclick=()=>{
-    if(usesSiteDialogueReview()&&!accountLoggedIn()){
-      firstShotLoginPending=true;
-      firstGuideTarget(null);
-      openLogin();
-    }else firstShotOpenDialogue();
-  };
+  $('#firstShotSpeak').onclick=firstShotOpenDialogue;
   $('#firstShotLater').onclick=firstShotEndPractice;
-  firstGuideTarget('sampleSpeak');
+  if(!firstShotDialogueActive)firstGuideTarget('sampleSpeak');
 }
 function firstShotOpenDialogue(){
   const word=firstShotPracticeWord();
@@ -15231,22 +15267,53 @@ function firstShotOpenDialogue(){
     {who:'A',en:'I can’t find my bag.',cn:'我找不到我的包。'},
     {who:'YOU',promptCn:'告诉对方：我注意到你的包在门边。'}
   ]);
+  const feedback=firstShotPractice.feedback;
+  if(feedback){
+    firstShotSetPhase('feedback');
+    aiState.phase='review';aiState.attempt=feedback.attempt;
+    aiShowBody();aiSetChatbar('review');aiRenderReview(feedback.review,feedback.attempt);
+  }
 }
-function firstShotLoginClosed(verified){
-  if(!firstShotLoginPending)return;
-  firstShotLoginPending=false;
-  if(verified)firstShotOpenDialogue();
-  else renderFlash();
+function firstShotGuestReview(attempt){
+  let id=aRead(FIRST_SHOT_VISITOR_KEY,null);
+  if(!id){
+    id=crypto.randomUUID();
+    if(!aStore(FIRST_SHOT_VISITOR_KEY,JSON.stringify(id)))throw new Error('浏览器暂时无法保存试用进度');
+  }
+  return guestDialogueReviewFetch(id,attempt);
+}
+function firstShotSaveFeedback(review,attempt){
+  if(firstShotDialogueActive)firstShotSetPhase('feedback',{feedback:{review,attempt}});
+}
+function firstShotGuideAccount(){
+  if(accountLoggedIn()){firstShotEndPractice();return;}
+  firstShotSetPhase('account',{feedback:null});
+  ui.mode='today';ui.flash=null;ui.sideOpen=false;
+  firstGuideTarget('guestMore');
+  render();
+  if(!$('#tabbar [data-tab="more"]').getClientRects().length){
+    ui.sideOpen=true;render();firstShotMoreOpened();
+  }
+}
+function firstShotMoreOpened(){
+  if(firstGuideStep==='guestMore')firstGuideTarget('guestAccount');
+}
+function firstShotAccountOpened(){
+  if(firstGuideStep!=='guestAccount')return;
+  firstShotAccountOffer=!accountLoggedIn();
+  firstShotSetPhase('done',{feedback:null});
+  firstGuideTarget(null);
+  accountRenderGroup();
 }
 function firstShotDialogueClosed(finished){
   if(!firstShotDialogueActive)return false;
   firstShotDialogueActive=false;
-  if(finished)firstShotEndPractice();
+  if(finished)firstShotGuideAccount();
   else renderFlash();
   return true;
 }
 function firstShotEndPractice(){
-  firstShotSetPhase('done');
+  firstShotSetPhase('done',{feedback:null});
   firstGuideTarget(null);
   ui.mode='today';ui.flash=null;render();
 }
