@@ -87,13 +87,20 @@ function activeSiteVoicePack(){
   if(!accountLoggedIn()||!status||status.account.email!==accountEmail()||status.account.status==='disabled')return null;
   if(status.account.unlimited===true) return { hasPackage:true, unlimited:true, freeRemaining:Infinity, paidRemaining:0 };
   const pack=status.entitlements?.limits?.tts;
-  return pack&&pack.hasPackage===true?pack:null;
+  return pack&&(pack.hasPackage===true||pack.freeDaily>0)?pack:null;
 }
-function siteVoiceTotal(pack){ return pack?((pack.freeRemaining||0)+(pack.paidRemaining||0)):0; }
+function siteVoiceTotal(pack){
+  if(!pack)return 0;
+  if(pack.unlimited)return Infinity;
+  const today=new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10);
+  const knownDay=accountStatusCache?.entitlements?.day;
+  return knownDay&&knownDay!==today?(pack.freeDaily||0)+(pack.grantRemaining||0):
+    (pack.freeLeft||0)+(pack.freeRemaining||0)+(pack.paidRemaining||0);
+}
 /* auto（默认）模式下，有站方额度就用站方 CosyVoice；显式选 system/doubao 则不用 */
 function useSiteSpeech(){
   if(commercialSpeechMode()!=='auto')return false;
-  return !!activeSiteVoicePack()&&siteVoiceTotal(activeSiteVoicePack())>0;
+  return siteVoiceTotal(activeSiteVoicePack())>0;
 }
 
 /* 当前实际朗读方式（供账号页与设置页显示） */
@@ -118,12 +125,11 @@ function refreshCommercialSpeechSettings(){
   if(accountUnlimited()){
     status.textContent='永久免费账号：不限量使用站方 CosyVoice，不扣句数。';
   }else if(pack&&siteVoiceTotal(pack)>0){
-    const free=pack.freeRemaining||0, paid=pack.paidRemaining||0;
-    status.textContent='站方语音：免费剩余 '+free+' 句'+(paid>0?'，付费剩余 '+paid+' 句':'')+'。已生成的本机语音仍可重播。';
+    status.textContent='站方语音：共可生成 '+siteVoiceTotal(pack)+' 句。已生成的本机语音仍可重播。';
   }else if(accountLoggedIn()&&pack){
     status.textContent='免费语音已用完，当前使用'+(mode==='system'?'系统朗读':(mode==='doubao'?'自配豆包语音':'系统朗读'))+'。';
   }else{
-    status.textContent=accountLoggedIn()?'暂无可用的站方语音包，收到语音包后可刷新状态。':'登录后开通账号即送站方语音句数。';
+    status.textContent=accountLoggedIn()?'暂未取得语音额度，点击刷新状态后再试。':'验证邮箱后每天可生成 20 句免费语音。';
   }
 }
 

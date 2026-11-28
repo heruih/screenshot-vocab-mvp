@@ -117,40 +117,45 @@ export async function testFirstShot({loadPage,evaluate,cdp}){
     click('[data-grade="2"]');
     check(firstGuideStep==='sampleSpeak'&&srsSnapshot()===beforeExampleSrs,'示例评分不改变正式复习进度');
     click('#firstShotSpeak');
-    check($('#accountLoginModal').classList.contains('show'),'实际选择 AI 对话时才打开邮箱验证');
-    click('#almClose');
-    check(firstGuideStep==='sampleSpeak','取消登录回到可选的对话入口');
+    check($('#aiModal').classList.contains('show')&&!$('#accountLoginModal').classList.contains('show'),'访客直接进入 AI 对话');
+    click('#aiClose');
+    check(firstGuideStep==='sampleSpeak','随时可回到练习选择');
   });
   await loadPage();
   await waitFor(()=>firstGuideStep==='sampleSpeak');
   await evaluate(()=>{
-    accountApi=async(path)=>{
-      if(path==='/v1/auth/request-code')return {status:200,data:{ok:true}};
-      if(path==='/v1/auth/verify')return {status:200,data:{token:'isolated-test-session'}};
-      return {status:503,data:{message:'隔离测试账号状态'}};
-    };
-    dialogueReviewFetch=async(answers)=>{
-      check(accountLoggedIn()&&answers[0].target==='notice','已验证邮箱并批改同一个目标词');
-      return [{standard:'I noticed your bag by the door.',fit:'用法自然',pitfalls:[]}];
+    guestDialogueReviewFetch=async(id,answer)=>{
+      check(!accountLoggedIn()&&!!id&&answer==='I noticed your bag by the door.','未登录也提交真实答案给访客批改');
+      return {standard:'I noticed your bag by the door.',fit:'用法自然',pitfalls:[]};
     };
     click('#firstShotSpeak');
-    $('#almEmail').value='learner@example.invalid';click('#almSendCode');
-  });
-  await waitFor(()=>!$('#almCodeStep').hidden);
-  await evaluate(()=>{$('#almCode').value='246802';click('#almDoVerify');});
-  await waitFor(()=>$('#aiModal').classList.contains('show')&&aiState.lines.length===2);
-  await evaluate(()=>{
     check(aiState.term==='notice'&&$('#aiScene').textContent.includes('找不到我的包'),'从闪卡接到同词新场景');
-    click('#aiClose');
-    check(firstGuideStep==='sampleSpeak','退出对话可回到练习选择');
-    click('#firstShotSpeak');
     $('#aiInput').value='I noticed your bag by the door.';
     click('#aiSend');
   });
   await waitFor(()=>aiState.phase==='review');
+  await loadPage();
+  await waitFor(()=>aiState.phase==='review'&&$('#aiModal').classList.contains('show'));
   await evaluate(()=>{
+    check(!accountLoggedIn()&&$('#aiScene').textContent.includes('用法自然')&&!firstGuideStep,'点评先展示，刷新也能继续看');
     click('#aiClose2');
-    check(firstShotPractice.phase==='done'&&!firstGuideStep&&ui.mode==='today','看完点评回首页并结束示例练习');
+    if(firstGuideStep==='guestMore'){
+      check(ui.mode==='today'&&!ui.sideOpen,'先引导点更多');
+      click('[data-tab="words"]');
+      check(ui.mode==='today','更多之外的按钮不能绕过');
+      click('[data-tab="more"]');
+    }
+    check(firstGuideStep==='guestAccount'&&ui.sideOpen,'账号入口已高亮');
+    click('#moreAccount');
+    check(firstShotPractice.phase==='done'&&!firstGuideStep&&$('#settingsModal').classList.contains('show')&&
+      !$('#accountLoginModal').classList.contains('show'),'到达账号页即解除遮罩，登录未打开');
+    check($('#stgAccountBody').textContent.includes('每天可免费批改 10 句，生成 20 句语音'),'提示两项每日免费额度');
+    click('#stAccountLogin');
+    check($('#accountLoginModal').classList.contains('show'),'主动选择后才打开邮箱验证');
+    click('#almClose');
+    click('#stAccountLater');
+    check(!accountLoggedIn()&&!$('#settingsModal').classList.contains('show')&&state.aiLog.some(x=>x.term==='notice'),
+      '稍后可自由退出，点评可回看');
     firstShotOpenFlash('offer');
     click('#firstShotLater');
     check(firstShotPractice.phase==='done'&&!$('#aiModal').classList.contains('show'),'也可以直接跳过 AI 对话');
@@ -227,6 +232,25 @@ export async function testFirstShot({loadPage,evaluate,cdp}){
     pwaPlatform=()=>({ios:true,android:false});
     check(showInstallPrompt()&&$('#pwaInstallGo'),'仍能提示添加到主屏幕');
     click('#pwaInstallDefer');
+    accountApi=async(path)=>{
+      if(path==='/v1/auth/request-code')return {status:200,data:{ok:true}};
+      if(path==='/v1/auth/verify')return {status:200,data:{token:'isolated-test-session'}};
+      return {status:200,data:{
+        account:{email:'learner@example.invalid',status:'pending'},
+        entitlements:{limits:{
+          tts:{freeDaily:20,freeLeft:20,hasPackage:false},text:{freeDaily:10,freeLeft:10,used:0}
+        },monthly:{totalMicro:0}}
+      }};
+    };
+    click('[data-tab="more"]');click('#moreAccount');click('#stAccountLogin');
+    $('#almEmail').value='learner@example.invalid';click('#almSendCode');
   });
-  console.log('首次硬指引通过：新建后框选、只写入示例词、单词闪卡、邮箱续接 AI 对话、笔记引导及弹窗检查。');
+  await waitFor(()=>!$('#almCodeStep').hidden);
+  await evaluate(()=>{$('#almCode').value='246802';click('#almDoVerify');});
+  await waitFor(()=>accountLoggedIn()&&siteVoiceTotal(activeSiteVoicePack())===20);
+  await evaluate(()=>{
+    check($('#stgAccountBody').textContent.includes('免费批改剩余 10 句')&&$('#stgAccountBody').textContent.includes('今日免费剩余 20 / 20 句'),
+      '新邮箱验证后立即显示两种额度，访客批改不占登录后的十句');
+  });
+  console.log('首次硬指引通过：新建后框选、闪卡、访客批改、查看账号区与可跳过登录、笔记引导及弹窗检查。');
 }

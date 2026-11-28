@@ -9,7 +9,7 @@
 
 import { normalizeEmail, requestCode, verifyCode, getSession } from './entitlements/accounts.mjs';
 import {
-  reserveSlot, releaseSlot, getStatus, getGrantBalance, getBudgetCost, markCostAlertSent,
+  reserveSlot, releaseSlot, getStatus, getGrantBalance, getBudgetCost, markCostAlertSent, billingConfig,
   reserveBudget, settleBudget, releaseBudget, holdBudget, listBudgetHolds, resolveHold
 } from './entitlements/billing.mjs';
 import { deepseekMicro, cosyvoiceMicro, maxDeepseekMicro, deepseekOutputLimit } from './entitlements/pricing.mjs';
@@ -23,6 +23,7 @@ import {
   readDialogueReview, validateDialogueResult, claimDialogueReview, reserveDialogueUnits,
   releaseDialogueReview, completeDialogueReview
 } from './entitlements/dialogue-review.mjs';
+import { guestReviewInput, claimGuestReview, finishGuestReview } from './entitlements/guest-review.mjs';
 import { synthesizeCosyVoice } from './cosyvoice-preview.mjs';
 
 const DEEPSEEK_UPSTREAM = 'https://api.deepseek.com';
@@ -161,6 +162,11 @@ export default {
     if (path === '/v1/dialogue/review') {
       const review = handleTextEntitled(request, env, { ...headers, 'Cache-Control': 'no-store' }, ctx, true);
       // 浏览器断开后继续结算，原样重试即可领取同一份批改。
+      ctx.waitUntil(review.then(() => undefined, () => undefined));
+      return review;
+    }
+    if (path === '/v1/dialogue/guest-review') {
+      const review = handleGuestReview(request, env, ctx, { ...headers, 'Cache-Control': 'no-store' }, origin === allowed);
       ctx.waitUntil(review.then(() => undefined, () => undefined));
       return review;
     }
@@ -371,6 +377,56 @@ async function handleTextEntitled(request, env, headers, ctx, isReview = false) 
   }
 }
 
+async function handleGuestReview(request, env, ctx, headers, allowedOrigin) {
+  if (request.method !== 'POST') return jerr(405, '请使用 POST', headers);
+  if (!allowedOrigin) return jerr(403, '请在截图词库内完成示例练习。', headers);
+  const trial = await guestReviewInput(await readJson(request), request);
+  if (!trial) return jerr(400, '请提交 300 字符以内的一句英文。', headers);
+  if (!env.DB || (!isSimulate(env) && (!env.DEEPSEEK_API_KEY ||
+      (env.DEEPSEEK_MODEL && !FLASH_MODELS.includes(env.DEEPSEEK_MODEL))))) {
+    return jerr(503, '访客批改暂不可用，请稍后再试。', headers);
+  }
+
+  let claimed = false, completed = false, budget;
+  try {
+    const claim = await claimGuestReview(env.DB, trial);
+    if (claim.result) return jbody(200, claim.result, headers);
+    if (!claim.claimed) return jerr(claim.status, claim.message, headers);
+    claimed = true;
+    const input = trial.review.input, fixed = fixedSimMicro(env);
+    budget = await reserveBudget(env, 'text', fixed ?? maxDeepseekMicro(env, input));
+    if (!budget.ok) return jerr(402, '站方本月服务额度已用完。', headers);
+
+    let data, usage;
+    if (isSimulate(env)) {
+      const sim = simulateText(input, 1);
+      data = sim.response; usage = sim.usage;
+    } else {
+      const upstream = await callDeepseekUpstream(env, input);
+      if (!upstream.ok) {
+        if (upstream.status >= 500) await holdBudget(env, budget, '访客批改上游服务异常');
+        else await releaseBudget(env, budget);
+        budget = null;
+        return jerr(upstream.status, '访客批改暂时失败，请稍后重试。', headers);
+      }
+      data = upstream.data; usage = upstream.usage;
+    }
+    const cost = await settleBudget(env, budget, fixed ?? deepseekMicro(env, usage, isPeakHour()));
+    budget = null;
+    if (cost.alert) scheduleCostWarning(env, ctx, cost);
+    const result = validateDialogueResult(data, 1);
+    if (!result) return jerr(502, '未收到完整点评，请重试。', headers);
+    await finishGuestReview(env.DB, trial.visitor, result);
+    completed = true;
+    return jbody(200, result, headers);
+  } catch (_) {
+    if (budget?.ok) await holdBudget(env, budget, '访客批改结算结果无法确认');
+    return jerr(503, '访客批改暂不可用，请稍后再试。', headers);
+  } finally {
+    if (claimed && !completed) await finishGuestReview(env.DB, trial.visitor, null).catch(() => {});
+  }
+}
+
 /* live 模式调用 DeepSeek：网络层异常直接抛出（调用方按"不确定"挂起）；
  * 有明确 HTTP 响应则返回 {ok,status,message} 或 {ok,data,usage}。 */
 async function callDeepseekUpstream(env, input) {
@@ -464,7 +520,7 @@ async function handleTts(request, env, headers, ctx) {
   if (!account) return jerr(401, '请先登录', headers);
   if (account.status === 'disabled') return jerr(403, '账号已停用', headers);
   const unlimited = account.unlimited === 1;
-  if (!unlimited) {
+  if (!unlimited && billingConfig(env).freeDaily.tts === 0) {
     const pack = await getGrantBalance(env, account.id, 'tts');
     if (!pack.hasPackage) return jerr(403, '站方语音包未开通或已到期', headers);
     if (pack.remaining <= 0) return jerr(402, '站方语音包句数已用完', headers);
@@ -489,7 +545,7 @@ async function handleTts(request, env, headers, ctx) {
       reservation = await reserveSlot(env, account.id, 'tts');
       if (reservation.source === 'none') {
         await releaseBudget(env, budget);
-        return jerr(402, '站方语音包已用完或到期', headers);
+        return jerr(402, '今日免费语音和可用加练包已用完，已使用系统朗读', headers);
       }
     }
     let audio, characters;

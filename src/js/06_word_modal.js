@@ -1248,6 +1248,7 @@ function aiSyncContext(phase){
 }
 function aiSetChatbar(phase){
   const bar=$('#aiChatbar'),input=$('#aiInput'),send=$('#aiSend'),again=$('#aiAgain');
+  again.hidden=firstShotDialogueActive;
   aiSyncContext(phase);
   if(phase==='scenes'){ bar.classList.add('hidden'); again.textContent='换一批情景'; }
   else if(phase==='practice'){ bar.classList.remove('hidden'); input.placeholder='把上面中文提示说成英文（尽量用 '+aiState.term+'）…'; send.textContent='提交答案'; again.textContent='换个场景'; }
@@ -1308,7 +1309,7 @@ function aiRenderReview(d,attempt){
       (d.standard?'<div class="ai-corrected"><span class="ai-corr-label">标准答案 · 点喇叭跟读</span><span class="ai-corr-en">'+esc(String(d.standard))+speakBtn(String(d.standard),'en-US')+'</span></div>':'')+
       (d.fit?'<div class="ai-why"><span class="ai-why-label">为什么这样说</span>'+esc(String(d.fit))+'</div>':'')+
       (pitfalls.length?'<div class="ai-pitfall"><span class="ai-why-label">容易错在</span>'+pitfalls.map(x=>'<span class="ai-pitfall-item">'+esc(String(x))+'</span>').join('')+'</div>':'')+
-      '<div class="ai-fb-actions"><button class="mini-btn" id="aiGotoScenes">换个场景</button></div>'+
+      (firstShotDialogueActive?'':'<div class="ai-fb-actions"><button class="mini-btn" id="aiGotoScenes">换个场景</button></div>')+
     '</div>';
   $('#aiScene').scrollTop=$('#aiScene').scrollHeight;
 }
@@ -1453,6 +1454,7 @@ function usesSiteDialogueReview(){
   return window.APP_CONFIG?.product==='commercial'&&!aiApiConfig().apiKey;
 }
 async function aiJudge(attempt,requestId){
+  if(firstShotDialogueActive&&!accountLoggedIn())return firstShotGuestReview(attempt);
   const target=aiTargetTerm(aiState.currentTargetWord||aiState.term);
   const context=aiState.lines.filter(line=>line.who!=='YOU').map(line=>line.en).join('\n');
   const answer={target,context,promptCn:aiState.attemptPromptCn,attempt};
@@ -1479,6 +1481,9 @@ async function submitAttempt(){
   const text=input.value.trim();
   if(!text){ toast('先把你的翻译说出来或写下来','warn'); return; }
   const siteReview=usesSiteDialogueReview();
+  if(firstShotDialogueActive&&!accountLoggedIn()&&text.length>300){
+    toast('示例体验请提交 300 字符以内的一句英文','warn');return;
+  }
   if(text.length>1200&&siteReview){
     toast('这条练习答案太长，请缩短后再提交','warn'); return;
   }
@@ -1511,6 +1516,7 @@ async function submitAttempt(){
     aiSetChatbar('review');
     aiRenderReview(d,text);
     saveSpeakLog(d,text);
+    firstShotSaveFeedback(d,text);
     firstReviewFeedback();
     if(!firstReviewDialogActive)aiSchedulePrefetch(4000);
   }).catch(err=>{

@@ -17,7 +17,7 @@ import { notifyOwner } from '../relay/entitlements/notify.mjs';
 import { isPeakHour } from '../relay/entitlements/time.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const schemaSql = fs.readFileSync(path.join(root, 'relay/entitlements/schema.sql'), 'utf8');
+const schemaSql = fs.readFileSync(path.join(root, 'relay/entitlements/schema.sql'), 'utf8').replace(/\r\n/g, '\n');
 
 /* ---------- 可控时钟（重写全局 Date） ---------- */
 const RealDate = Date;
@@ -80,7 +80,7 @@ function createD1(sqlite) {
   };
 }
 
-function makeEnv({ simMicro, welcomeTts = 0 } = {}) {
+function makeEnv({ simMicro, welcomeTts = 0, dailyTts = 0 } = {}) {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(schemaSql);
   const env = {
@@ -91,7 +91,7 @@ function makeEnv({ simMicro, welcomeTts = 0 } = {}) {
     ALLOW_DEV_AUTH: '1',
     ALLOWED_ORIGIN: 'https://heruih.github.io',
     // 默认关闭站方赠送语音，避免影响既有语音包测试；新场景按需开启 welcomeTts
-    ENTITLEMENT_CONFIG: JSON.stringify({ welcomeTts })
+    ENTITLEMENT_CONFIG: JSON.stringify({ welcomeTts, freeDaily: { tts: dailyTts } })
   };
   if (simMicro !== undefined) env.SIMULATE_COST_MICRO = String(simMicro);
   return env;
@@ -860,6 +860,86 @@ setBeijing(2026, 11, 24, 11);
   /* 同一 requestId 再提交应命中缓存，不重复扣费 */
   const again = await review(env, token, reviewBody(1));
   check('永久免费账号再次批改仍 200', again.status === 200, 'got ' + again.status);
+}
+
+section('场景23：访客只体验一条示例，同一提交可重试领取');
+setBeijing(2026, 11, 28, 11);
+{
+  const env = makeEnv({ simMicro: 100 });
+  const endpoint = '/v1/dialogue/guest-review';
+  const body = { trialId: crypto.randomUUID(), attempt: 'I noticed your bag by the door.' };
+  const headers = { 'CF-Connecting-IP': '192.0.2.1' };
+  const firstTwo = await Promise.all([call(env, 'POST', endpoint, body, headers), call(env, 'POST', endpoint, body, headers)]);
+  check('访客无需登录能拿到示例批改', firstTwo.some(r => r.status === 200 && r.data.reviews.length === 1));
+  const again = await call(env, 'POST', endpoint, body, headers);
+  check('访客原样重试拿到相同批改', again.status === 200);
+  const changed = await call(env, 'POST', endpoint, { ...body, attempt: 'I lost my keys.' }, headers);
+  check('同一浏览器成功后无法多改一句', changed.status === 409);
+  check('并发和重试只记一次站方成本', (await billingGetStatus(env, 1)).monthly.totalMicro === 100);
+  check('访客无法直接请求正式批改', (await review(env, '')).status === 401);
+  const networkNew = await Promise.all(Array.from({ length: 9 }, () =>
+    call(env, 'POST', endpoint, { ...body, trialId: crypto.randomUUID() }, headers)));
+  check('同一网络当天最多六次，含先前一次', networkNew.filter(r => r.status === 200).length === 5);
+  const siteNew = await Promise.all(Array.from({ length: 35 }, (_, n) =>
+    call(env, 'POST', endpoint, { ...body, trialId: crypto.randomUUID() }, { 'CF-Connecting-IP': '198.51.100.' + (n + 1) })));
+  check('站点每天最多三十次，含先前六次', siteNew.filter(r => r.status === 200).length === 24);
+  const wrongOrigin = await call(env, 'POST', endpoint, body, { Origin: 'https://example.invalid' });
+  check('不接受其它网页来源', wrongOrigin.status === 403);
+  const invalid = await call(env, 'POST', endpoint, { ...body, trialId: 'bad' }, headers);
+  check('无效试用编号不会调用模型', invalid.status === 400);
+  setBeijing(2026, 11, 29, 0, 1);
+  check('访客全站次数次日可恢复', (await call(env, 'POST', endpoint,
+    { ...body, trialId: crypto.randomUUID() }, headers)).status === 200);
+  const recoverable = { ...body, trialId: crypto.randomUUID() };
+  env.SIMULATE_COST_MICRO = '150000001';
+  check('访客批改仍受站方共享成本上限约束', (await call(env, 'POST', endpoint, recoverable, headers)).status === 402);
+  env.SIMULATE_COST_MICRO = '100';
+  check('失败恢复后同一访客可再试一次', (await call(env, 'POST', endpoint, recoverable, headers)).status === 200);
+}
+
+section('场景24：验证邮箱自动解锁每天 10 句批改和 20 句语音');
+setBeijing(2026, 11, 28, 23, 55);
+{
+  const env = makeEnv({ simMicro: 100, dailyTts: 20 });
+  const email = 'daily-voice@example.test';
+  const token = await login(env, email), headers = auth(token);
+  const limits = async () => (await call(env, 'GET', '/v1/me/status', null, headers)).data.entitlements.limits;
+  const speak = () => call(env, 'POST', '/v1/tts/synthesize', { text: 'I noticed a change.' }, headers);
+  const starting = await limits();
+  check('无需管理员开通就有两项每日额度', starting.text.freeLeft === 10 && starting.tts.freeLeft === 20);
+  const concurrent = await Promise.all(Array.from({ length: 21 }, speak));
+  check('并发只能合成 20 句免费语音，下一次被拦下', concurrent.filter(r=>r.status===200).length===20 &&
+    concurrent.filter(r=>r.status===402).length===1);
+  await grantVoice(env, email, 2);
+  await speak();
+  check('每日额度用完后才使用旧语音包', (await limits()).tts.grantRemaining === 1);
+  await review(env, token);
+  setBeijing(2026, 11, 29, 0, 5);
+  const renewed = await limits();
+  check('北京时间跨天重置两项额度，保留语音包', renewed.text.freeLeft === 10 && renewed.tts.freeLeft === 20 &&
+    renewed.tts.grantRemaining === 1);
+  await speak();
+  const after = await limits();
+  check('跨天优先扣当日语音，原语音包继续保留', after.tts.freeLeft === 19 && after.tts.grantRemaining === 1);
+}
+
+section('场景25：独立访客表可以在旧数据库重复升级，保留已发权益');
+setBeijing(2026, 11, 28);
+{
+  const env = makeEnv({ dailyTts: 20 });
+  await env.DB.prepare('DROP TABLE guest_review_trial').bind().run();
+  const email = 'legacy-guest-migration@example.test';
+  const token = await login(env, email);
+  await grantVoice(env, email, 3);
+  await review(env, token);
+  const migration = fs.readFileSync(path.join(root, 'relay/entitlements/migrations/007-guest-review-trial.sql'), 'utf8');
+  const statements = migration.replace(/^--.*$/gm, '').split(';').map(sql => sql.trim()).filter(Boolean);
+  for(let pass=0;pass<2;pass++)for(const sql of statements)await env.DB.prepare(sql).bind().run();
+  const before = (await call(env, 'GET', '/v1/me/status', null, auth(token))).data.entitlements.limits;
+  check('迁移后老账号有效且原批改用量和语音包保留', before.text.freeLeft === 9 && before.tts.grantRemaining === 3);
+  const guestBody = { trialId: crypto.randomUUID(), attempt: 'I noticed it.' };
+  const response = await call(env, 'POST', '/v1/dialogue/guest-review', guestBody);
+  check('重复迁移后访客接口仍可批改', response.status === 200);
 }
 
 /* ---------- 汇总 ---------- */

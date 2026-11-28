@@ -95,6 +95,16 @@ async function dialogueReviewFetch(answers,requestId,tone){
     if(token&&token===accountToken())accountRefresh();
   }
 }
+async function guestDialogueReviewFetch(trialId,attempt){
+  const response=await fetch(TEXT_RELAY_DEFAULT+'/v1/dialogue/guest-review',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({trialId,attempt}),signal:AbortSignal.timeout(35000)
+  });
+  if(!response.ok)throw await textRelayError(response);
+  const data=await response.json(),review=data?.reviews?.[0];
+  if(typeof review?.standard!=='string'||!review.standard.trim())throw new Error('未收到完整批改，请原样重试');
+  return review;
+}
 /* 图片中转：本地先判抽象，Worker 内抽象词 LLM 改写后走 Openverse(认证)→Pixabay。返回 {source,candidates,usage}。 */
 async function imgRelayFetch(term,context){
   const relay=textRelayConfig().relayUrl.replace(/\/+$/,'');

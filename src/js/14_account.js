@@ -136,6 +136,7 @@ function ensureLoginModal() {
         msg('没有保存登录状态。请检查浏览器是否允许本站存储数据，再获取新验证码。');
         return;
       }
+      firstShotAccountOffer = false;
       accountRenderGroup();
       closeLogin(true);
       accountRefresh();
@@ -160,7 +161,6 @@ function closeLogin(verified=false) {
   const m = $('#accountLoginModal');
   if (!m?.classList.contains('show')) return;
   m.classList.remove('show');
-  firstShotLoginClosed(verified===true);
   firstOwnLoginClosed(verified===true);
 }
 
@@ -177,6 +177,22 @@ function ensureAccountGroup() {
     '<div class="st-g-body" id="stgAccountBody"></div>';
   const first = $('#settingsModal .st-group');
   first.parentNode.insertBefore(sec, first);
+  if(firstShotCommercial()){
+    const entry=document.createElement('button');
+    entry.type='button';
+    entry.id='moreAccount';
+    entry.className='nav-item';
+    entry.innerHTML='<span class="nav-copy"><b class="nav-name">账号</b><small class="nav-desc">登录与每日免费额度</small></span>';
+    entry.onclick=()=>{
+      ui.sideOpen=false;
+      render();
+      openSettings();
+      sec.classList.add('open');
+      sec.scrollIntoView({block:'start'});
+      firstShotAccountOpened();
+    };
+    $('#sideNav').prepend(entry);
+  }
   accountRenderGroup();
 }
 
@@ -189,9 +205,13 @@ function accountRenderGroup() {
     : '未登录';
 
   if (!accountLoggedIn()) {
-    body.innerHTML = '<p class="a-note">登录后可以开通站方 AI 额度或领取单独发放的语音包。</p>' +
-      '<button class="btn primary" id="stAccountLogin" type="button">登录 / 注册</button>';
+    const commercial=firstShotCommercial();
+    body.innerHTML = '<p class="a-note">' + (commercial?'验证邮箱，每天可免费批改 10 句，生成 20 句语音。':'登录后可以开通站方 AI 额度或领取语音包。') + '</p>' +
+      '<button class="btn primary" id="stAccountLogin" type="button">'+(commercial?'验证邮箱':'登录 / 注册')+'</button>' +
+      (firstShotAccountOffer?'<button class="btn" id="stAccountLater" type="button">稍后</button>':'');
     $('#stAccountLogin').onclick = openLogin;
+    const later=$('#stAccountLater');
+    if(later)later.onclick=()=>{firstShotAccountOffer=false;$('#settingsModal').classList.remove('show');accountRenderGroup();};
     return;
   }
 
@@ -217,16 +237,11 @@ function accountRenderGroup() {
   let voiceBalance;
   if (s.account.unlimited === true) {
     voiceBalance = '永久免费账号：站方语音不限量，不扣句数';
-  } else if (status === 'disabled' || !tts.hasPackage) {
+  } else if (status === 'disabled' || (!tts.hasPackage&&!tts.freeDaily)) {
     voiceBalance = '暂无可用的站方语音包';
   } else {
-    const free = Number(tts.freeRemaining) || 0;
-    const paid = Number(tts.paidRemaining) || 0;
-    if (free + paid > 0) {
-      voiceBalance = '站方语音：免费剩余 ' + free + ' 句' + (paid > 0 ? '，付费剩余 ' + paid + ' 句' : '');
-    } else {
-      voiceBalance = '免费语音已用完，当前使用系统朗读';
-    }
+    voiceBalance = '站方语音：今日免费剩余 ' + (Number(tts.freeLeft)||0) + ' / ' + (Number(tts.freeDaily)||0) + ' 句' +
+      (tts.grantRemaining>0 ? '，原语音包剩 ' + Number(tts.grantRemaining) + ' 句' : '');
   }
 
   const textBalance = s.account.unlimited === true
@@ -260,7 +275,7 @@ function accountRenderGroup() {
 }
 
 function statusLabel(status) {
-  return status === 'active' ? '已开通' : status === 'pending' ? '免费批改已开通' : '已停用';
+  return status === 'active' ? '已开通' : status === 'pending' ? '已验证邮箱' : '已停用';
 }
 
 async function accountRefresh() {

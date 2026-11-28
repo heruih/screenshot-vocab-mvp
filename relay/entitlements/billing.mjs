@@ -17,8 +17,8 @@ import { beijingDay, beijingMonth } from './time.mjs';
 /* 默认口径：每日免费句数、月度提醒/封顶（单位：微元，1 元 = 1,000,000 微元） */
 function config(env) {
   const c = {
-    freeDaily: { text: 10, text_aux: 30, tts: 0 },
-    welcomeTts: 20,           // 每账号一次性赠送的站方语音句数（可配置）
+    freeDaily: { text: 10, text_aux: 30, tts: 20 },
+    welcomeTts: 0,
     warnMicro: 100_000_000,   // 100 元
     capMicro: 150_000_000     // 150 元
   };
@@ -26,7 +26,8 @@ function config(env) {
     const raw = env.ENTITLEMENT_CONFIG ? JSON.parse(env.ENTITLEMENT_CONFIG) : null;
     if (raw) {
       if (Number.isSafeInteger(raw.freeDaily?.text) && raw.freeDaily.text >= 0) c.freeDaily.text = raw.freeDaily.text;
-      if (Number.isSafeInteger(raw.welcomeTts) && raw.welcomeTts >= 0) c.welcomeTts = raw.welcomeTts;
+      if (Number.isSafeInteger(raw.freeDaily?.tts) && raw.freeDaily.tts >= 0) c.freeDaily.tts = raw.freeDaily.tts;
+      if (c.freeDaily.tts === 0 && Number.isSafeInteger(raw.welcomeTts) && raw.welcomeTts >= 0) c.welcomeTts = raw.welcomeTts;
       if (raw.warnMicro) c.warnMicro = raw.warnMicro;
       if (raw.capMicro) c.capMicro = raw.capMicro;
     }

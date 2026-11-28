@@ -1208,7 +1208,7 @@ function bindEvents(){
     if(!t) return;
     const k=t.dataset.tab;
     if(k==='list'&&firstShotNotes())return;
-    if(k==='more'){ ui.sideOpen=true; render(); return; }
+    if(k==='more'){ ui.sideOpen=true; render(); firstShotMoreOpened(); return; }
     persistEditor();
     if(k==='today'){ ui.mode='today'; ui.note=null; ui.tag=null; }
     else if(k==='list'){ ui.mode='list'; ui.folder='all'; ui.note=null; ui.tag=null; }
